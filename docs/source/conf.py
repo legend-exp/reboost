@@ -22,12 +22,13 @@ extensions = [
     "myst_parser",
 ]
 
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
 }
 master_doc = "index"
-language = "python"
+# language = "python"
 
 # Furo theme
 html_theme = "furo"
@@ -53,8 +54,17 @@ intersphinx_mapping = {
     "scipy": ("http://docs.scipy.org/doc/scipy/reference", None),
     "pandas": ("https://pandas.pydata.org/docs", None),
     "matplotlib": ("http://matplotlib.org/stable", None),
+    "pygama": ("https://pygama.readthedocs.io/en/stable/", None),
+    "legendhpges": ("https://legend-pygeom-hpges.readthedocs.io/en/latest/", None),
 }  # add new intersphinx mappings here
 
+
+suppress_warnings = [
+    # "histogram" is defined both in pygama.dsp.processors.histogram.histogram
+    # and in pygama.math.histogram, leading to a Sphinx cross-referencing
+    # warning.  I don't know how to fix this properly
+    "ref.python",
+]
 # sphinx-autodoc
 # Include __init__() docstring in class docstring
 autoclass_content = "both"
