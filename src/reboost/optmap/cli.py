@@ -20,7 +20,8 @@ def optical_cli() -> None:
     parser.add_argument(
         "--verbose",
         "-v",
-        action="store_true",
+        action="count",
+        default=0,
         help="""Increase the program verbosity""",
     )
 
@@ -157,7 +158,8 @@ def optical_cli() -> None:
 
     args = parser.parse_args()
 
-    setup_log(logging.DEBUG if args.verbose else None)
+    log_level = (None, logging.INFO, logging.DEBUG)[min(args.verbose, 2)]
+    setup_log(log_level)
 
     # STEP 1: build evt file from hit tier
     if args.command == "evt":

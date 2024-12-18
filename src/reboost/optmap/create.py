@@ -29,11 +29,6 @@ if mp.current_process() != "MainProcess":
     Struct.update_datatype = _struct_update_datatype
 
 
-def get_channel_efficiency(rawid: int, settings) -> float:  # noqa: ARG001
-    # TODO: implement
-    return 0.99
-
-
 def _optmaps_for_channels(
     optmap_evt_columns: list[str],
     settings,
@@ -41,7 +36,6 @@ def _optmaps_for_channels(
     use_shmem: bool = False,
 ):
     all_det_ids = [ch_id for ch_id in optmap_evt_columns if ch_id.isnumeric()]
-    eff = np.array([get_channel_efficiency(int(ch_id), settings) for ch_id in all_det_ids])
 
     if chfilter != "*":
         chfilter = [str(ch) for ch in chfilter]  # normalize types
@@ -56,11 +50,11 @@ def _optmaps_for_channels(
         for i in range(optmap_count)
     ]
 
-    return all_det_ids, eff, optmaps, optmap_det_ids
+    return all_det_ids, optmaps, optmap_det_ids
 
 
 @njit(cache=True)
-def _compute_hit_maps(hitcounts, eff, rng, optmap_count, ch_idx_to_optmap):
+def _compute_hit_maps(hitcounts, optmap_count, ch_idx_to_optmap):
     mask = np.zeros((hitcounts.shape[0], optmap_count), dtype=np.bool_)
     counts = hitcounts.sum(axis=1)
     for idx in range(hitcounts.shape[0]):
@@ -68,7 +62,7 @@ def _compute_hit_maps(hitcounts, eff, rng, optmap_count, ch_idx_to_optmap):
             continue
 
         for ch_idx in range(hitcounts.shape[1]):
-            c = rng.binomial(hitcounts[idx, ch_idx], eff[ch_idx])
+            c = hitcounts[idx, ch_idx]
             if c > 0:  # detected
                 mask[idx, 0] = True
                 mask_idx = ch_idx_to_optmap[ch_idx]
@@ -77,10 +71,8 @@ def _compute_hit_maps(hitcounts, eff, rng, optmap_count, ch_idx_to_optmap):
     return mask
 
 
-def _fill_hit_maps(
-    optmaps: list[OpticalMap], loc, hitcounts: NDArray, eff: NDArray, ch_idx_to_map_idx, rng
-):
-    masks = _compute_hit_maps(hitcounts, eff, rng, len(optmaps), ch_idx_to_map_idx)
+def _fill_hit_maps(optmaps: list[OpticalMap], loc, hitcounts: NDArray, ch_idx_to_map_idx):
+    masks = _compute_hit_maps(hitcounts, len(optmaps), ch_idx_to_map_idx)
 
     for i in range(len(optmaps)):
         locm = loc[masks[:, i]]
@@ -126,14 +118,13 @@ def _create_optical_maps_process_init(optmaps, log_level) -> None:
 
 
 def _create_optical_maps_process(
-    optmap_events_fn, buffer_len, all_det_ids, eff, ch_idx_to_map_idx
+    optmap_events_fn, buffer_len, all_det_ids, ch_idx_to_map_idx
 ) -> None:
     log.info("started worker task for %s", optmap_events_fn)
     x = _create_optical_maps_chunk(
         optmap_events_fn,
         buffer_len,
         all_det_ids,
-        eff,
         _shared_optmaps,
         ch_idx_to_map_idx,
     )
@@ -142,13 +133,12 @@ def _create_optical_maps_process(
 
 
 def _create_optical_maps_chunk(
-    optmap_events_fn, buffer_len, all_det_ids, eff, optmaps, ch_idx_to_map_idx
+    optmap_events_fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx
 ) -> None:
     optmap_events_it = read_optmap_evt(optmap_events_fn, buffer_len)
 
     hits_per_primary = np.zeros(10, dtype=np.int64)
     hits_per_primary_len = 0
-    rng = np.random.default_rng()
     for it_count, (events_lgdo, events_entry, event_n_rows) in enumerate(optmap_events_it):
         assert (it_count == 0) == (events_entry == 0)
         optmap_events = events_lgdo.view_as("pd").iloc[0:event_n_rows]
@@ -159,7 +149,7 @@ def _create_optical_maps_chunk(
         optmaps[0].fill_vertex(loc)
 
         log.debug("filling hits histogram (%d)", it_count)
-        _fill_hit_maps(optmaps, loc, hitcounts, eff, ch_idx_to_map_idx, rng)
+        _fill_hit_maps(optmaps, loc, hitcounts, ch_idx_to_map_idx)
         hpp = _count_multi_ph_detection(hitcounts)
         hits_per_primary_len = max(hits_per_primary_len, len(hpp))
         hits_per_primary[0 : len(hpp)] += hpp
@@ -198,7 +188,7 @@ def create_optical_maps(
     optmap_evt_columns = list(
         lh5.read(EVT_TABLE_NAME, optmap_events_fn[0], start_row=0, n_rows=1).keys()
     )  # peek into the (first) file to find column names.
-    all_det_ids, eff, optmaps, optmap_det_ids = _optmaps_for_channels(
+    all_det_ids, optmaps, optmap_det_ids = _optmaps_for_channels(
         optmap_evt_columns, settings, chfilter=chfilter, use_shmem=use_shmem
     )
 
@@ -216,9 +206,7 @@ def create_optical_maps(
     if not use_shmem:
         for fn in optmap_events_fn:
             q.append(
-                _create_optical_maps_chunk(
-                    fn, buffer_len, all_det_ids, eff, optmaps, ch_idx_to_map_idx
-                )
+                _create_optical_maps_chunk(fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx)
             )
     else:
         ctx = mp.get_context("forkserver")
@@ -237,7 +225,7 @@ def create_optical_maps(
         for fn in optmap_events_fn:
             r = pool.apply_async(
                 _create_optical_maps_process,
-                args=(fn, buffer_len, all_det_ids, eff, ch_idx_to_map_idx),
+                args=(fn, buffer_len, all_det_ids, ch_idx_to_map_idx),
             )
             pool_results.append((r, fn))
 

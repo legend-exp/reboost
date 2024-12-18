@@ -14,27 +14,6 @@ from numpy.typing import NDArray
 log = logging.getLogger(__name__)
 
 
-def _fill_histogram(h: NDArray, binning: NDArray, xyz: NDArray) -> None:
-    assert xyz.shape[1] == 3
-    xyz = xyz.T
-
-    idx = np.zeros(xyz.shape[1], np.int64)  # bin indices for flattened array
-    oor_mask = np.ones(xyz.shape[1], np.bool_)  # mask to remove out of range values
-    stride = [s // h.dtype.itemsize for s in h.strides]
-    dims = range(xyz.shape[0])
-    for col, ax, s, dim in zip(xyz, binning, stride, dims):
-        assert ax.is_range
-        assert ax.closedleft
-        oor_mask &= (ax.first <= col) & (col < ax.last)
-        idx_s = np.floor((col - ax.first).astype(np.float64) / ax.step).astype(np.int64)
-        assert np.all(idx_s[oor_mask] < h.shape[dim])
-        idx += s * idx_s
-
-    # increment bin contents
-    idx = idx[oor_mask]
-    np.add.at(h.reshape(-1), idx, 1)
-
-
 class OpticalMap:
     def __init__(self, name: str, settings: Mapping[str, str], use_shmem: bool = False):
         self.settings = settings
@@ -50,6 +29,7 @@ class OpticalMap:
 
         if settings is not None:
             self._single_shape = tuple(self.settings["bins"])
+            self._single_stride = None
 
             binedge_attrs = {"units": "m"}
             bins = self.settings["bins"]
@@ -94,9 +74,36 @@ class OpticalMap:
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
             a = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
-            self._nda(a).fill(0)
-            return a
-        return np.zeros(shape=self._single_shape, dtype=np.float64)
+            nda = self._nda(a)
+            nda.fill(0)
+        else:
+            a = np.zeros(shape=self._single_shape, dtype=np.float64)
+            nda = a
+        stride = [s // nda.dtype.itemsize for s in nda.strides]
+        if self._single_stride is None:
+            self._single_stride = stride
+        assert self._single_stride == stride
+        return a
+
+    def _fill_histogram(self, h, xyz: NDArray) -> None:
+        assert xyz.shape[1] == 3
+        xyz = xyz.T
+
+        idx = np.zeros(xyz.shape[1], np.int64)  # bin indices for flattened array
+        oor_mask = np.ones(xyz.shape[1], np.bool_)  # mask to remove out of range values
+        dims = range(xyz.shape[0])
+        for col, ax, s, dim in zip(xyz, self.binning, self._single_stride, dims):
+            assert ax.is_range
+            assert ax.closedleft
+            oor_mask &= (ax.first <= col) & (col < ax.last)
+            idx_s = np.floor((col - ax.first).astype(np.float64) / ax.step).astype(np.int64)
+            assert np.all(idx_s[oor_mask] < self._single_shape[dim])
+            idx += s * idx_s
+
+        # increment bin contents
+        idx = idx[oor_mask]
+        with self._lock_nda(h)():
+            np.add.at(self._nda(h).reshape(-1), idx, 1)
 
     def _nda(self, h) -> NDArray:
         if not self.use_shmem:
@@ -118,14 +125,12 @@ class OpticalMap:
     def fill_vertex(self, loc) -> None:
         if self.h_vertex is None:
             self.h_vertex = self._prepare_hist()
-        with self._lock_nda(self.h_vertex)():
-            _fill_histogram(self._nda(self.h_vertex), self.binning, loc)
+        self._fill_histogram(self.h_vertex, loc)
 
     def fill_hits(self, loc) -> None:
         if self.h_hits is None:
             self.h_hits = self._prepare_hist()
-        with self._lock_nda(self.h_hits)():
-            _fill_histogram(self._nda(self.h_hits), self.binning, loc)
+        self._fill_histogram(self.h_hits, loc)
 
     def _divide_hist(self, h1: NDArray, h2: NDArray) -> tuple[NDArray, NDArray]:
         """Calculate the ratio (and its standard error) from two histograms."""
