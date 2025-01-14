@@ -117,6 +117,18 @@ def optical_cli() -> None:
         help="""Select a config file for binning.""",
         required=True,
     )
+    mapmerge_parser.add_argument(
+        "--n-procs",
+        "-N",
+        type=int,
+        default=1,
+        help="number of worker processes to use. default: %(default)e",
+    )
+    mapmerge_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="""Check map statistics after creation. default: %(default)s""",
+    )
 
     # STEP 2d: check map
     checkmap_parser = subparsers.add_parser("checkmap", help="check optical maps")
@@ -231,7 +243,9 @@ def optical_cli() -> None:
 
         _check_input_file(parser, args.input)
         _check_output_file(parser, args.output)
-        merge_optical_maps(args.input, args.output, settings)
+        merge_optical_maps(
+            args.input, args.output, settings, check_after_create=args.check, n_procs=args.n_procs
+        )
 
     # STEP 2d: check maps
     if args.command == "checkmap":

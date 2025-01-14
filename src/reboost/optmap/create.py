@@ -3,12 +3,12 @@ from __future__ import annotations
 import gc
 import logging
 import multiprocessing as mp
+from pathlib import Path
 from typing import Callable, Literal
 
 import numpy as np
 import scipy.optimize
-from lgdo import Array, Histogram, Scalar, Struct, lh5
-from lgdo.lh5 import LH5Store
+from lgdo import Array, Histogram, Scalar, lh5
 from numba import njit
 from numpy.typing import NDArray
 
@@ -17,17 +17,6 @@ from .evt import EVT_TABLE_NAME, read_optmap_evt
 from .optmap import OpticalMap
 
 log = logging.getLogger(__name__)
-
-
-# This is only a hotfix to ensure that histogram axes are pickleable... urgh.
-def _struct_update_datatype(self) -> None:
-    if not hasattr(self, "attrs"):
-        return
-    self.attrs["datatype"] = self.form_datatype()
-
-
-if mp.current_process() != "MainProcess":
-    Struct.update_datatype = _struct_update_datatype
 
 
 def _optmaps_for_channels(
@@ -189,7 +178,7 @@ def create_optical_maps(
         msg = "no input files specified"
         raise ValueError(msg)
 
-    use_shmem = n_procs > 1
+    use_shmem = n_procs is None or n_procs > 1
 
     optmap_evt_columns = list(
         lh5.read(EVT_TABLE_NAME, optmap_events_fn[0], start_row=0, n_rows=1).keys()
@@ -287,9 +276,66 @@ def list_optical_maps(lh5_file: str) -> list[str]:
     return [m for m in maps if m not in ("_hitcounts", "_hitcounts_exp")]
 
 
-def merge_optical_maps(map_l5_files: list[str], output_lh5_fn: str, settings) -> None:
-    store = LH5Store(keep_open=True)
+def _merge_optical_maps_process(
+    d: str,
+    map_l5_files: list[str],
+    output_lh5_fn: str,
+    settings,
+    check_after_create: bool = False,
+    write_part_file: bool = False,
+) -> bool:
+    def _edges_eq(e1: tuple[NDArray], e2: tuple[NDArray]):
+        return len(e1) == len(e2) and all(np.all(x1 == x2) for x1, x2 in zip(e1, e2))
 
+    log.info("merging optical map group: %s", d)
+    merged_map = OpticalMap.create_empty(d, settings)
+    merged_nr_gen = merged_map.h_vertex
+    merged_nr_det = merged_map.h_hits
+
+    all_edges = None
+    for optmap_fn in map_l5_files:
+        nr_det = lh5.read(f"/{d}/nr_det", optmap_fn)
+        assert isinstance(nr_det, Histogram)
+        nr_gen = lh5.read(f"/{d}/nr_gen", optmap_fn)
+        assert isinstance(nr_gen, Histogram)
+
+        optmap_edges = tuple([b.edges for b in nr_det.binning])
+        optmap_edges_gen = tuple([b.edges for b in nr_gen.binning])
+        assert _edges_eq(optmap_edges, optmap_edges_gen)
+        if all_edges is not None and not _edges_eq(optmap_edges, all_edges):
+            msg = "edges of input optical maps differ"
+            raise ValueError(msg)
+        all_edges = optmap_edges
+
+        # now that we validated that the map dimensions are equal, add up the actual data (in counts).
+        merged_nr_det += nr_det.weights.nda
+        merged_nr_gen += nr_gen.weights.nda
+
+    merged_map.create_probability()
+    if check_after_create:
+        merged_map.check_histograms(include_prefix=True)
+
+    if write_part_file:
+        output_lh5_fn = f"{output_lh5_fn}_{d}.mappart.lh5"
+    wo_mode = "overwrite_file" if write_part_file else "write_safe"
+    merged_map.write_lh5(lh5_file=output_lh5_fn, group=d, wo_mode=wo_mode)
+
+    return output_lh5_fn
+
+
+def merge_optical_maps(
+    map_l5_files: list[str],
+    output_lh5_fn: str,
+    settings,
+    check_after_create: bool = False,
+    n_procs: int | None = 1,
+) -> None:
+    """
+    Parameters
+    ----------
+    n_procs
+        number of processors, ``1`` for sequential mode, or ``None`` to use all processors.
+    """
     # verify that we have the same maps in all files.
     all_det_ntuples = None
     for optmap_fn in map_l5_files:
@@ -301,43 +347,65 @@ def merge_optical_maps(map_l5_files: list[str], output_lh5_fn: str, settings) ->
 
     log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))
 
-    def _edges_eq(e1: tuple[NDArray], e2: tuple[NDArray]):
-        return len(e1) == len(e2) and all(np.all(x1 == x2) for x1, x2 in zip(e1, e2))
+    n_procs = 10  # TODO: remove
+    use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1
 
-    # merge maps one-by-one.
-    for d in all_det_ntuples:
-        merged_map = OpticalMap.create_empty(d, settings)
-        merged_nr_gen = merged_map.h_vertex
-        merged_nr_det = merged_map.h_hits
+    if not use_mp:
+        # sequential mode: merge maps one-by-one.
+        for d in all_det_ntuples:
+            _merge_optical_maps_process(
+                d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp
+            )
+    else:
+        ctx = mp.get_context("forkserver")
 
-        all_edges = None
-        for optmap_fn in map_l5_files:
-            nr_det = store.read(f"/{d}/nr_det", optmap_fn)[0]
-            assert isinstance(nr_det, Histogram)
-            nr_gen = store.read(f"/{d}/nr_gen", optmap_fn)[0]
-            assert isinstance(nr_gen, Histogram)
+        # note: errors thrown in initializer will make the main process hang in an endless loop.
+        pool = ctx.Pool(
+            n_procs,
+            initializer=_create_optical_maps_process_init,
+            initargs=(None, log.getEffectiveLevel()),
+            maxtasksperchild=1,  # re-create worker after each task, to avoid leaking memory.
+        )
 
-            optmap_edges = tuple([b.edges for b in nr_det.binning])
-            optmap_edges_gen = tuple([b.edges for b in nr_gen.binning])
-            assert _edges_eq(optmap_edges, optmap_edges_gen)
-            if all_edges is not None and not _edges_eq(optmap_edges, all_edges):
-                msg = "edges of input optical maps differ"
-                raise ValueError(msg)
-            all_edges = optmap_edges
+        pool_results = []
 
-            # now that we validated that they are equal, add up the actual data (in counts).
-            merged_nr_det += nr_det.weights.nda
-            merged_nr_gen += nr_gen.weights.nda
+        # merge maps in workers.
+        for d in all_det_ntuples:
+            r = pool.apply_async(
+                _merge_optical_maps_process,
+                args=(d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp),
+            )
+            pool_results.append((r, d))
 
-        merged_map.create_probability()
-        merged_map.check_histograms(include_prefix=(len(all_det_ntuples) > 1))
-        merged_map.write_lh5(lh5_file=output_lh5_fn, group=d)
+        pool.close()
+        q = []
+        for r, d in pool_results:
+            try:
+                q.append((d, r.get()))
+            except BaseException as e:
+                msg = f"error while processing map {d}"
+                raise RuntimeError(msg) from e  # re-throw errors of workers.
+
+        log.debug("got all worker results")
+        pool.join()
+        log.info("joined worker process pool")
+
+        # transfer to actual output file.
+        for d, part_fn in q:
+            assert isinstance(part_fn, str)
+            for h_name in ("nr_det", "nr_gen", "p_det", "p_det_err"):
+                obj = f"/{d}/{h_name}"
+                log.info("transfer %s from %s", obj, part_fn)
+                h = lh5.read(obj, part_fn)
+                assert isinstance(h, Histogram)
+                lh5.write(h, obj, output_lh5_fn, wo_mode="write_safe")
+            Path(part_fn).unlink()
 
     # merge hitcounts.
     hits_per_primary = np.zeros(10, dtype=np.int64)
     hits_per_primary_len = 0
     for optmap_fn in map_l5_files:
-        hitcounts = store.read("/_hitcounts", optmap_fn)[0]
+        hitcounts = lh5.read("/_hitcounts", optmap_fn)
         assert isinstance(hitcounts, Array)
         hits_per_primary[0 : len(hitcounts)] += hitcounts
         hits_per_primary_len = max(hits_per_primary_len, len(hitcounts))

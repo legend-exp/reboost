@@ -210,20 +210,25 @@ class OpticalMap:
     def create_probability(self) -> None:
         self.h_prob, self.h_prob_uncert = self._divide_hist(self.h_hits, self.h_vertex)
 
-    def write_lh5(self, lh5_file: str, group: str = "all") -> None:
-        def write_hist(h: NDArray, name: str, fn: str, group: str = "all"):
+    def write_lh5(self, lh5_file: str, group: str = "all", wo_mode: str = "write_safe") -> None:
+        if wo_mode not in ("write_safe", "overwrite_file"):
+            msg = f"invalid wo_mode {wo_mode} for optical map"
+            raise ValueError(msg)
+
+        def write_hist(h: NDArray, name: str, fn: str, group: str, wo_mode: str):
             lh5.write(
                 Histogram(self._nda(h), self.binning),
                 name,
                 fn,
                 group=group,
-                wo_mode="write_safe",
+                wo_mode=wo_mode,
             )
 
-        write_hist(self.h_vertex, "nr_gen", lh5_file, group=group)
-        write_hist(self.h_hits, "nr_det", lh5_file, group=group)
-        write_hist(self.h_prob, "p_det", lh5_file, group=group)
-        write_hist(self.h_prob_uncert, "p_det_err", lh5_file, group=group)
+        # only use the passed wo_mode for the first file.
+        write_hist(self.h_vertex, "nr_gen", lh5_file, group, wo_mode)
+        write_hist(self.h_hits, "nr_det", lh5_file, group, "write_safe")
+        write_hist(self.h_prob, "p_det", lh5_file, group, "write_safe")
+        write_hist(self.h_prob_uncert, "p_det_err", lh5_file, group, "write_safe")
 
     def check_histograms(self, include_prefix: bool = False) -> None:
         log_prefix = "" if not include_prefix else self.name + " - "
