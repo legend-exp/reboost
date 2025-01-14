@@ -347,7 +347,6 @@ def merge_optical_maps(
 
     log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))
 
-    n_procs = 10  # TODO: remove
     use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1
 
     if not use_mp:

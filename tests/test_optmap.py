@@ -130,19 +130,24 @@ def test_optmap_merge(tbl_evt_fns, tmp_path):
     create_optical_maps(
         tbl_evt_fns,
         settings,
-        chfilter=("001"),
+        chfilter=("001", "002", "003"),
         output_lh5_fn=map1_fn,
     )
     map2_fn = str(tmp_path / "map2.lh5")
     create_optical_maps(
         tbl_evt_fns,
         settings,
-        chfilter=("001"),
+        chfilter=("001", "002", "003"),
         output_lh5_fn=map2_fn,
     )
 
+    # test in sequential mode.
     map_merged_fn = str(tmp_path / "map-merged.lh5")
     merge_optical_maps([map1_fn, map2_fn], map_merged_fn, settings)
+
+    # also test on multiple cores.
+    map_merged_fn = str(tmp_path / "map-merged-mp.lh5")
+    merge_optical_maps([map1_fn, map2_fn], map_merged_fn, settings, n_procs=2)
 
 
 @pytest.fixture
