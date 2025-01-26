@@ -214,12 +214,11 @@ def build_hit(
         args = AttrsDict(args)
 
     # get the global objects
-    global_objects_dict = core.get_global_objects(
-        expressions=config.get("objects", {}).items(), local_dict={"ARGS": args}
+    global_objects = utils.dict2tuple(
+        core.get_global_objects(
+            expressions=config.get("objects", {}).items(), local_dict={"ARGS": args}
+        )
     )
-
-    # convert to a tuple
-    global_objects = utils.dict2tuple(global_objects_dict)
 
     # get the input files
     files = {}
@@ -238,7 +237,7 @@ def build_hit(
             detectors_mapping = core.get_detector_mapping(
                 output_expression=proc_group.get("output_detectors"),
                 input_map_expression=proc_group.get("input_detector_mapping", None),
-                objects=global_objects_dict,
+                objects=global_objects,
             )
 
             # loop over detectors
