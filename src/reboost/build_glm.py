@@ -201,8 +201,7 @@ def build_glm(
     -------
     either `None` or an `ak.Array`
     """
-    msg = f"Start generating glm for {stp_file} to {glm_file}"
-    log.info(msg)
+    log.info("Start generating glm for %s to %s", stp_file, glm_file)
     store = LH5Store()
 
     # loop over the lh5_tables
@@ -224,8 +223,7 @@ def build_glm(
         # range of vertices
         vert_ak = vert_obj.view_as("ak")[:n_evtid]
 
-        msg = f"... read chunk {vidx}"
-        log.debug(msg)
+        log.debug("... read chunk %s", vidx)
 
         for idx, lh5_table in enumerate(lh5_table_list):
             # create the output table
@@ -264,8 +262,7 @@ def build_glm(
                     if glm_sum[lh5_subgroup] is None
                     else ak.concatenate((glm_sum[lh5_subgroup], glm))
                 )
-    msg = f"Finished generating glm for {stp_file} to {glm_file}"
-    log.info(msg)
+    log.info("Finished generating glm for %s to %s", stp_file, glm_file)
     # return if it was requested to keep glm in memory
     if glm_sum is not None:
         return ak.Array(glm_sum)

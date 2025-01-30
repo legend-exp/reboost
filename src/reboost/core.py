@@ -129,8 +129,7 @@ def get_global_objects(
     """
     if time_dict is not None:
         time_start = time.time()
-    msg = f"Getting global objects with {expressions.keys()} and {local_dict}"
-    log.info(msg)
+    log.info("Getting global objects with %s and %s", expressions.keys(), local_dict)
 
     res = AttrsDict(
         {

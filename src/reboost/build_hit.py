@@ -244,8 +244,7 @@ def build_hit(
 
     # iterate over files
     for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
-        msg = f"... starting post processing of {stp_file} to {files['hit'][file_idx]} "
-        log.info(msg)
+        log.info("... starting post processing of %s to %s", stp_file, files['hit'][file_idx])
 
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
@@ -285,7 +284,7 @@ def build_hit(
                     time_dict=time_dict,
                 )
                 for stps, _, chunk_idx, _ in glm_it:
-                    # converting to awwkard
+                    # converting to awkward
                     if stps is None:
                         continue
 
