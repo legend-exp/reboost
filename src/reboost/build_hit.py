@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import io
+import copy
 import logging
+import time
 from collections.abc import Mapping
 
 import awkward as ak
 from dbetto import AttrsDict
 from lgdo import lh5
 
-from reboost.iterator import ELMIterator
+from reboost.iterator import GLMIterator
 
 from . import core, utils
 
@@ -19,7 +20,7 @@ def build_hit(
     config: Mapping | str,
     args: Mapping | AttrsDict,
     stp_files: list | str,
-    elm_files: list | str,
+    glm_files: list | str,
     hit_files: list | str | None,
     *,
     start_evtid: int = 0,
@@ -42,8 +43,8 @@ def build_hit(
             objects:
              lmeta: LegendMetadata(ARGS.legendmetadata)
              geometry: pyg4ometry.load(ARGS.gdml)
-             user_pars: legendmeta.TextDB(ARGS.par)
-             dataprod_pars: legendmeta.TextDB(ARGS.dataprod_cycle)
+             user_pars: dbetto.TextDB(ARGS.par)
+             dataprod_pars: dbetto.TextDB(ARGS.dataprod_cycle)
 
             # processing chain is defined to act on a group of detectors
             processing_groups:
@@ -52,10 +53,11 @@ def build_hit(
                 - name: geds
 
                   # this is a list of included detectors (part of the processing group)
-                  output_detectors: OBJECTS.lmeta.channelmap(on=ARGS.timestamp)
-                    .group('system').geds
-                    .group('analysis.status').on
-                    .map('name').keys()
+                  detector_mapping:
+                    - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
+                     .group('system').geds
+                     .group('analysis.status').on
+                     .map('name').keys()
 
                   # which columns we actually want to see in the output table
                   outputs:
@@ -137,7 +139,9 @@ def build_hit(
 
                 # example basic processing of steps in scintillators
                 - name: lar
-                  output_detectors: scintillators
+                  detector_mapping:
+                   - output: scintillators
+
                   outputs:
                     - evtid
                     - tot_edep_wlsr
@@ -147,15 +151,15 @@ def build_hit(
 
                 - name: spms
 
-                  output_detectors: OBJECTS.lmeta.channelmap(on=ARGS.timestamp)
+                  # by default, reboost looks in the steps input table for a table with the
+                  # same name as the current detector. This can be overridden for special processors
+
+                  detector_mapping:
+                   - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
                     .group("system").spms
                     .group("analysis.status").on
                     .map("name").keys()
-
-                  # by default, reboost looks in the steps input table for a table with the
-                  # same name as the current detector. This can be overridden for special processors
-                  input_detectors_mapping:
-                    scintillators: OUTPUT_DETECTORS
+                     input: scintillators
 
                   outputs:
                     - t0
@@ -192,8 +196,8 @@ def build_hit(
             number of evtid to read, if `None` read all.
         stp_files
             list of strings or string of the stp file path.
-        elm_files
-            list of strings or string of the elm file path.
+        glm_files
+            list of strings or string of the glm file path.
         hit_files
             list of strings or string of the hit file path. The `hit` file can also be `None` in which
             case the hits are returned as an `ak.Array` in memory.
@@ -205,41 +209,55 @@ def build_hit(
             buffer size for use in the `LH5Iterator`.
 
     """
-
     # extract the config file
     if isinstance(config, str):
-        config = io.load_dict(config)
+        config = utils.load_dict(config)
 
     # get the arguments
     if not isinstance(args, AttrsDict):
         args = AttrsDict(args)
+    time_dict = {
+        "global_objects": 0,
+        "read": {},
+        "write": 0,
+        "hit_layout": 0,
+        "detector_objects": 0,
+        "expressions": {},
+    }
 
     # get the global objects
-    global_objects_dict = core.get_global_objects(
-        expressions=config.get("objects", {}).items(), local_dict={"ARGS": args}
+    global_objects = AttrsDict(
+        core.get_global_objects(
+            expressions=config.get("objects", {}), local_dict={"ARGS": args}, time_dict=time_dict
+        )
     )
-
-    # convert to a tuple
-    global_objects = utils.dict2tuple(global_objects_dict)
 
     # get the input files
     files = {}
-    for file_type, file_list in zip(["stp", "elm", "hit"], [stp_files, elm_files, hit_files]):
+    for file_type, file_list in zip(["stp", "glm", "hit"], [stp_files, glm_files, hit_files]):
         if isinstance(file_list, str):
-            files[file_type] = list(file_list)
+            files[file_type] = [file_list]
+        else:
+            files[file_type] = file_list
 
     output_table = None
 
     # iterate over files
-    for file_idx, (stp_file, elm_file) in enumerate(zip(files["stp"], files["elm"])):
+    for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
+        log.info("... starting post processing of %s to %s", stp_file, files["hit"][file_idx])
+
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
             # extract the output detectors and the mapping to input detectors
-
-            detectors_mapping = core.get_detector_mapping(
-                output_expression=proc_group.get("output_detectors"),
-                input_map_expression=proc_group.get("input_detector_mapping", None),
-                objects=global_objects_dict,
+            detectors_mapping = utils.merge_dicts(
+                [
+                    core.get_detectors_mapping(
+                        mapping["output"],
+                        input_detector_name=mapping.get("input", None),
+                        objects=global_objects,
+                    )
+                    for mapping in proc_group.get("detector_mapping")
+                ]
             )
 
             # loop over detectors
@@ -249,45 +267,54 @@ def build_hit(
                     output_detectors=out_detectors,
                     args=args,
                     global_objects=global_objects,
-                    proc_group=proc_group,
+                    expressions=proc_group.get("detector_objects", {}),
+                    time_dict=time_dict,
                 )
 
-                # begin iterating over the elm
-                for out_det_idx, out_detector in enumerate(out_detectors):
-                    # loop over the rows
-                    elm_it = ELMIterator(
-                        elm_file,
-                        stp_file,
-                        lh5_group=in_detector,
-                        start_row=start_evtid,
-                        stp_field=in_field,
-                        n_rows=n_evtid,
-                        read_vertices=True,
-                        buffer=buffer,
-                    )
-                    for stps, _, chunk_idx, _ in elm_it:
-                        # converting to awwkard
-                        if stps is None:
-                            continue
+                # begin iterating over the glm
+                glm_it = GLMIterator(
+                    glm_file,
+                    stp_file,
+                    lh5_group=in_detector,
+                    start_row=start_evtid,
+                    stp_field=in_field,
+                    n_rows=n_evtid,
+                    read_vertices=True,
+                    buffer=buffer,
+                    time_dict=time_dict,
+                )
+                for stps, _, chunk_idx, _ in glm_it:
+                    # converting to awkward
+                    if stps is None:
+                        continue
 
-                        # produce the hit table
-                        ak_obj = stps.view_as("ak")
+                    # produce the hit table
+                    ak_obj = stps.view_as("ak")
+
+                    for out_det_idx, out_detector in enumerate(out_detectors):
+                        # loop over the rows
+
                         hit_table = core.evaluate_hit_table_layout(
-                            ak_obj, expression=proc_group["hit_table_layout"]
+                            copy.deepcopy(ak_obj),
+                            expression=proc_group["hit_table_layout"],
+                            time_dict=time_dict,
                         )
 
                         local_dict = {
                             "DETECTOR_OBJECTS": det_objects[out_detector],
                             "OBJECTS": global_objects,
+                            "DETECTOR": out_detector,
                         }
                         # add fields
                         for field, expression in proc_group["operations"].items():
                             # evaluate the expression
-                            col = core.evaluate_expression(
+                            col = core.evaluate_output_column(
                                 hit_table,
-                                table_name="STEPS",
+                                table_name="HITS",
                                 expression=expression,
                                 local_dict=local_dict,
+                                time_dict=time_dict,
+                                name=field,
                             )
                             hit_table.add_field(field, col)
 
@@ -295,29 +322,35 @@ def build_hit(
                         hit_table = core.remove_columns(hit_table, outputs=proc_group["outputs"])
 
                         # get the IO mode
-                        wo_mode = utils.get_wo_mode(
-                            file_idx=file_idx,
-                            group_idx=group_idx,
-                            in_det_idx=in_det_idx,
-                            out_det_idx=out_det_idx,
-                            chunk_idx=chunk_idx,
+
+                        wo_mode = (
+                            "of"
+                            if (
+                                group_idx == 0
+                                and out_det_idx == 0
+                                and in_det_idx == 0
+                                and chunk_idx == 0
+                            )
+                            else "append"
                         )
 
                         # now write
                         if files["hit"] is not None:
+                            if time_dict is not None:
+                                start_time = time.time()
+
                             lh5.write(
                                 hit_table,
                                 f"{out_detector}/{out_field}",
                                 files["hit"][file_idx],
                                 wo_mode=wo_mode,
                             )
+                            if time_dict is not None:
+                                time_dict["write"] += time.time() - start_time
 
                         else:
-                            output_table = (
-                                hit_table.view_as("ak")
-                                if output_table is None
-                                else ak.concatenate((output_table, hit_table.view_as("ak")))
-                            )
+                            output_table = core.merge(hit_table, output_table)
 
     # return output table or nothing
-    return output_table
+
+    return output_table, time_dict
