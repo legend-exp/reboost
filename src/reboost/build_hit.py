@@ -244,7 +244,7 @@ def build_hit(
 
     # iterate over files
     for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
-        log.info("... starting post processing of %s to %s", stp_file, files['hit'][file_idx])
+        log.info("... starting post processing of %s to %s", stp_file, files["hit"][file_idx])
 
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
