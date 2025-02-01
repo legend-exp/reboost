@@ -167,11 +167,11 @@ class OpticalMap:
     def fill_hits(self, loc: NDArray) -> None:
         """Fill map with a chunk of hit coordinates.
 
-        Note:
-        ----
-        For performance reasons, this function is buffered and does not
-        directly write to the map array. Use :meth:`.fill_hits_flush` to flush
-        the remaining hits in the buffer to this map.
+        .. note::
+
+            For performance reasons, this function is buffered and does not
+            directly write to the map array. Use :meth:`.fill_hits_flush` to
+            flush the remaining hits in the buffer to this map.
         """
         if self.h_hits is None:
             self.h_hits = self._prepare_hist()
