@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 class GLMIterator:
-    """A class to iterate over the rows of an event lookup map"""
+    """A class to iterate over the rows of an event lookup map."""
 
     def __init__(
         self,

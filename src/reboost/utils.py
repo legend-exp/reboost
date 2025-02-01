@@ -148,7 +148,6 @@ def merge_dicts(dict_list: list) -> dict:
 
     >>> merge_dicts([{"a":[1,2,3],"b":[2]},{"a":[4,5,6],"c":[2]}])
     {"a":[1,2,3,4,5,6],"b":[2],"c":[2]}
-
     """
     merged = {}
 

@@ -59,7 +59,6 @@ def distance_to_surface(
     Note
     ----
     `positions_x/positions_y/positions_z` must all have the same shape.
-
     """
     factor = np.array([1, 100, 1000])[unit == np.array(["mm", "cm", "m"])][0]
 

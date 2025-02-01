@@ -148,7 +148,8 @@ def get_detectors_mapping(
     objects: AttrsDict | None = None,
     input_detector_name: str | None = None,
 ) -> dict:
-    """Extract the output detectors and the list of input to outputs by parsing the expressions.
+    """Extract the output detectors and the list of input to outputs by parsing
+    the expressions.
 
     The output_detector_expression can be a name or a string evaluating to a list of names.
     This expression can depend on any objects in the objects dictionary, referred to by the keyword
@@ -198,7 +199,6 @@ def get_detectors_mapping(
     >>> get_detectors_mapping("[f'{OBJECTS.format}{i}' for i in range(2)])",
                                 input_detector_name = "dets",objects=objs)
     {'dets': ['ch0', 'ch1', 'ch2']}
-
     """
     func, globs = utils.get_function_string(output_detector_expression)
     out_names = []
@@ -223,7 +223,7 @@ def get_detector_objects(
     global_objects: AttrsDict,
     time_dict: dict | None = None,
 ) -> AttrsDict:
-    """Get the detector objects for each detector
+    """Get the detector objects for each detector.
 
     This computes a set of objects per output detector. These should be the
     expressions (defined in the `expressions` input). They can depend
@@ -255,7 +255,6 @@ def get_detector_objects(
     Returns
     -------
     An AttrsDict of the objects for each detector.
-
     """
     if time_dict is not None:
         time_start = time.time()
@@ -343,7 +342,7 @@ def remove_columns(tab: Table, outputs: list) -> Table:
 
 
 def merge(hit_table: Table, output_table: ak.Array | None):
-    """Merge the table with the array"""
+    """Merge the table with the array."""
     return (
         hit_table.view_as("ak")
         if output_table is None

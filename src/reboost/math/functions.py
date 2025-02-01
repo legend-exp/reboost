@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 def piecewise_linear_activeness(
     distances: VectorOfVectors | ak.Array, fccd: float, tl: float
 ) -> VectorOfVectors:
-    r""" Piecewise linear HPGe activeness model.
+    r"""Piecewise linear HPGe activeness model.
 
     Based on:
 
@@ -49,7 +49,6 @@ def piecewise_linear_activeness(
     Returns
     -------
     a :class:`LGDO.VectorOfVectors` or `LGDO.Array` of the activeness
-
     """
 
     # convert to ak
