@@ -10,7 +10,6 @@ log = logging.getLogger(__name__)
 
 def _search_string(string: str):
     """Capture the characters matching the pattern for a function call."""
-
     pattern = r"\b([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\("
     return re.findall(pattern, string)
 
@@ -33,7 +32,7 @@ def get_function_string(expr: str, aliases: dict | None = None) -> tuple[str, di
     and all packages will be imported.
 
     Parameters
-    ---------
+    ----------
     expr
         expression to evaluate.
     aliases
@@ -45,7 +44,6 @@ def get_function_string(expr: str, aliases: dict | None = None) -> tuple[str, di
     -------
     a tuple of call string and dictionary of the imported global packages.
     """
-
     # aliases for easier lookup
     aliases = (
         {"numpy": "np", "awkward": "ak"}
@@ -108,7 +106,6 @@ def merge_dicts(dict_list: list) -> dict:
 
     Examples
     --------
-
     >>> merge_dicts([{"a":[1,2,3],"b":[2]},{"a":[4,5,6],"c":[2]}])
     {"a":[1,2,3,4,5,6],"b":[2],"c":[2]}
     """

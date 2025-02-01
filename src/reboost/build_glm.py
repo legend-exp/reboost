@@ -102,8 +102,9 @@ def get_stp_evtids(
     last_vertex_evtid: int,
     stp_buffer: int,
 ) -> tuple[int, int, ak.Array]:
-    """Extracts the rows of a stp file corresponding to a particular range of
-    `evtid`. The reading starts at `start_row` to allow for iterating through
+    """Extracts the rows of a stp file corresponding to a particular range of `evtid`.
+
+    The reading starts at `start_row` to allow for iterating through
     the file. The iteration stops when the `evtid` being read is larger than
     `last_vertex_evtid`.
 
@@ -126,7 +127,6 @@ def get_stp_evtids(
     -------
          a tuple of the updated `start_row`, the first row for the chunk and an awkward Array of the steps.
     """
-
     # make a LH5Store
     store = LH5Store()
 

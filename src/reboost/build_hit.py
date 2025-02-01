@@ -1,3 +1,160 @@
+"""Routines to build the `hit` tier from the `stp` tier.
+
+A :func:`build_hit` to parse the following configuration file:
+
+.. code-block:: yaml
+
+    # dictionary of objects useful for later computation. they are constructed with
+    # auxiliary data (e.g. metadata). They can be accessed later as OBJECTS (all caps)
+    objects:
+     lmeta: LegendMetadata(ARGS.legendmetadata)
+     geometry: pyg4ometry.load(ARGS.gdml)
+     user_pars: dbetto.TextDB(ARGS.par)
+     dataprod_pars: dbetto.TextDB(ARGS.dataprod_cycle)
+
+    # processing chain is defined to act on a group of detectors
+    processing_groups:
+
+        # start with HPGe stuff, give it an optional name
+        - name: geds
+
+          # this is a list of included detectors (part of the processing group)
+          detector_mapping:
+            - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
+             .group('system').geds
+             .group('analysis.status').on
+             .map('name').keys()
+
+          # which columns we actually want to see in the output table
+          outputs:
+             - t0
+             - evtid
+             - energy
+             - r90
+             - drift_time
+
+          # in this section we define objects that will be instantiated at each
+          # iteration of the for loop over input tables (i.e. detectors)
+          detector_objects:
+             # The following assumes that the detector metadata is stored in the GDML file
+             pyobj: legendhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
+             phyvol: OBJECTS.geometry.physical_volume_dict[DETECTOR]
+             drift_time_map: lgdo.lh5.read(DETECTOR, ARGS.dtmap_file)
+
+          # this defines "hits", i.e. layout of the output hit table
+          # group steps by time and evtid with 10us window
+          hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
+
+          # finally, the processing chain
+          operations:
+
+            t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
+
+            evtid: ak.fill_none(ak.firsts(HITS.__evtid, axis=-1), np.nan)
+
+            # distance to the nplus surface in mm
+            distance_to_nplus_surface_mm: reboost.hpge.distance_to_surface(
+                HITS.__xloc, HITS.__yloc, HITS.__zloc,
+                DETECTOR_OBJECTS.pyobj,
+                DETECTOR_OBJECTS.phyvol.position.eval(),
+                surface_type='nplus')
+
+            # activness based on FCCD (no TL)
+            activeness: ak.where(
+                HITS.distance_to_nplus_surface_mm <
+                    lmeta.hardware.detectors.germanium.diodes[DETECTOR].characterization.combined_0vbb_fccd_in_mm.value,
+                0,
+                1
+                )
+
+            activeness2: reboost.math.piecewise_linear(
+                HITS.distance_to_nplus_surface_mm,
+                PARS.tlayer[DETECTOR].start_in_mm,
+                PARS.fccd_in_mm,
+                )
+
+            # summed energy of the hit accounting for activeness
+            energy_raw: ak.sum(HITS.__edep * HITS.activeness, axis=-1)
+
+            # energy with smearing
+            energy: reboost.math.sample_convolve(
+                scipy.stats.norm, # resolution distribution
+                loc=HITS.energy_raw, # parameters of the distribution (observable to convolve)
+                scale=np.sqrt(PARS.a + PARS.b * HITS.energy_raw) # another parameter
+                )
+
+            # this is going to return "run lengths" (awkward jargon)
+            clusters_lengths: reboost.shape.cluster.naive(
+                HITS, # can also pass the exact fields (x, y, z)
+                size=1,
+                units="mm"
+                )
+
+            # example of low level reduction on clusters
+            energy_clustered: ak.sum(ak.unflatten(HITS.__edep, HITS.clusters_lengths), axis=-1)
+
+            # example of using a reboost helper
+            steps_clustered: reboost.shape.reduction.energy_weighted_average(HITS, HITS.clusters_lengths)
+
+            r90: reboost.hpge.psd.r90(HITS.steps_clustered)
+
+            drift_time: reboost.hpge.psd.drift_time(
+                HITS.steps_clustered,
+                DETECTOR_OBJECTS.drift_time_map
+                )
+
+        # example basic processing of steps in scintillators
+        - name: lar
+          detector_mapping:
+           - output: scintillators
+
+          outputs:
+            - evtid
+            - tot_edep_wlsr
+
+          operations:
+            tot_edep_wlsr: ak.sum(HITS[(HITS.__detuid == 0) & (HITS.__zloc < 3000)].__edep, axis=-1)
+
+        - name: spms
+
+          # by default, reboost looks in the steps input table for a table with the
+          # same name as the current detector. This can be overridden for special processors
+
+          detector_mapping:
+           - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
+            .group("system").spms
+            .group("analysis.status").on
+            .map("name").keys()
+             input: lar
+
+          outputs:
+            - t0
+            - evtid
+            - pe_times
+
+          detector_objects:
+             meta: pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR)
+             optmap_lar: lgdo.lh5.read(DETECTOR, "optmaps/pen", ARGS.optmap_path)
+             optmap_pen: lgdo.lh5.read(DETECTOR, "optmaps/lar", ARGS.optmap_path)
+
+          hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
+
+          operations:
+            pe_times_lar: reboost.spms.detected_photoelectrons(
+                STEPS,
+                DETECTOR_OBJECTS.optmap_lar,
+                0
+             )
+
+            pe_times_pen: reboost.spms.detected_photoelectrons(
+                STEPS,
+                DETECTOR_OBJECTS.optmap_pen,
+                1
+             )
+
+            pe_times: ak.concatenate([HITS.pe_times_lar, HITS.pe_times_pen], axis=-1)
+"""
+
 from __future__ import annotations
 
 import copy
@@ -37,178 +194,25 @@ def build_hit(
     ----------
     config
         dictionary or path to YAML file containing the processing chain. For example:
-
-        .. code-block:: yaml
-
-            # dictionary of objects useful for later computation. they are constructed with
-            # auxiliary data (e.g. metadata). They can be accessed later as OBJECTS (all caps)
-            objects:
-             lmeta: LegendMetadata(ARGS.legendmetadata)
-             geometry: pyg4ometry.load(ARGS.gdml)
-             user_pars: dbetto.TextDB(ARGS.par)
-             dataprod_pars: dbetto.TextDB(ARGS.dataprod_cycle)
-
-            # processing chain is defined to act on a group of detectors
-            processing_groups:
-
-                # start with HPGe stuff, give it an optional name
-                - name: geds
-
-                  # this is a list of included detectors (part of the processing group)
-                  detector_mapping:
-                    - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
-                     .group('system').geds
-                     .group('analysis.status').on
-                     .map('name').keys()
-
-                  # which columns we actually want to see in the output table
-                  outputs:
-                     - t0
-                     - evtid
-                     - energy
-                     - r90
-                     - drift_time
-
-                  # in this section we define objects that will be instantiated at each
-                  # iteration of the for loop over input tables (i.e. detectors)
-                  detector_objects:
-                     # The following assumes that the detector metadata is stored in the GDML file
-                     pyobj: legendhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
-                     phyvol: OBJECTS.geometry.physical_volume_dict[DETECTOR]
-                     drift_time_map: lgdo.lh5.read(DETECTOR, ARGS.dtmap_file)
-
-                  # this defines "hits", i.e. layout of the output hit table
-                  # group steps by time and evtid with 10us window
-                  hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
-
-                  # finally, the processing chain
-                  operations:
-
-                    t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
-
-                    evtid: ak.fill_none(ak.firsts(HITS.__evtid, axis=-1), np.nan)
-
-                    # distance to the nplus surface in mm
-                    distance_to_nplus_surface_mm: reboost.hpge.distance_to_surface(
-                        HITS.__xloc, HITS.__yloc, HITS.__zloc,
-                        DETECTOR_OBJECTS.pyobj,
-                        DETECTOR_OBJECTS.phyvol.position.eval(),
-                        surface_type='nplus')
-
-                    # activness based on FCCD (no TL)
-                    activeness: ak.where(
-                        HITS.distance_to_nplus_surface_mm <
-                            lmeta.hardware.detectors.germanium.diodes[DETECTOR].characterization.combined_0vbb_fccd_in_mm.value,
-                        0,
-                        1
-                        )
-
-                    activeness2: reboost.math.piecewise_linear(
-                        HITS.distance_to_nplus_surface_mm,
-                        PARS.tlayer[DETECTOR].start_in_mm,
-                        PARS.fccd_in_mm,
-                        )
-
-                    # summed energy of the hit accounting for activeness
-                    energy_raw: ak.sum(HITS.__edep * HITS.activeness, axis=-1)
-
-                    # energy with smearing
-                    energy: reboost.math.sample_convolve(
-                        scipy.stats.norm, # resolution distribution
-                        loc=HITS.energy_raw, # parameters of the distribution (observable to convolve)
-                        scale=np.sqrt(PARS.a + PARS.b * HITS.energy_raw) # another parameter
-                        )
-
-                    # this is going to return "run lengths" (awkward jargon)
-                    clusters_lengths: reboost.shape.cluster.naive(
-                        HITS, # can also pass the exact fields (x, y, z)
-                        size=1,
-                        units="mm"
-                        )
-
-                    # example of low level reduction on clusters
-                    energy_clustered: ak.sum(ak.unflatten(HITS.__edep, HITS.clusters_lengths), axis=-1)
-
-                    # example of using a reboost helper
-                    steps_clustered: reboost.shape.reduction.energy_weighted_average(HITS, HITS.clusters_lengths)
-
-                    r90: reboost.hpge.psd.r90(HITS.steps_clustered)
-
-                    drift_time: reboost.hpge.psd.drift_time(
-                        HITS.steps_clustered,
-                        DETECTOR_OBJECTS.drift_time_map
-                        )
-
-                # example basic processing of steps in scintillators
-                - name: lar
-                  detector_mapping:
-                   - output: scintillators
-
-                  outputs:
-                    - evtid
-                    - tot_edep_wlsr
-
-                  operations:
-                    tot_edep_wlsr: ak.sum(HITS[(HITS.__detuid == 0) & (HITS.__zloc < 3000)].__edep, axis=-1)
-
-                - name: spms
-
-                  # by default, reboost looks in the steps input table for a table with the
-                  # same name as the current detector. This can be overridden for special processors
-
-                  detector_mapping:
-                   - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
-                    .group("system").spms
-                    .group("analysis.status").on
-                    .map("name").keys()
-                     input: lar
-
-                  outputs:
-                    - t0
-                    - evtid
-                    - pe_times
-
-                  detector_objects:
-                     meta: pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR)
-                     optmap_lar: lgdo.lh5.read(DETECTOR, "optmaps/pen", ARGS.optmap_path)
-                     optmap_pen: lgdo.lh5.read(DETECTOR, "optmaps/lar", ARGS.optmap_path)
-
-                  hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
-
-                  operations:
-                    pe_times_lar: reboost.spms.detected_photoelectrons(
-                        STEPS,
-                        DETECTOR_OBJECTS.optmap_lar,
-                        0
-                     )
-
-                    pe_times_pen: reboost.spms.detected_photoelectrons(
-                        STEPS,
-                        DETECTOR_OBJECTS.optmap_pen,
-                        1
-                     )
-
-                    pe_times: ak.concatenate([HITS.pe_times_lar, HITS.pe_times_pen], axis=-1)
-
-        args
-            dictionary or :class:`legendmeta.AttrsDict` of the global arguments.
-        start_evtid
-            first evtid to read.
-        n_evtid
-            number of evtid to read, if `None` read all.
-        stp_files
-            list of strings or string of the stp file path.
-        glm_files
-            list of strings or string of the glm file path.
-        hit_files
-            list of strings or string of the hit file path. The `hit` file can also be `None` in which
-            case the hits are returned as a dictionary of `ak.Array`s in memory.
-        in_field
-            name of the input field in the remage output.
-        out_field
-            name of the output field
-        buffer
-            buffer size for use in the `LH5Iterator`.
+    args
+        dictionary or :class:`legendmeta.AttrsDict` of the global arguments.
+    stp_files
+        list of strings or string of the stp file path.
+    glm_files
+        list of strings or string of the glm file path.
+    hit_files
+        list of strings or string of the hit file path. The `hit` file can also be `None` in which
+        case the hits are returned as an `ak.Array` in memory.
+    start_evtid
+        first evtid to read.
+    n_evtid
+        number of evtid to read, if `None` read all.
+    in_field
+        name of the input field in the remage output.
+    out_field
+        name of the output field
+    buffer
+        buffer size for use in the `LH5Iterator`.
     """
     # extract the config file
     if isinstance(config, str):
@@ -238,7 +242,7 @@ def build_hit(
     # iterate over files
     for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
         msg = (
-            f"... starting post processing of {stp_file} to {files['hit'][file_idx] } "
+            f"... starting post processing of {stp_file} to {files['hit'][file_idx]} "
             if files["hit"] is not None
             else f"... starting post processing of {stp_file}"
         )

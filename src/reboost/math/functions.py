@@ -50,7 +50,6 @@ def piecewise_linear_activeness(
     -------
     a :class:`LGDO.VectorOfVectors` or `LGDO.Array` of the activeness
     """
-
     # convert to ak
     if isinstance(distances, LGDO):
         distances_ak = distances.view_as("ak")

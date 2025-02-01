@@ -152,7 +152,7 @@ def _create_optical_maps_chunk(
     return hits_per_primary[0:hits_per_primary_len]
 
 
-def create_optical_maps(
+def create_optical_maps(  # noqa: D417
     optmap_events_fn: list[str],
     settings,
     buffer_len: int = int(5e6),
@@ -162,7 +162,8 @@ def create_optical_maps(
     check_after_create: bool = False,
     n_procs: int | None = 1,
 ) -> None:
-    """
+    """Create optical maps.
+
     Parameters
     ----------
     optmap_events_fn
@@ -323,14 +324,15 @@ def _merge_optical_maps_process(
     return output_lh5_fn
 
 
-def merge_optical_maps(
+def merge_optical_maps(  # noqa: D417
     map_l5_files: list[str],
     output_lh5_fn: str,
     settings,
     check_after_create: bool = False,
     n_procs: int | None = 1,
 ) -> None:
-    """
+    """Merge optical maps.
+
     Parameters
     ----------
     n_procs
