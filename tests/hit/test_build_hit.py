@@ -59,10 +59,10 @@ def test_basic(test_gen_lh5):
         hit_files=None,
     )
 
-    assert ak.all(hits.energy == [300, 330])
-    assert ak.all(hits.t0 == [0, 0.1])
-    assert ak.all(hits.evtid[0] == [0, 0])
-    assert ak.all(hits.evtid[1] == [1, 1, 1])
+    assert ak.all(hits["det1"].energy == [300, 330])
+    assert ak.all(hits["det1"].t0 == [0, 0.1])
+    assert ak.all(hits["det1"].evtid[0] == [0, 0])
+    assert ak.all(hits["det1"].evtid[1] == [1, 1, 1])
 
     assert list(time_dict.keys()) == ["global_objects", "geds"]
     assert list(time_dict["geds"].keys()) == [
@@ -96,4 +96,17 @@ def test_full_chain(tmp_path):
         glm_files=str(tmp_path / "beta_small_glm.lh5"),
         hit_files=None,
     )
-    assert hits.fields == ["evtid", "t0", "truth_energy", "active_energy", "smeared_energy"]
+    assert hits["det001"].fields == [
+        "evtid",
+        "t0",
+        "truth_energy",
+        "active_energy",
+        "smeared_energy",
+    ]
+    assert hits["det002"].fields == [
+        "evtid",
+        "t0",
+        "truth_energy",
+        "active_energy",
+        "smeared_energy",
+    ]
