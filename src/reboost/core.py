@@ -8,6 +8,8 @@ import awkward as ak
 from dbetto import AttrsDict
 from lgdo.types import LGDO, Table
 
+from reboost.profile import ProfileDict
+
 from . import utils
 
 log = logging.getLogger(__name__)
@@ -73,10 +75,7 @@ def evaluate_output_column(
 
     # how long did it take
     if time_dict is not None:
-        if name in time_dict["expressions"]:
-            time_dict["expressions"][name] += time.time() - time_start
-        else:
-            time_dict["expressions"][name] = time.time() - time_start
+        time_dict.update_field(name=f"expressions/{name}", time_start=time_start)
 
     return res
 
@@ -129,6 +128,7 @@ def get_global_objects(
     """
     if time_dict is not None:
         time_start = time.time()
+
     msg = f"Getting global objects with {expressions.keys()} and {local_dict}"
     log.info(msg)
 
@@ -139,7 +139,7 @@ def get_global_objects(
         }
     )
     if time_dict is not None:
-        time_dict["global_objects"] += -time_start + time.time()
+        time_dict.update_field(name="global_objects", time_start=time_start)
     return res
 
 
@@ -221,7 +221,7 @@ def get_detector_objects(
     expressions: dict,
     args: AttrsDict,
     global_objects: AttrsDict,
-    time_dict: dict | None = None,
+    time_dict: ProfileDict | None = None,
 ) -> AttrsDict:
     """Get the detector objects for each detector.
 
@@ -275,8 +275,9 @@ def get_detector_objects(
             }
         )
     res = AttrsDict(det_objects_dict)
+
     if time_dict is not None:
-        time_dict["detector_objects"] += time.time() - time_start
+        time_dict.update_field(name="detector_objects", time_start=time_start)
 
     return res
 
@@ -313,8 +314,10 @@ def evaluate_hit_table_layout(
     log.debug(msg)
 
     res = eval(group_func, globs, locs)
+
     if time_dict is not None:
-        time_dict["hit_layout"] += time.time() - time_start
+        time_dict.update_field(name="hit_layout", time_start=time_start)
+
     return res
 
 

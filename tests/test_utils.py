@@ -106,14 +106,3 @@ def test_save_dict(tmp_path):
         yaml.dump(data, yaml_file, default_flow_style=False)
 
     return tmp_path
-
-
-def test_load_dict(test_save_dict):
-    dict_json = reboost.utils.load_dict(str(test_save_dict / "data.json"), None)
-    assert dict_json == {"a": 1, "b": {"c": 1}}
-
-    dict_yaml = reboost.utils.load_dict(str(test_save_dict / "data.yaml"), None)
-    assert dict_yaml == {"a": 1, "b": {"c": 1}}
-
-    with pytest.raises(NotImplementedError):
-        reboost.utils.load_dict(str(test_save_dict / "data.csv"))

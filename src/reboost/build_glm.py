@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 def get_glm_rows(stp_evtids: ArrayLike, vert: ArrayLike, *, start_row: int = 0) -> ak.Array:
-    """Get the rows of the event lookup map (glm).
+    """Get the rows of the Geant4 event lookup map (glm).
 
     Parameters
     ----------

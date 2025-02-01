@@ -85,10 +85,7 @@ class GLMIterator:
             f"glm/{self.lh5_group}", self.glm_file, start_row=self.start_row_tmp, n_rows=n_rows
         )
         if self.time_dict is not None:
-            if "glm" in self.time_dict["read"]:
-                self.time_dict["read"]["glm"] += time.time() - time_start
-            else:
-                self.time_dict["read"]["glm"] = time.time() - time_start
+            self.time_dict.update_field("read/glm", time_start)
 
         self.n_rows_read += n_rows_read
         self.start_row_tmp += n_rows_read
@@ -116,10 +113,7 @@ class GLMIterator:
 
             # save time
             if self.time_dict is not None:
-                if "stp" in self.time_dict["read"]:
-                    self.time_dict["read"]["stp"] += time.time() - time_start
-                else:
-                    self.time_dict["read"]["stp"] = time.time() - time_start
+                self.time_dict.update_field("read/stp", time_start)
 
             self.current_i_entry += 1
 

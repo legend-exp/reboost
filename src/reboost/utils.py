@@ -1,48 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import json
 import logging
 import re
 from contextlib import contextmanager
-from pathlib import Path
-
-import yaml
 
 log = logging.getLogger(__name__)
-
-
-def load_dict(fname: str, ftype: str | None = None) -> dict:
-    """Load a text file as a Python dict.
-
-    Parameters
-    ----------
-    fname
-        path to the file
-    ftype
-        type of file, can be either json or yaml.
-    """
-    __file_extensions__ = {"json": [".json"], "yaml": [".yaml", ".yml"]}
-
-    fname = Path(fname)
-
-    # determine file type from extension
-    if ftype is None:
-        for _ftype, exts in __file_extensions__.items():
-            if fname.suffix in exts:
-                ftype = _ftype
-
-    msg = f"loading {ftype} dict from: {fname}"
-    log.debug(msg)
-
-    with fname.open() as f:
-        if ftype == "json":
-            return json.load(f)
-        if ftype == "yaml":
-            return yaml.safe_load(f)
-
-        msg = f"unsupported file format {ftype}"
-        raise NotImplementedError(msg)
 
 
 def _search_string(string: str):

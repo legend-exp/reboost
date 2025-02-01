@@ -47,3 +47,28 @@ def test_basic(test_gen_lh5):
     assert ak.all(hits.t0 == [0, 0.1])
     assert ak.all(hits.evtid[0] == [0, 0])
     assert ak.all(hits.evtid[1] == [1, 1, 1])
+
+    # test in memory
+
+    hits, time_dict = reboost.build_hit.build_hit(
+        f"{Path(__file__).parent}/configs/basic.yaml",
+        args={},
+        stp_files=f"{test_gen_lh5}/basic.lh5",
+        glm_files=f"{test_gen_lh5}/basic_glm.lh5",
+        hit_files=None,
+    )
+
+    assert ak.all(hits.energy == [300, 330])
+    assert ak.all(hits.t0 == [0, 0.1])
+    assert ak.all(hits.evtid[0] == [0, 0])
+    assert ak.all(hits.evtid[1] == [1, 1, 1])
+
+    assert list(time_dict.keys()) == ["global_objects", "geds"]
+    assert list(time_dict["geds"].keys()) == [
+        "detector_objects",
+        "read",
+        "hit_layout",
+        "expressions",
+    ]
+    assert list(time_dict["geds"]["read"].keys()) == ["glm", "stp"]
+    assert list(time_dict["geds"]["expressions"].keys()) == ["t0", "first_evtid", "energy"]

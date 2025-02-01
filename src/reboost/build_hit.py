@@ -6,10 +6,12 @@ import time
 from collections.abc import Mapping
 
 import awkward as ak
+import dbetto
 from dbetto import AttrsDict
 from lgdo import lh5
 
 from reboost.iterator import GLMIterator
+from reboost.profile import ProfileDict
 
 from . import core, utils
 
@@ -210,19 +212,12 @@ def build_hit(
     """
     # extract the config file
     if isinstance(config, str):
-        config = utils.load_dict(config)
+        config = dbetto.utils.load_dict(config)
 
     # get the arguments
     if not isinstance(args, AttrsDict):
         args = AttrsDict(args)
-    time_dict = {
-        "global_objects": 0,
-        "read": {},
-        "write": 0,
-        "hit_layout": 0,
-        "detector_objects": 0,
-        "expressions": {},
-    }
+    time_dict = ProfileDict()
 
     # get the global objects
     global_objects = AttrsDict(
@@ -243,11 +238,17 @@ def build_hit(
 
     # iterate over files
     for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
-        msg = f"... starting post processing of {stp_file} to {files['hit'][file_idx]} "
+        msg = (
+            f"... starting post processing of {stp_file} to {files['hit'][file_idx] } "
+            if files["hit"] is not None
+            else f"... starting post processing of {stp_file}"
+        )
         log.info(msg)
 
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
+            proc_name = proc_group.get("name", "default")
+            time_dict[proc_name] = ProfileDict()
             # extract the output detectors and the mapping to input detectors
             detectors_mapping = utils.merge_dicts(
                 [
@@ -268,7 +269,7 @@ def build_hit(
                     args=args,
                     global_objects=global_objects,
                     expressions=proc_group.get("detector_objects", {}),
-                    time_dict=time_dict,
+                    time_dict=time_dict[proc_name],
                 )
 
                 # begin iterating over the glm
@@ -281,7 +282,7 @@ def build_hit(
                     n_rows=n_evtid,
                     read_vertices=True,
                     buffer=buffer,
-                    time_dict=time_dict,
+                    time_dict=time_dict[proc_name],
                 )
                 for stps, _, chunk_idx, _ in glm_it:
                     # converting to awwkard
@@ -297,7 +298,7 @@ def build_hit(
                         hit_table = core.evaluate_hit_table_layout(
                             copy.deepcopy(ak_obj),
                             expression=proc_group["hit_table_layout"],
-                            time_dict=time_dict,
+                            time_dict=time_dict[proc_name],
                         )
 
                         local_dict = {
@@ -313,7 +314,7 @@ def build_hit(
                                 table_name="HITS",
                                 expression=expression,
                                 local_dict=local_dict,
-                                time_dict=time_dict,
+                                time_dict=time_dict[proc_name],
                                 name=field,
                             )
                             hit_table.add_field(field, col)
@@ -346,11 +347,12 @@ def build_hit(
                                 wo_mode=wo_mode,
                             )
                             if time_dict is not None:
-                                time_dict["write"] += time.time() - start_time
+                                time_dict[proc_name].update_field("write", start_time)
 
                         else:
                             output_table = core.merge(hit_table, output_table)
 
     # return output table or nothing
+    log.info(time_dict)
 
     return output_table, time_dict
