@@ -346,7 +346,7 @@ def build_hit(
                      )
 
                     pe_times: ak.concatenate([HITS.pe_times_lar, HITS.pe_times_pen], axis=-1)
-    
+
     args
         dictionary or :class:`legendmeta.AttrsDict` of the global arguments.
     stp_files
