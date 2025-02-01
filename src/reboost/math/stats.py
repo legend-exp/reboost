@@ -35,7 +35,6 @@ def gaussian_sample(mu: ArrayLike, sigma: ArrayLike | float, *, seed: int = 999)
     -------
     `LGDO.Array` of sampled values.
     """
-
     # convert inputs
 
     if isinstance(mu, Array):

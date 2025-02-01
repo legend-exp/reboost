@@ -72,8 +72,7 @@ class OpticalMap:
         return om
 
     def _prepare_hist(self) -> np.ndarray:
-        """Prepare an empty histogram with the parameters global to this map
-        instance."""
+        """Prepare an empty histogram with the parameters global to this map instance."""
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
             a = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
@@ -168,10 +167,11 @@ class OpticalMap:
     def fill_hits(self, loc: NDArray) -> None:
         """Fill map with a chunk of hit coordinates.
 
-        .. note ::
-            For performance reasons, this function is buffered and does not directly write
-            to the map array. Use :meth:`.fill_hits_flush` to flush the remaining hits in
-            the buffer to this map.
+        .. note::
+
+            For performance reasons, this function is buffered and does not
+            directly write to the map array. Use :meth:`.fill_hits_flush` to
+            flush the remaining hits in the buffer to this map.
         """
         if self.h_hits is None:
             self.h_hits = self._prepare_hist()
@@ -186,7 +186,6 @@ class OpticalMap:
 
     def _divide_hist(self, h1: NDArray, h2: NDArray) -> tuple[NDArray, NDArray]:
         """Calculate the ratio (and its standard error) from two histograms."""
-
         h1 = self._nda(h1)
         h2 = self._nda(h2)
 

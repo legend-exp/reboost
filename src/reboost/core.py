@@ -21,7 +21,7 @@ def evaluate_output_column(
     local_dict: dict,
     *,
     table_name: str = "HITS",
-    time_dict: dict | None = None,
+    time_dict: ProfileDict | None = None,
     name: str = " ",
 ) -> LGDO:
     """Evaluate an expression returning an LGDO.
@@ -41,6 +41,10 @@ def evaluate_output_column(
         local dictionary to pass to :func:`LGDO.Table.eval()`.
     table_name
         keyword used to refer to the fields in the table.
+    time_dict
+        time profiling data structure.
+    name
+        name to use in `time_dict`.
 
     Returns
     -------
@@ -121,6 +125,8 @@ def get_global_objects(
     local_dict
         other objects used in the evaluation of the expressions, passed to
         `eval()` as the locals keyword.
+    time_dict
+        time profiling data structure.
 
     Returns
     -------
@@ -148,8 +154,7 @@ def get_detectors_mapping(
     objects: AttrsDict | None = None,
     input_detector_name: str | None = None,
 ) -> dict:
-    """Extract the output detectors and the list of input to outputs by parsing
-    the expressions.
+    """Extract the output detectors and the list of input to outputs by parsing the expressions.
 
     The output_detector_expression can be a name or a string evaluating to a list of names.
     This expression can depend on any objects in the objects dictionary, referred to by the keyword
@@ -173,7 +178,9 @@ def get_detectors_mapping(
     ----------
     output_detector_expression
         An output detector name or a string evaluating to a list of output tables.
-    input_detector_expression
+    objects
+        dictionary of objects that can be referenced in the expression.
+    input_detector_name
         Optional input detector name for all the outputs.
 
 
@@ -195,7 +202,7 @@ def get_detectors_mapping(
 
     With  objects:
 
-    >>> objs = AttrsDict({"format":"ch"})
+    >>> objs = AttrsDict({"format": "ch"})
     >>> get_detectors_mapping("[f'{OBJECTS.format}{i}' for i in range(2)])",
                                 input_detector_name = "dets",objects=objs)
     {'dets': ['ch0', 'ch1', 'ch2']}
@@ -251,6 +258,8 @@ def get_detector_objects(
         any arguments the expression can depend on, is passed as `locals` to `eval()`.
     global_objects
         a dictionary of objects the expression can depend on.
+    time_dict
+        time profiling data structure.
 
     Returns
     -------
@@ -297,6 +306,8 @@ def evaluate_hit_table_layout(
         awkward array or Table of the steps.
     expression
         the expression to evaluate to produce the hit table.
+    time_dict
+        time profiling data structure.
 
     Returns
     -------
@@ -335,7 +346,6 @@ def remove_columns(tab: Table, outputs: list) -> Table:
     -------
     the table with columns removed.
     """
-
     existing_cols = list(tab.keys())
     for col in existing_cols:
         if col not in outputs:

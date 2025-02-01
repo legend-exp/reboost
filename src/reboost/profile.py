@@ -22,7 +22,6 @@ class ProfileDict(AttrsDict):
         time_start
             the starting time of the block to evaluate
         """
-
         name_split = name.split("/")
         group = None
         dict_tmp = None

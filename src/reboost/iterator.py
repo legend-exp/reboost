@@ -34,18 +34,21 @@ class GLMIterator:
             the file containing the event lookup map.
         stp_file
             the file containing the steps to read.
-        lh5_subgroup
-            the name of the lh5 subgroup to read.
+        lh5_group
+            the name of the lh5 group to read.
         start_row
             the first row to read.
         n_rows
             the number of rows to read, if `None` read them all.
+        stp_field
+            name of the group.
         read_vertices
             whether to read also the vertices table.
         buffer
             the number of rows to read at once.
+        time_dict
+            time profiling data structure.
         """
-
         # initialise
         self.glm_file = glm_file
         self.stp_file = stp_file

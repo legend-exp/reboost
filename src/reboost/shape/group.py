@@ -15,7 +15,11 @@ def _sort_data(obj: ak.Array, *, time_name: str = "time", evtid_name: str = "evt
     Parameters
     ----------
     obj
-        array of records containing fields `time` and `evtid`
+        array of records containing fields `time` and `evtid`.
+    time_name
+        name of the time field in `obj`.
+    evtid_name
+        name of the evtid field in `obj`.
 
     Returns
     -------
@@ -38,6 +42,7 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
         LGDO Table which must contain the `evtid` field.
     evtid_name
         the name of the index field in the input table.
+
     Returns
     -------
     LGDO table of :class:`VectorOfVector` for each field.
@@ -46,7 +51,6 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
     ----
     The input table must be sorted (by `evtid`).
     """
-
     # convert to awkward
     obj_ak = data.view_as("ak") if isinstance(data, Table) else data
 
@@ -87,7 +91,6 @@ def group_by_time(
     The windowing is based on defining a new group when the `evtid` changes or when the time increases by `> window`,
     which is in units of us.
 
-
     Parameters
     ----------
     data
@@ -109,7 +112,6 @@ def group_by_time(
     ----
     The input table must be sorted (first by `evtid` then `time`).
     """
-
     obj = data.view_as("ak") if isinstance(data, Table) else data
     obj = _sort_data(obj, time_name=time_name, evtid_name=evtid_name)
 

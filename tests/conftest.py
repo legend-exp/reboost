@@ -4,8 +4,7 @@ import numba
 
 
 def patch_numba_for_tests():
-    """Globally disable numba cache and enable bounds checking (for
-    testing)."""
+    """Globally disable numba cache and enable bounds checking (for testing)."""
     njit_old = numba.njit
 
     def njit_patched(*args, **kwargs):

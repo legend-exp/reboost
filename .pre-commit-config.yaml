@@ -41,6 +41,13 @@ repos:
         types_or: [yaml, markdown, json]
         args: [--prose-wrap=always]
 
+  - repo: https://github.com/PyCQA/docformatter
+    rev: eb1df34 # update once https://github.com/PyCQA/docformatter/issues/293 is fixed
+    hooks:
+      - id: docformatter
+        additional_dependencies: [tomli]
+        args: [--in-place]
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.8.6"
     hooks:
@@ -86,10 +93,3 @@ repos:
       - id: check-dependabot
       - id: check-github-workflows
       - id: check-readthedocs
-
-  - repo: https://github.com/PyCQA/docformatter
-    rev: eb1df34 # update once https://github.com/PyCQA/docformatter/issues/293 is fixed
-    hooks:
-      - id: docformatter
-        additional_dependencies: [tomli]
-        args: [--in-place]

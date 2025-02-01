@@ -17,8 +17,7 @@ EVT_TABLE_NAME = "optmap_evt"
 def build_optmap_evt(
     lh5_in_file: str, lh5_out_file: str, detectors: Iterable[str | int], buffer_len: int = int(5e6)
 ) -> None:
-    """Create a faster map for lookup of the hits in each detector, for each
-    primary event."""
+    """Create a faster map for lookup of the hits in each detector, for each primary event."""
     log.info("reading file %s", lh5_in_file)
 
     lh5_out_file = Path(lh5_out_file)
