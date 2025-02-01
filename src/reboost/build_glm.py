@@ -29,6 +29,12 @@ def get_glm_rows(stp_evtids: ArrayLike, vert: ArrayLike, *, start_row: int = 0) 
     an awkward array of the `glm`.
     """
     # convert inputs
+    if stp_evtids is None:
+        output = ak.Array({"evtid": vert})
+        output["n_rows"] = np.array([0] * len(vert), dtype=float)
+        output["start_row"] = np.array([np.nan] * len(vert), dtype=float)
+        return output
+
     if not isinstance(stp_evtids, np.ndarray):
         stp_evtids = (
             stp_evtids.to_numpy() if isinstance(stp_evtids, ak.Array) else np.array(stp_evtids)
@@ -43,7 +49,7 @@ def get_glm_rows(stp_evtids: ArrayLike, vert: ArrayLike, *, start_row: int = 0) 
         msg = "The vertices must be sorted"
         raise ValueError(msg)
 
-    if not np.all(stp_evtids[:-1] <= stp_evtids[1:]):
+    if len(stp_evtids) > 0 and not np.all(stp_evtids[:-1] <= stp_evtids[1:]):
         msg = "The steps must be sorted"
         raise ValueError(msg)
 
@@ -243,6 +249,7 @@ def build_glm(
                 last_vertex_evtid=vert_ak[-1],
                 stp_buffer=stp_buffer,
             )
+
             # set the start row for the next chunk
             start_row[lh5_table] = start_row_tmp
 

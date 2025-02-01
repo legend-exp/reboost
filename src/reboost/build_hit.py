@@ -161,7 +161,7 @@ def build_hit(
                     .group("system").spms
                     .group("analysis.status").on
                     .map("name").keys()
-                     input: scintillators
+                     input: lar
 
                   outputs:
                     - t0
@@ -353,6 +353,7 @@ def build_hit(
                             output_table = core.merge(hit_table, output_table)
 
     # return output table or nothing
+
     log.info(time_dict)
 
     return output_table, time_dict

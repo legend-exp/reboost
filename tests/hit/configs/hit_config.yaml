@@ -1,0 +1,47 @@
+objects:
+  geometry: pyg4ometry.gdml.Reader(ARGS.gdml).getRegistry()
+  user_pars: dbetto.AttrsDict(dbetto.utils.load_dict(ARGS.pars))
+  reg: pyg4ometry.geant4.Registry()
+
+processing_groups:
+  - name: geds
+
+    detector_mapping:
+      - output: det001
+      - output: det002
+    detector_objects:
+      meta:
+        dbetto.AttrsDict(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,
+        OBJECTS.user_pars[DETECTOR].name ))
+      pyobj:
+        legendhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,OBJECTS.user_pars[DETECTOR].name),
+        registry = OBJECTS.reg)
+      phyvol: OBJECTS.geometry.physicalVolumeDict[OBJECTS.user_pars[DETECTOR].name]
+      det_pars: OBJECTS.user_pars[DETECTOR]
+    outputs:
+      - t0
+      - evtid
+      - truth_energy
+      - active_energy
+      - smeared_energy
+
+    hit_table_layout: reboost.shape.group.group_by_evtid(STEPS)
+
+    operations:
+      t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
+      first_evtid: ak.fill_none(ak.firsts(HITS.evtid, axis=-1), np.nan)
+      truth_energy: ak.sum(HITS.edep, axis=-1)
+
+      distance_to_nplus:
+        reboost.hpge.surface.distance_to_surface( HITS.xloc, HITS.yloc,
+        HITS.zloc, DETECTOR_OBJECTS.pyobj,
+        DETECTOR_OBJECTS.phyvol.position.eval(), distances_precompute =
+        HITS.dist_to_surf, precompute_cutoff = 2/1000, surface_type='nplus')
+
+      activeness:
+        reboost.math.functions.piecewise_linear_activeness(HITS.distance_to_nplus,
+        fccd=DETECTOR_OBJECTS.det_pars.fccd_in_mm,
+        tl=DETECTOR_OBJECTS.det_pars.tl_in_mm)
+
+      active_energy: ak.sum(HITS.edep*HITS.activeness, axis=-1)
+      smeared_energy: reboost.math.stats.gaussian_sample(HITS.active_energy,DETECTOR_OBJECTS.det_pars.reso_in_sigma)

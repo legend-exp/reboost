@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import awkward as ak
+import dbetto
 import pytest
 from lgdo import Array, Table, lh5
 
@@ -72,3 +73,27 @@ def test_basic(test_gen_lh5):
     ]
     assert list(time_dict["geds"]["read"].keys()) == ["glm", "stp"]
     assert list(time_dict["geds"]["expressions"].keys()) == ["t0", "first_evtid", "energy"]
+
+
+def test_full_chain(tmp_path):
+    build_glm(
+        f"{Path(__file__).parent}/test_files/beta_small.lh5",
+        str(tmp_path / "beta_small_glm.lh5"),
+        id_name="evtid",
+    )
+
+    args = dbetto.AttrsDict(
+        {
+            "gdml": f"{Path(__file__).parent}/configs/geom.gdml",
+            "pars": f"{Path(__file__).parent}/configs/pars.yaml",
+        }
+    )
+
+    hits, time_dict = reboost.build_hit.build_hit(
+        f"{Path(__file__).parent}/configs/hit_config.yaml",
+        args=args,
+        stp_files=f"{Path(__file__).parent}/test_files/beta_small.lh5",
+        glm_files=str(tmp_path / "beta_small_glm.lh5"),
+        hit_files=None,
+    )
+    assert hits.fields == ["evtid", "t0", "truth_energy", "active_energy", "smeared_energy"]

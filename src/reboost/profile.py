@@ -51,7 +51,7 @@ class ProfileDict(AttrsDict):
 
     def __str__(self):
         """Return a human-readable profiling summary."""
-        return self._format(self, indent=1)
+        return "\nReboost post processing took: \n" + self._format(self, indent=1)
 
     def _format(self, data: ProfileDict, indent: int = 1):
         """Recursively format the dictionary.

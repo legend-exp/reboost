@@ -1,0 +1,107 @@
+<?xml version="1.0" ?>
+<gdml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://cern.ch/service-spi/app/releases/GDML/schema/gdml.xsd">
+	<define/>
+	<materials>
+		<isotope name="Ge74" Z="32" N="74">
+			<atom value="73.921"/>
+		</isotope>
+		<isotope name="Ge76" Z="32" N="76">
+			<atom value="75.921"/>
+		</isotope>
+		<element name="ElementEnrichedGermanium0.874" formula="EnrGe0.874">
+			<fraction ref="Ge74" n="0.126"/>
+			<fraction ref="Ge76" n="0.874"/>
+		</element>
+		<material name="EnrichedGermanium0.874">
+			<D value="5.54634546706681"/>
+			<fraction ref="ElementEnrichedGermanium0.874" n="1"/>
+		</material>
+		<element name="ElementEnrichedGermanium0.855" formula="EnrGe0.855">
+			<fraction ref="Ge74" n="0.14500000000000002"/>
+			<fraction ref="Ge76" n="0.855"/>
+		</element>
+		<material name="EnrichedGermanium0.855">
+			<D value="5.543560163603719"/>
+			<fraction ref="ElementEnrichedGermanium0.855" n="1"/>
+		</material>
+	</materials>
+	<solids>
+		<genericPolycone name="BEGe_L" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad">
+			<rzpoint r="0" z="0"/>
+			<rzpoint r="7.5" z="0"/>
+			<rzpoint r="7.5" z="2.0"/>
+			<rzpoint r="10.5" z="2.0"/>
+			<rzpoint r="10.5" z="0"/>
+			<rzpoint r="36.98" z="0"/>
+			<rzpoint r="36.98" z="29.46"/>
+			<rzpoint r="0" z="29.46"/>
+		</genericPolycone>
+		<genericPolycone name="Coax_L" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad">
+			<rzpoint r="0" z="73"/>
+			<rzpoint r="6.75" z="73"/>
+			<rzpoint r="6.75" z="0"/>
+			<rzpoint r="17" z="0"/>
+			<rzpoint r="17" z="2"/>
+			<rzpoint r="20" z="2"/>
+			<rzpoint r="20" z="0"/>
+			<rzpoint r="36.25" z="0"/>
+			<rzpoint r="38.25" z="2"/>
+			<rzpoint r="38.25" z="79"/>
+			<rzpoint r="33.25" z="84"/>
+			<rzpoint r="0" z="84"/>
+		</genericPolycone>
+		<orb name="World_s" r="20" lunit="cm"/>
+		<orb name="LAr_s" r="15" lunit="cm"/>
+		<tube name="Source_s" rmin="0" rmax="1" z="1" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad"/>
+	</solids>
+	<structure>
+		<volume name="BEGe_L">
+			<materialref ref="EnrichedGermanium0.874"/>
+			<solidref ref="BEGe_L"/>
+		</volume>
+		<volume name="Coax_L">
+			<materialref ref="EnrichedGermanium0.855"/>
+			<solidref ref="Coax_L"/>
+		</volume>
+		<volume name="Source_L">
+			<materialref ref="G4_BRAIN_ICRP"/>
+			<solidref ref="Source_s"/>
+		</volume>
+		<volume name="LAr_l">
+			<materialref ref="G4_lAr"/>
+			<solidref ref="LAr_s"/>
+			<physvol name="BEGe">
+				<volumeref ref="BEGe_L"/>
+				<position name="BEGe_pos" x="5.000000000000000" y="0.000000000000000" z="-3.000000000000000" unit="cm"/>
+			</physvol>
+			<physvol name="Coax">
+				<volumeref ref="Coax_L"/>
+				<position name="Coax_pos" x="-5.000000000000000" y="0.000000000000000" z="-3.000000000000000" unit="cm"/>
+			</physvol>
+			<physvol name="Source">
+				<volumeref ref="Source_L"/>
+				<position name="Source_pos" x="0.000000000000000" y="5.000000000000000" z="0.000000000000000" unit="cm"/>
+			</physvol>
+		</volume>
+		<volume name="World">
+			<materialref ref="G4_Galactic"/>
+			<solidref ref="World_s"/>
+			<physvol name="LAr">
+				<volumeref ref="LAr_l"/>
+			</physvol>
+		</volume>
+	</structure>
+	<userinfo>
+		<auxiliary auxtype="RMG_detector_meta" auxvalue="">
+			<auxiliary auxtype="BEGe" auxvalue="{&quot;name&quot;: &quot;B00000B&quot;, &quot;type&quot;: &quot;bege&quot;, &quot;production&quot;: {&quot;enrichment&quot;: {&quot;val&quot;: 0.874, &quot;unc&quot;: 0.003}, &quot;mass_in_g&quot;: 697.0}, &quot;geometry&quot;: {&quot;height_in_mm&quot;: 29.46, &quot;radius_in_mm&quot;: 36.98, &quot;groove&quot;: {&quot;depth_in_mm&quot;: 2.0, &quot;radius_in_mm&quot;: {&quot;outer&quot;: 10.5, &quot;inner&quot;: 7.5}}, &quot;pp_contact&quot;: {&quot;radius_in_mm&quot;: 7.5, &quot;depth_in_mm&quot;: 0}, &quot;taper&quot;: {&quot;top&quot;: {&quot;angle_in_deg&quot;: 0.0, &quot;height_in_mm&quot;: 0.0}, &quot;bottom&quot;: {&quot;angle_in_deg&quot;: 0.0, &quot;height_in_mm&quot;: 0.0}}}}"/>
+			<auxiliary auxtype="Coax" auxvalue="{&quot;name&quot;: &quot;C000RG1&quot;, &quot;type&quot;: &quot;coax&quot;, &quot;production&quot;: {&quot;enrichment&quot;: {&quot;val&quot;: 0.855, &quot;unc&quot;: 0.015}}, &quot;geometry&quot;: {&quot;height_in_mm&quot;: 84, &quot;radius_in_mm&quot;: 38.25, &quot;borehole&quot;: {&quot;radius_in_mm&quot;: 6.75, &quot;depth_in_mm&quot;: 73}, &quot;groove&quot;: {&quot;depth_in_mm&quot;: 2, &quot;radius_in_mm&quot;: {&quot;outer&quot;: 20, &quot;inner&quot;: 17}}, &quot;pp_contact&quot;: {&quot;radius_in_mm&quot;: 17, &quot;depth_in_mm&quot;: 0}, &quot;taper&quot;: {&quot;top&quot;: {&quot;angle_in_deg&quot;: 45, &quot;height_in_mm&quot;: 5}, &quot;bottom&quot;: {&quot;angle_in_deg&quot;: 45, &quot;height_in_mm&quot;: 2}, &quot;borehole&quot;: {&quot;angle_in_deg&quot;: 0, &quot;height_in_mm&quot;: 0}}}}"/>
+		</auxiliary>
+		<auxiliary auxtype="RMG_detector" auxvalue="germanium">
+			<auxiliary auxtype="BEGe" auxvalue="1"/>
+			<auxiliary auxtype="Coax" auxvalue="2"/>
+		</auxiliary>
+	</userinfo>
+	<setup name="Default" version="1.0">
+		<world ref="World"/>
+	</setup>
+</gdml>
