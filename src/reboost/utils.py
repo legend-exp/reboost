@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib
 import logging
 import re
+from collections.abc import Iterable
 from contextlib import contextmanager
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -130,3 +132,17 @@ def filter_logging(level):
         yield
     finally:
         logger.setLevel(old_level)
+
+
+def _check_input_file(parser, file: str | Iterable[str], descr: str = "input"):
+    file = (file,) if isinstance(file, str) else file
+    not_existing = [f for f in file if not Path(f).exists()]
+    if not_existing != []:
+        parser.error(f"{descr} file(s) {''.join(not_existing)} missing")
+
+
+def _check_output_file(parser, file: str | Iterable[str]):
+    file = (file,) if isinstance(file, str) else file
+    for f in file:
+        if Path(f).exists():
+            parser.error(f"output file {f} already exists")
