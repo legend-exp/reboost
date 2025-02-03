@@ -42,7 +42,7 @@ repos:
         args: [--prose-wrap=always]
 
   - repo: https://github.com/PyCQA/docformatter
-    rev: v1.7.5 # update once https://github.com/PyCQA/docformatter/issues/293 is fixed
+    rev: eb1df34 # use eb1df34 once https://github.com/PyCQA/docformatter/issues/293 is fixed
     hooks:
       - id: docformatter
         additional_dependencies: [tomli]
