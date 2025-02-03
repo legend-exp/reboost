@@ -157,7 +157,6 @@ A :func:`build_hit` to parse the following configuration file:
 
 from __future__ import annotations
 
-import copy
 import logging
 import time
 from collections.abc import Mapping
@@ -216,6 +215,7 @@ def build_hit(
     """
     # extract the config file
     time_dict = ProfileDict()
+    overall_start = time.time()
 
     if time_dict is not None:
         start_time = time.time()
@@ -229,7 +229,6 @@ def build_hit(
 
     # get the input files
     files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files, hit_files=hit_files)
-
     output_tables = {}
 
     # finish setup
@@ -299,7 +298,9 @@ def build_hit(
                         continue
 
                     # produce the hit table
+                    start_time = time.time()
                     ak_obj = stps.view_as("ak")
+                    time_dict[proc_name].update_field("read/stp", start_time)
 
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
@@ -307,7 +308,7 @@ def build_hit(
                             output_tables[out_detector] = None
 
                         hit_table = core.evaluate_hit_table_layout(
-                            copy.deepcopy(ak_obj),
+                            ak_obj,
                             expression=proc_group["hit_table_layout"],
                             time_dict=time_dict[proc_name],
                         )
@@ -317,6 +318,7 @@ def build_hit(
                             "OBJECTS": global_objects,
                             "DETECTOR": out_detector,
                         }
+
                         # add fields
                         for field, expression in proc_group["operations"].items():
                             # evaluate the expression
@@ -331,17 +333,13 @@ def build_hit(
                             # add the field
                             if time_dict is not None:
                                 start_time = time.time()
-
                             hit_table.add_field(field, col)
-
                             time_dict[proc_name].update_field("add_field", start_time)
 
                         # remove unwanted fields
-                        if time_dict is not None:
-                            start_time = time.time()
-
-                        hit_table = core.remove_columns(hit_table, outputs=proc_group["outputs"])
-                        time_dict[proc_name].update_field("remove_columns", start_time)
+                        hit_table = core.remove_columns(
+                            hit_table, outputs=proc_group["outputs"], time_dict=time_dict[proc_name]
+                        )
 
                         # get the IO mode
                         wo_mode = (
@@ -375,6 +373,7 @@ def build_hit(
                             )
 
     # return output table or nothing
+    time_dict.update_field("overall", overall_start)
     log.info(time_dict)
 
     if output_tables == {}:

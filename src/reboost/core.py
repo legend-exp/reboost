@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import time
 from typing import Any
@@ -319,7 +320,7 @@ def evaluate_hit_table_layout(
     group_func, globs = utils.get_function_string(
         expression,
     )
-    locs = {"STEPS": steps}
+    locs = {"STEPS": copy.deepcopy(steps)}
 
     msg = f"running step grouping with {group_func} and globals {globs.keys()} and locals {locs.keys()}"
     log.debug(msg)
@@ -332,7 +333,7 @@ def evaluate_hit_table_layout(
     return res
 
 
-def remove_columns(tab: Table, outputs: list) -> Table:
+def remove_columns(tab: Table, outputs: list, time_dict: ProfileDict | None = None) -> Table:
     """Remove columns from the table not found in the outputs.
 
     Parameters
@@ -341,15 +342,23 @@ def remove_columns(tab: Table, outputs: list) -> Table:
         the table to remove columns from.
     outputs
         a list of output fields.
+    time_dict
+        time profiling data structure.
 
     Returns
     -------
     the table with columns removed.
     """
+    if time_dict is not None:
+        start_time = time.time()
+
     existing_cols = list(tab.keys())
     for col in existing_cols:
         if col not in outputs:
             tab.remove_column(col, delete=True)
+
+    if time_dict is not None:
+        time_dict.update_field("remove_columns", start_time)
 
     return tab
 

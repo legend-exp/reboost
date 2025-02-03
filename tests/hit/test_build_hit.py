@@ -64,7 +64,7 @@ def test_basic(test_gen_lh5):
     assert ak.all(hits["det1"].evtid[0] == [0, 0])
     assert ak.all(hits["det1"].evtid[1] == [1, 1, 1])
 
-    assert list(time_dict.keys()) == ["setup", "global_objects", "geds"]
+    assert list(time_dict.keys()) == ["setup", "global_objects", "geds", "overall"]
     assert list(time_dict["geds"].keys()) == [
         "detector_objects",
         "read",

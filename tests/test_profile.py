@@ -14,6 +14,8 @@ def test_profile():
     # create some fields
     time_dict.update_field("global_objects", time_start - 5)
     time_dict.update_field("processing_groups/germanium/read", time_start - 3)
+    time_dict.update_field("processing_groups/germanium/read", time_start - 4)
+
     time_dict.update_field("processing_groups/germanium/detector_objects", time_start - 17)
     time_dict.update_field("processing_groups/germanium/write", time_start - 0.01)
     time_dict.update_field("processing_groups/germanium/operations/energy", time_start - 3)
@@ -24,7 +26,7 @@ def test_profile():
     time_dict.update_field("processing_groups/sipms/write", time_start - 7)
 
     assert round(time_dict["global_objects"], 1) == 5.0
-    assert round(time_dict["processing_groups"]["germanium"]["read"], 1) == 3.0
+    assert round(time_dict["processing_groups"]["germanium"]["read"], 1) == 7.0
     assert round(time_dict["processing_groups"]["germanium"]["detector_objects"], 1) == 17.0
     assert round(time_dict["processing_groups"]["germanium"]["write"], 1) == 0.0
     assert round(time_dict["processing_groups"]["germanium"]["operations"]["energy"], 1) == 3.0

@@ -65,6 +65,7 @@ class GLMIterator:
         self.sto = LH5Store()
         self.n_rows_read = 0
         self.time_dict = time_dict
+        self.start_time = time.time()
 
     def __iter__(self) -> typing.Iterator:
         self.current_i_entry = 0
@@ -73,7 +74,9 @@ class GLMIterator:
         return self
 
     def __next__(self) -> tuple[LGDO, LGDO | None, int, int]:
+        """Get the next chunk of data."""
         # get the number of rows to read
+
         if self.n_rows is not None:
             rows_left = self.n_rows - self.n_rows_read
             n_rows = self.buffer if (self.buffer > rows_left) else rows_left
@@ -87,8 +90,6 @@ class GLMIterator:
         glm_rows, n_rows_read = self.sto.read(
             f"glm/{self.lh5_group}", self.glm_file, start_row=self.start_row_tmp, n_rows=n_rows
         )
-        if self.time_dict is not None:
-            self.time_dict.update_field("read/glm", time_start)
 
         self.n_rows_read += n_rows_read
         self.start_row_tmp += n_rows_read
@@ -101,6 +102,9 @@ class GLMIterator:
 
         # remove empty rows
         glm_ak = glm_ak[glm_ak.n_rows > 0]
+
+        if self.time_dict is not None:
+            self.time_dict.update_field("read/glm", time_start)
 
         if len(glm_ak) > 0:
             # extract range of stp rows to read
@@ -129,7 +133,8 @@ class GLMIterator:
                 )
             else:
                 vert_rows = None
-            # vertex table should have same structure as glm
 
+            # vertex table should have same structure as glm
             return (stp_rows, vert_rows, self.current_i_entry, n_steps)
+
         return (None, None, self.current_i_entry, 0)
