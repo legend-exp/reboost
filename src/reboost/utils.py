@@ -26,6 +26,13 @@ def get_file_dict(
     return AttrsDict(files)
 
 
+def get_file_list(path: str | None, threads: int | None = None) -> list[str]:
+    """Get a list of files accounting for the multithread index."""
+    if threads is None or path is None:
+        return path
+    return [f"{(Path(path).with_suffix(''))}_t{idx}.lh5" for idx in range(threads - 1)]
+
+
 def _search_string(string: str):
     """Capture the characters matching the pattern for a function call."""
     pattern = r"\b([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\("

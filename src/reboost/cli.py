@@ -7,7 +7,7 @@ import dbetto
 
 from reboost.build_glm import build_glm
 from reboost.build_hit import build_hit
-from reboost.utils import _check_input_file, _check_output_file
+from reboost.utils import _check_input_file, _check_output_file, get_file_list
 
 from .log_utils import setup_log
 
@@ -34,10 +34,18 @@ def cli() -> None:
     glm_parser = subparsers.add_parser("build-glm", help="build glm file from remage stp file")
 
     glm_parser.add_argument(
-        "--stp_files", "-s", nargs="+", required=True, type=str, help="Path to the stp file."
+        "--stp_file",
+        "-s",
+        required=True,
+        type=str,
+        help="Path to the stp file, if multithreaded this will be appended with _t$idx.",
     )
     glm_parser.add_argument(
-        "--glm_files", "-g", nargs="+", required=True, type=str, help="Path to the glm file "
+        "--glm_file",
+        "-g",
+        required=True,
+        type=str,
+        help="Path to the glm file, if multithreaded this will be appended with _t$idx. ",
     )
 
     # optional args
@@ -54,6 +62,14 @@ def cli() -> None:
     glm_parser.add_argument(
         "--overwrite", "-w", action="store_true", help="Overwrite the input file if it exists."
     )
+    glm_parser.add_argument(
+        "--threads",
+        "-t",
+        required=False,
+        default=None,
+        type=int,
+        help="Number of threads used for remage",
+    )
 
     # hit parser
     hit_parser = subparsers.add_parser("build-hit", help="build hit file from remage stp file")
@@ -63,25 +79,22 @@ def cli() -> None:
     )
     hit_parser.add_argument("--args", type=str, required=True, help="Path to args file.")
     hit_parser.add_argument(
-        "--stp_files",
-        nargs="+",
+        "--stp_file",
         type=str,
         required=True,
-        help="List of stp files or a single stp file.",
+        help="stp file to process, if multithreaded this will be appended with _t$idx",
     )
     hit_parser.add_argument(
-        "--glm_files",
-        nargs="+",
+        "--glm_file",
         type=str,
         required=True,
-        help="List of glm files or a single glm file.",
+        help="glm file to process, if multithreaded this will be appended with _t$idx",
     )
     hit_parser.add_argument(
-        "--hit_files",
-        nargs="*",
+        "--hit_file",
         type=str,
         required=True,
-        help="List of output hit files or a single hit file",
+        help="hit file to produce, if multithreaded this will be appended with _t$idx",
     )
 
     # optional args
@@ -96,6 +109,14 @@ def cli() -> None:
     hit_parser.add_argument(
         "--overwrite", "-w", action="store_true", help="Overwrite the input file if it exists."
     )
+    hit_parser.add_argument(
+        "--threads",
+        "-t",
+        required=False,
+        default=None,
+        type=int,
+        help="Number of threads used for remage",
+    )
 
     args = parser.parse_args()
 
@@ -104,14 +125,17 @@ def cli() -> None:
 
     if args.command == "build-glm":
         # catch some cases
-        # _check_input_file(parser, args.stp_files)
+        glm_files = get_file_list(args.glm_file, threads=args.threads)
+        stp_files = get_file_list(args.stp_file, threads=args.threads)
+
+        _check_input_file(parser, stp_files)
 
         if args.overwrite is False:
-            _check_output_file(parser, args.glm_files)
+            _check_output_file(parser, glm_files)
 
         msg = "Running build_glm with arguments: \n"
-        msg += f"    glm file:       {args.glm_files}\n"
-        msg += f"    stp file:       {args.stp_files}\n"
+        msg += f"    glm file:       {glm_files}\n"
+        msg += f"    stp file:       {stp_files}\n"
         msg += f"    out_table_name: {args.out_table_name}\n"
         msg += f"    evtid_name:     {args.id_name}\n"
         msg += f"    evtid_buffer:   {args.evtid_buffer}\n"
@@ -120,8 +144,8 @@ def cli() -> None:
         log.info(msg)
 
         build_glm(
-            args.stp_files,
-            args.glm_files,
+            stp_files,
+            glm_files,
             out_table_name=args.out_table_name,
             id_name=args.id_name,
             evtid_buffer=args.evtid_buffer,
@@ -129,18 +153,22 @@ def cli() -> None:
         )
 
     elif args.command == "build-hit":
-        _check_input_file(parser, args.stp_files)
-        _check_input_file(parser, args.glm_files)
+        glm_files = get_file_list(args.glm_file, threads=args.threads)
+        stp_files = get_file_list(args.stp_file, threads=args.threads)
+        hit_files = get_file_list(args.hit_file, threads=args.threads)
+
+        _check_input_file(parser, stp_files)
+        _check_input_file(parser, glm_files)
 
         if args.overwrite is False:
-            _check_output_file(parser, args.hit_files)
+            _check_output_file(parser, hit_files)
 
         msg = "Running build_hit with arguments: \n"
         msg += f"    config:         {args.config}\n"
         msg += f"    args:           {args.args}\n"
-        msg += f"    glm files:      {args.glm_files}\n"
-        msg += f"    stp files:      {args.stp_files}\n"
-        msg += f"    hit files:      {args.hit_files}\n"
+        msg += f"    glm files:      {glm_files}\n"
+        msg += f"    stp files:      {stp_files}\n"
+        msg += f"    hit files:      {hit_files}\n"
         msg += f"    start_evtid:    {args.start_evtid}\n"
         msg += f"    n_evtid:        {args.n_evtid}\n"
         msg += f"    in_field:       {args.in_field}\n"
@@ -151,9 +179,9 @@ def cli() -> None:
         build_hit(
             config=args.config,
             args=dbetto.AttrsDict(dbetto.utils.load_dict(args.args)),
-            stp_files=args.stp_files,
-            glm_files=args.glm_files,
-            hit_files=args.hit_files,
+            stp_files=stp_files,
+            glm_files=glm_files,
+            hit_files=hit_files,
             start_evtid=args.start_evtid,
             n_evtid=args.n_evtid,
             in_field=args.in_field,
