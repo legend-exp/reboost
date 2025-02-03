@@ -215,13 +215,25 @@ def build_hit(
         buffer size for use in the `LH5Iterator`.
     """
     # extract the config file
+    time_dict = ProfileDict()
+
+    if time_dict is not None:
+        start_time = time.time()
+
     if isinstance(config, str):
         config = dbetto.utils.load_dict(config)
 
     # get the arguments
     if not isinstance(args, AttrsDict):
         args = AttrsDict(args)
-    time_dict = ProfileDict()
+
+    # get the input files
+    files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files, hit_files=hit_files)
+
+    output_tables = {}
+
+    # finish setup
+    time_dict.update_field("setup", start_time)
 
     # get the global objects
     global_objects = AttrsDict(
@@ -230,20 +242,11 @@ def build_hit(
         )
     )
 
-    # get the input files
-    files = {}
-    for file_type, file_list in zip(["stp", "glm", "hit"], [stp_files, glm_files, hit_files]):
-        if isinstance(file_list, str):
-            files[file_type] = [file_list]
-        else:
-            files[file_type] = file_list
-
-    output_tables = {}
     # iterate over files
-    for file_idx, (stp_file, glm_file) in enumerate(zip(files["stp"], files["glm"])):
+    for file_idx, (stp_file, glm_file) in enumerate(zip(files.stp, files.glm)):
         msg = (
-            f"... starting post processing of {stp_file} to {files['hit'][file_idx]} "
-            if files["hit"] is not None
+            f"... starting post processing of {stp_file} to {files.hit[file_idx]} "
+            if files.hit is not None
             else f"... starting post processing of {stp_file}"
         )
         log.info(msg)
@@ -251,7 +254,10 @@ def build_hit(
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
             proc_name = proc_group.get("name", "default")
-            time_dict[proc_name] = ProfileDict()
+
+            if proc_name not in time_dict:
+                time_dict[proc_name] = ProfileDict()
+
             # extract the output detectors and the mapping to input detectors
             detectors_mapping = utils.merge_dicts(
                 [
@@ -283,7 +289,7 @@ def build_hit(
                     start_row=start_evtid,
                     stp_field=in_field,
                     n_rows=n_evtid,
-                    read_vertices=True,
+                    read_vertices=False,
                     buffer=buffer,
                     time_dict=time_dict[proc_name],
                 )
@@ -297,7 +303,7 @@ def build_hit(
 
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
-                        if out_detector not in output_tables and files["hit"] is None:
+                        if out_detector not in output_tables and files.hit is None:
                             output_tables[out_detector] = None
 
                         hit_table = core.evaluate_hit_table_layout(
@@ -322,13 +328,22 @@ def build_hit(
                                 time_dict=time_dict[proc_name],
                                 name=field,
                             )
+                            # add the field
+                            if time_dict is not None:
+                                start_time = time.time()
+
                             hit_table.add_field(field, col)
 
+                            time_dict[proc_name].update_field("add_field", start_time)
+
                         # remove unwanted fields
+                        if time_dict is not None:
+                            start_time = time.time()
+
                         hit_table = core.remove_columns(hit_table, outputs=proc_group["outputs"])
+                        time_dict[proc_name].update_field("remove_columns", start_time)
 
                         # get the IO mode
-
                         wo_mode = (
                             "of"
                             if (
@@ -341,14 +356,14 @@ def build_hit(
                         )
 
                         # now write
-                        if files["hit"] is not None:
+                        if files.hit is not None:
                             if time_dict is not None:
                                 start_time = time.time()
 
                             lh5.write(
                                 hit_table,
                                 f"{out_detector}/{out_field}",
-                                files["hit"][file_idx],
+                                files.hit[file_idx],
                                 wo_mode=wo_mode,
                             )
                             if time_dict is not None:

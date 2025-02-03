@@ -7,7 +7,23 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
 
+from dbetto import AttrsDict
+
 log = logging.getLogger(__name__)
+
+
+def get_file_dict(
+    stp_files: list | str, glm_files: list | str, hit_files: list | str | None = None
+) -> AttrsDict:
+    """Get the file info as a AttrsDict."""
+    files = {}
+    for file_type, file_list in zip(["stp", "glm", "hit"], [stp_files, glm_files, hit_files]):
+        if isinstance(file_list, str):
+            files[file_type] = [file_list]
+        else:
+            files[file_type] = file_list
+
+    return AttrsDict(files)
 
 
 def _search_string(string: str):

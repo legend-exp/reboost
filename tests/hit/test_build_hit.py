@@ -64,12 +64,14 @@ def test_basic(test_gen_lh5):
     assert ak.all(hits["det1"].evtid[0] == [0, 0])
     assert ak.all(hits["det1"].evtid[1] == [1, 1, 1])
 
-    assert list(time_dict.keys()) == ["global_objects", "geds"]
+    assert list(time_dict.keys()) == ["setup", "global_objects", "geds"]
     assert list(time_dict["geds"].keys()) == [
         "detector_objects",
         "read",
         "hit_layout",
         "expressions",
+        "add_field",
+        "remove_columns",
     ]
     assert list(time_dict["geds"]["read"].keys()) == ["glm", "stp"]
     assert list(time_dict["geds"]["expressions"].keys()) == ["t0", "first_evtid", "energy"]

@@ -9,6 +9,8 @@ from lgdo import Array, Table, lh5
 from lgdo.lh5 import LH5Iterator, LH5Store
 from numpy.typing import ArrayLike
 
+from reboost import utils
+
 log = logging.getLogger(__name__)
 
 
@@ -174,8 +176,8 @@ def get_stp_evtids(
 
 
 def build_glm(
-    stp_file: str,
-    glm_file: str | None,
+    stp_files: str | list,
+    glm_files: str | list | None,
     *,
     out_table_name: str = "glm",
     id_name: str = "g4_evtid",
@@ -191,9 +193,9 @@ def build_glm(
 
     Parameters
     ----------
-    stp_file
+    stp_files
         path to the stp (input) file.
-    glm_file
+    glm_files
         path to the glm data, can also be `None` in which case an `ak.Array` is returned in memory.
     out_table_name
         name for the output table.
@@ -208,72 +210,86 @@ def build_glm(
     -------
     either `None` or an `ak.Array`
     """
-    msg = f"Start generating glm for {stp_file} to {glm_file}"
-    log.info(msg)
     store = LH5Store()
 
-    # loop over the lh5_tables
-    lh5_table_list = [table for table in lh5.ls(stp_file, "stp/") if table != "stp/vertices"]
-
-    # get rows in the table
-    if glm_file is None:
-        glm_sum = {lh5_table.replace("stp/", ""): None for lh5_table in lh5_table_list}
-    else:
-        glm_sum = None
-
-    # start row for each table
-    start_row = {lh5_tab: 0 for lh5_tab in lh5_table_list}
-
-    vfield = f"stp/vertices/{id_name}"
-
     # iterate over the vertex table
-    for vert_obj, vidx, n_evtid in LH5Iterator(stp_file, vfield, buffer_len=evtid_buffer):
-        # range of vertices
-        vert_ak = vert_obj.view_as("ak")[:n_evtid]
+    files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files)
 
-        msg = f"... read chunk {vidx}"
-        log.debug(msg)
+    # loop over files
+    for file_idx, stp_file in enumerate(files.stp):
+        msg = (
+            f"... starting building glm of {stp_file} to {files.glm[file_idx]} "
+            if files.glm is not None
+            else f"... starting post processing of {stp_file}"
+        )
+        log.info(msg)
 
-        for idx, lh5_table in enumerate(lh5_table_list):
-            # create the output table
-            out_tab = Table(size=len(vert_ak))
+        # loop over the lh5_tables
+        lh5_table_list = [table for table in lh5.ls(stp_file, "stp/") if table != "stp/vertices"]
 
-            # read the stp rows starting from `start_row` until the
-            # evtid is larger than that in the vertices
+        # get rows in the table
+        if files.glm is None:
+            glm_sum = {lh5_table.replace("stp/", ""): None for lh5_table in lh5_table_list}
+        else:
+            glm_sum = None
 
-            start_row_tmp, chunk_row, evtids = get_stp_evtids(
-                lh5_table,
-                stp_file,
-                id_name,
-                start_row[lh5_table],
-                last_vertex_evtid=vert_ak[-1],
-                stp_buffer=stp_buffer,
-            )
+        # start row for each table
+        start_row = {lh5_tab: 0 for lh5_tab in lh5_table_list}
 
-            # set the start row for the next chunk
-            start_row[lh5_table] = start_row_tmp
+        vfield = f"stp/vertices/{id_name}"
 
-            # now get the glm rows
-            glm = get_glm_rows(evtids, vert_ak, start_row=chunk_row)
+        for vert_obj, vidx, n_evtid in LH5Iterator(stp_file, vfield, buffer_len=evtid_buffer):
+            # range of vertices
+            vert_ak = vert_obj.view_as("ak")[:n_evtid]
 
-            for field in ["evtid", "n_rows", "start_row"]:
-                out_tab.add_field(field, Array(glm[field].to_numpy()))
+            msg = f"... read chunk {vidx}"
+            log.debug(msg)
 
-            # write the output file
-            mode = "of" if (vidx == 0 and idx == 0) else "append"
+            for idx, lh5_table in enumerate(lh5_table_list):
+                # create the output table
+                out_tab = Table(size=len(vert_ak))
 
-            lh5_subgroup = lh5_table.replace("stp/", "")
+                # read the stp rows starting from `start_row` until the
+                # evtid is larger than that in the vertices
 
-            if glm_file is not None:
-                store.write(out_tab, f"{out_table_name}/{lh5_subgroup}", glm_file, wo_mode=mode)
-            else:
-                glm_sum[lh5_subgroup] = (
-                    copy.deepcopy(glm)
-                    if glm_sum[lh5_subgroup] is None
-                    else ak.concatenate((glm_sum[lh5_subgroup], glm))
+                start_row_tmp, chunk_row, evtids = get_stp_evtids(
+                    lh5_table,
+                    stp_file,
+                    id_name,
+                    start_row[lh5_table],
+                    last_vertex_evtid=vert_ak[-1],
+                    stp_buffer=stp_buffer,
                 )
-    msg = f"Finished generating glm for {stp_file} to {glm_file}"
-    log.info(msg)
+
+                # set the start row for the next chunk
+                start_row[lh5_table] = start_row_tmp
+
+                # now get the glm rows
+                glm = get_glm_rows(evtids, vert_ak, start_row=chunk_row)
+
+                for field in ["evtid", "n_rows", "start_row"]:
+                    out_tab.add_field(field, Array(glm[field].to_numpy()))
+
+                # write the output file
+                mode = "of" if (vidx == 0 and idx == 0) else "append"
+
+                lh5_subgroup = lh5_table.replace("stp/", "")
+
+                if files.glm is not None:
+                    store.write(
+                        out_tab,
+                        f"{out_table_name}/{lh5_subgroup}",
+                        files.glm[file_idx],
+                        wo_mode=mode,
+                    )
+                else:
+                    glm_sum[lh5_subgroup] = (
+                        copy.deepcopy(glm)
+                        if glm_sum[lh5_subgroup] is None
+                        else ak.concatenate((glm_sum[lh5_subgroup], glm))
+                    )
+        msg = f"Finished generating glm for {stp_file}."
+        log.info(msg)
     # return if it was requested to keep glm in memory
     if glm_sum is not None:
         return ak.Array(glm_sum)

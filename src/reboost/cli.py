@@ -24,7 +24,7 @@ def cli() -> None:
         "--verbose",
         "-v",
         action="count",
-        default=0,
+        default=1,
         help="""Increase the program verbosity""",
     )
 
@@ -34,10 +34,10 @@ def cli() -> None:
     glm_parser = subparsers.add_parser("build-glm", help="build glm file from remage stp file")
 
     glm_parser.add_argument(
-        "--stp_file", "-s", required=True, type=str, help="Path to the stp file."
+        "--stp_files", "-s", nargs="+", required=True, type=str, help="Path to the stp file."
     )
     glm_parser.add_argument(
-        "--glm_file", "-g", required=True, type=str, help="Path to the glm file "
+        "--glm_files", "-g", nargs="+", required=True, type=str, help="Path to the glm file "
     )
 
     # optional args
@@ -104,14 +104,14 @@ def cli() -> None:
 
     if args.command == "build-glm":
         # catch some cases
-        _check_input_file(parser, args.stp_file)
+        # _check_input_file(parser, args.stp_files)
 
         if args.overwrite is False:
-            _check_output_file(parser, args.glm_file)
+            _check_output_file(parser, args.glm_files)
 
         msg = "Running build_glm with arguments: \n"
-        msg += f"    glm file:       {args.glm_file}\n"
-        msg += f"    stp file:       {args.stp_file}\n"
+        msg += f"    glm file:       {args.glm_files}\n"
+        msg += f"    stp file:       {args.stp_files}\n"
         msg += f"    out_table_name: {args.out_table_name}\n"
         msg += f"    evtid_name:     {args.id_name}\n"
         msg += f"    evtid_buffer:   {args.evtid_buffer}\n"
@@ -120,8 +120,8 @@ def cli() -> None:
         log.info(msg)
 
         build_glm(
-            args.stp_file,
-            args.glm_file,
+            args.stp_files,
+            args.glm_files,
             out_table_name=args.out_table_name,
             id_name=args.id_name,
             evtid_buffer=args.evtid_buffer,
