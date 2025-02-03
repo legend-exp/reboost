@@ -38,7 +38,7 @@ def piecewise_linear_activeness(
     ----------
     distances
         the distance from each step to the detector surface. Can be either a
-        `numpy` or `akward` array, or a LGDO `VectorOfVectors` or `Array`. The computation
+        `numpy` or `awkward` array, or a LGDO `VectorOfVectors` or `Array`. The computation
         is performed for each element and the shape preserved in the output.
 
     fccd
