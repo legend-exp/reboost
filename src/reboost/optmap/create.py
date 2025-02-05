@@ -421,14 +421,21 @@ def check_optical_map(map_l5_file: str):
     """
     if lh5.read("_hitcounts_exp", lh5_file=map_l5_file).value != np.inf:
         log.error("unexpected hitcount exp not equal to positive infinity")
+        return
     if lh5.read("_hitcounts", lh5_file=map_l5_file).nda.shape != (2,):
         log.error("unexpected hitcount shape")
+        return
 
     all_binning = None
     for submap in list_optical_maps(map_l5_file):
-        om = OpticalMap.load_from_file(map_l5_file, submap)
+        try:
+            om = OpticalMap.load_from_file(map_l5_file, submap)
+        except BaseException:
+            log.exception("error while loading optical map %s", submap)
+            continue
         om.check_histograms(include_prefix=True)
 
         if all_binning is not None and not OpticalMap._edges_eq(om.binning, all_binning):
             log.error("edges of optical map %s differ", submap)
-        all_binning = om.binning
+        else:
+            all_binning = om.binning

@@ -62,7 +62,7 @@ class OpticalMap:
             h = lh5.read(f"/{group}/{name}", lh5_file=fn)
             if not isinstance(h, Histogram):
                 msg = f"encountered invalid optical map while reading /{group}/{name} in {fn}"
-                raise ValueError(msg)
+                raise RuntimeError(msg)
             return h.weights.nda, h.binning
 
         om.h_vertex, bin_nr_gen = read_hist("nr_gen", lh5_file, group=group)
@@ -72,7 +72,8 @@ class OpticalMap:
 
         for bins in (bin_nr_det, bin_p_det, bin_p_det_err):
             if not OpticalMap._edges_eq(bin_nr_gen, bins):
-                pass
+                msg = "edges of optical map histograms differ"
+                raise RuntimeError(msg)
 
         om.binning = bin_nr_gen
         return om
