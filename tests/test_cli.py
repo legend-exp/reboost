@@ -1,27 +1,16 @@
 from __future__ import annotations
 
-import uuid
-from getpass import getuser
 from pathlib import Path
-from tempfile import gettempdir
 
-import pytest
 from lgdo import lh5
 
 from reboost.cli import cli
 
-_tmptestdir = Path(gettempdir()) / Path(f"reboost-tests-{getuser()}-{uuid.uuid4()!s}")
-
-
-@pytest.fixture(scope="session")
-def tmptestdir():
-    Path.mkdir(_tmptestdir)
-    return _tmptestdir
-
 
 def test_cli(tmptestdir):
-    # cli for build_glm
+    test_file_dir = Path(__file__).parent / "hit"
 
+    # test cli for build_glm
     cli(
         [
             "build-glm",
@@ -31,27 +20,28 @@ def test_cli(tmptestdir):
             "--glm-file",
             f"{tmptestdir}/glm.lh5",
             "--stp-file",
-            f"{Path(__file__).parent}/hit/test_files/beta_small.lh5",
+            f"{test_file_dir}/test_files/beta_small.lh5",
         ]
     )
 
     glm = lh5.read("glm/det001", f"{tmptestdir}/glm.lh5").view_as("ak")
     assert glm.fields == ["evtid", "n_rows", "start_row"]
 
+    # test cli for build_hit
     cli(
         [
             "build-hit",
             "--config",
-            f"{Path(__file__).parent}/hit/configs/hit_config.yaml",
+            f"{test_file_dir}/configs/hit_config.yaml",
             "-w",
             "--glm-file",
             f"{tmptestdir}/glm.lh5",
             "--stp-file",
-            f"{Path(__file__).parent}/hit/test_files/beta_small.lh5",
+            f"{test_file_dir}/test_files/beta_small.lh5",
             "--hit-file",
             f"{tmptestdir}/hit.lh5",
             "--args",
-            f"{Path(__file__).parent}/hit/configs/args.yaml",
+            f"{test_file_dir}/configs/args.yaml",
         ]
     )
 

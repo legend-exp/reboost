@@ -15,8 +15,15 @@ from reboost.optmap.evt import build_optmap_evt
 from reboost.optmap.optmap import OpticalMap
 
 
+@pytest.fixture(scope="session")
+def tmptestdir(tmptestdir):
+    p = tmptestdir / __name__
+    p.mkdir()  # note: will be cleaned up globally.
+    return p
+
+
 @pytest.fixture
-def tbl_hits(tmp_path):
+def tbl_hits(tmptestdir):
     evt_count = 100
     rng = np.random.default_rng(1234)
     loc = rng.uniform(size=(evt_count, 3))
@@ -45,14 +52,14 @@ def tbl_hits(tmp_path):
         }
     )
 
-    hit_file = tmp_path / "hit.lh5"
+    hit_file = tmptestdir / "hit.lh5"
     lh5.write(tbl_vertices, name="stp/vertices", lh5_file=hit_file, wo_mode="overwrite_file")
     lh5.write(tbl_optical, name="stp/optical", lh5_file=hit_file, wo_mode="overwrite")
     return hit_file
 
 
-def test_optmap_evt(tbl_hits, tmp_path):
-    evt_out_file = tmp_path / "evt-out.lh5"
+def test_optmap_evt(tbl_hits, tmptestdir):
+    evt_out_file = tmptestdir / "evt-out.lh5"
     build_optmap_evt(
         str(tbl_hits),
         str(evt_out_file),
@@ -62,7 +69,7 @@ def test_optmap_evt(tbl_hits, tmp_path):
 
 
 @pytest.fixture
-def tbl_evt_fns(tmp_path) -> tuple[str]:
+def tbl_evt_fns(tmptestdir) -> tuple[str]:
     evt_count = 100
     rng = np.random.default_rng(1234)
     loc = rng.uniform(size=(evt_count, 3))
@@ -79,7 +86,7 @@ def tbl_evt_fns(tmp_path) -> tuple[str]:
         }
     )
 
-    evt_file = tmp_path / "evt.lh5"
+    evt_file = tmptestdir / "evt.lh5"
     lh5.write(tbl_evt, name="optmap_evt", lh5_file=evt_file, wo_mode="overwrite_file")
     return (str(evt_file),)
 
@@ -126,20 +133,20 @@ def test_optmap_create(tbl_evt_fns):
 
 
 @pytest.mark.filterwarnings("ignore::scipy.optimize._optimize.OptimizeWarning")
-def test_optmap_merge(tbl_evt_fns, tmp_path):
+def test_optmap_merge(tbl_evt_fns, tmptestdir):
     settings = {
         "range_in_m": [[0, 1], [0, 1], [0, 1]],
         "bins": [10, 10, 10],
     }
 
-    map1_fn = str(tmp_path / "map1.lh5")
+    map1_fn = str(tmptestdir / "map1.lh5")
     create_optical_maps(
         tbl_evt_fns,
         settings,
         chfilter=("001", "002", "003"),
         output_lh5_fn=map1_fn,
     )
-    map2_fn = str(tmp_path / "map2.lh5")
+    map2_fn = str(tmptestdir / "map2.lh5")
     create_optical_maps(
         tbl_evt_fns,
         settings,
@@ -148,16 +155,16 @@ def test_optmap_merge(tbl_evt_fns, tmp_path):
     )
 
     # test in sequential mode.
-    map_merged_fn = str(tmp_path / "map-merged.lh5")
+    map_merged_fn = str(tmptestdir / "map-merged.lh5")
     merge_optical_maps([map1_fn, map2_fn], map_merged_fn, settings)
 
     # also test on multiple cores.
-    map_merged_fn = str(tmp_path / "map-merged-mp.lh5")
+    map_merged_fn = str(tmptestdir / "map-merged-mp.lh5")
     merge_optical_maps([map1_fn, map2_fn], map_merged_fn, settings, n_procs=2)
 
 
 @pytest.fixture
-def tbl_edep(tmp_path):
+def tbl_edep(tmptestdir):
     evt_count = 100
     rng = np.random.default_rng(1234)
     loc = rng.uniform(size=(evt_count, 6))
@@ -181,19 +188,19 @@ def tbl_edep(tmp_path):
         }
     )
 
-    evt_file = tmp_path / "edep.lh5"
+    evt_file = tmptestdir / "edep.lh5"
     lh5.write(tbl_edep, name="/stp/x", lh5_file=evt_file, wo_mode="overwrite_file")
     return evt_file
 
 
 @pytest.mark.filterwarnings("ignore::scipy.optimize._optimize.OptimizeWarning")
-def test_optmap_convolve(tbl_evt_fns, tbl_edep, tmp_path):
+def test_optmap_convolve(tbl_evt_fns, tbl_edep, tmptestdir):
     settings = {
         "range_in_m": [[0, 1], [0, 1], [0, 1]],
         "bins": [2, 2, 2],
     }
 
-    map_fn = str(tmp_path / "map.lh5")
+    map_fn = str(tmptestdir / "map-convolve.lh5")
     create_optical_maps(
         tbl_evt_fns,
         settings,
@@ -201,7 +208,7 @@ def test_optmap_convolve(tbl_evt_fns, tbl_edep, tmp_path):
         output_lh5_fn=map_fn,
     )
 
-    out_fn = str(tmp_path / "convolved.lh5")
+    out_fn = str(tmptestdir / "convolved.lh5")
     convolve(
         map_fn,
         str(tbl_edep),
@@ -213,13 +220,13 @@ def test_optmap_convolve(tbl_evt_fns, tbl_edep, tmp_path):
 
 
 @pytest.mark.filterwarnings("ignore::scipy.optimize._optimize.OptimizeWarning")
-def test_optmap_save_and_load(tmp_path, tbl_evt_fns):
+def test_optmap_save_and_load(tmptestdir, tbl_evt_fns):
     settings = {
         "range_in_m": [[0, 1], [0, 1], [0, 1]],
         "bins": [10, 10, 10],
     }
 
-    map_fn = str(tmp_path / "map.lh5")
+    map_fn = str(tmptestdir / "map-load.lh5")
     create_optical_maps(
         tbl_evt_fns,
         settings,

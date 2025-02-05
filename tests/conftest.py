@@ -9,12 +9,12 @@ from tempfile import gettempdir
 import numba
 import pytest
 
-_tmptestdir = Path(gettempdir()) / Path(f"reboost-tests-{getuser()}-{uuid.uuid4()!s}")
+_tmptestdir = Path(gettempdir()) / f"reboost-tests-{getuser()}-{uuid.uuid4()!s}"
 
 
 @pytest.fixture(scope="session")
 def tmptestdir():
-    Path.mkdir(_tmptestdir)
+    _tmptestdir.mkdir()
     return _tmptestdir
 
 

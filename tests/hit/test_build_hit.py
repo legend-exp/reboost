@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import uuid
-from getpass import getuser
 from pathlib import Path
-from tempfile import gettempdir
 
 import awkward as ak
 import dbetto
@@ -13,13 +10,12 @@ from lgdo import Array, Table, lh5
 import reboost
 from reboost.build_glm import build_glm
 
-_tmptestdir = Path(gettempdir()) / Path(f"reboost-tests-{getuser()}-{uuid.uuid4()!s}")
-
 
 @pytest.fixture(scope="session")
-def tmptestdir():
-    Path.mkdir(_tmptestdir)
-    return _tmptestdir
+def tmptestdir(tmptestdir):
+    p = tmptestdir / __name__
+    p.mkdir()  # note: will be cleaned up globally.
+    return p
 
 
 def test_gen_lh5(tmptestdir):

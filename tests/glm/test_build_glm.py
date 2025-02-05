@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-import uuid
-from getpass import getuser
-from pathlib import Path
-from tempfile import gettempdir
-
 import awkward as ak
 import numpy as np
 import pytest
@@ -13,13 +8,12 @@ from lgdo import Table, lh5
 from reboost.build_glm import build_glm, get_glm_rows, get_stp_evtids
 from reboost.build_hit import GLMIterator
 
-_tmptestdir = Path(gettempdir()) / Path(f"reboost-tests-{getuser()}-{uuid.uuid4()!s}")
-
 
 @pytest.fixture(scope="session")
-def tmptestdir():
-    Path.mkdir(_tmptestdir)
-    return _tmptestdir
+def tmptestdir(tmptestdir):
+    p = tmptestdir / __name__
+    p.mkdir()  # note: will be cleaned up globally.
+    return p
 
 
 # test the basic (awkward operations) to get the glm rows
