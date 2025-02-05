@@ -18,31 +18,39 @@ def tmptestdir(tmptestdir):
     return p
 
 
+@pytest.fixture(scope="session")
 def test_gen_lh5(tmptestdir):
     # write a basic lh5 file
+
+    stp_path = str(tmptestdir / "basic.lh5")
+    glm_path = str(tmptestdir / "basic_glm.lh5")
 
     evtid = [0, 0, 1, 1, 1]
     edep = [100, 200, 10, 20, 300]  # keV
     time = [0, 1.5, 0.1, 2.1, 3.7]  # ns
     vertices = [0, 1]
     tab = Table({"evtid": Array(evtid), "edep": Array(edep), "time": Array(time)})
-    lh5.write(tab, "stp/det1", str(tmptestdir / "basic.lh5"), wo_mode="of")
+    lh5.write(tab, "stp/det1", stp_path, wo_mode="of")
     lh5.write(
         Table({"evtid": Array(vertices)}),
         "stp/vertices",
-        str(tmptestdir / "basic.lh5"),
+        stp_path,
         wo_mode="append",
     )
 
-    build_glm(str(tmptestdir / "basic.lh5"), str(tmptestdir / "basic_glm.lh5"), id_name="evtid")
+    build_glm(stp_path, glm_path, id_name="evtid")
+
+    return stp_path, glm_path
 
 
-def test_basic(tmptestdir):
+def test_basic(test_gen_lh5, tmptestdir):
+    stp_path, glm_path = test_gen_lh5
+
     reboost.build_hit.build_hit(
         f"{Path(__file__).parent}/configs/basic.yaml",
         args={},
-        stp_files=f"{tmptestdir}/basic.lh5",
-        glm_files=f"{tmptestdir}/basic_glm.lh5",
+        stp_files=stp_path,
+        glm_files=glm_path,
         hit_files=f"{tmptestdir}/basic_hit.lh5",
     )
 
@@ -58,8 +66,8 @@ def test_basic(tmptestdir):
     hits, time_dict = reboost.build_hit.build_hit(
         f"{Path(__file__).parent}/configs/basic.yaml",
         args={},
-        stp_files=f"{tmptestdir}/basic.lh5",
-        glm_files=f"{tmptestdir}/basic_glm.lh5",
+        stp_files=stp_path,
+        glm_files=glm_path,
         hit_files=None,
     )
 
