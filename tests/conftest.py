@@ -13,9 +13,16 @@ _tmptestdir = Path(gettempdir()) / f"reboost-tests-{getuser()}-{uuid.uuid4()!s}"
 
 
 @pytest.fixture(scope="session")
-def tmptestdir():
-    _tmptestdir.mkdir()
+def tmptestdir_global():
+    _tmptestdir.mkdir(exist_ok=False)
     return _tmptestdir
+
+
+@pytest.fixture(scope="module")
+def tmptestdir(tmptestdir_global, request):
+    p = tmptestdir_global / request.module.__name__
+    p.mkdir(exist_ok=True)  # note: will be cleaned up globally.
+    return p
 
 
 def pytest_sessionfinish(exitstatus):

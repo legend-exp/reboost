@@ -11,14 +11,7 @@ import reboost
 from reboost.build_glm import build_glm
 
 
-@pytest.fixture(scope="session")
-def tmptestdir(tmptestdir):
-    p = tmptestdir / __name__
-    p.mkdir()  # note: will be cleaned up globally.
-    return p
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_gen_lh5(tmptestdir):
     # write a basic lh5 file
 

@@ -15,13 +15,6 @@ from reboost.optmap.evt import build_optmap_evt
 from reboost.optmap.optmap import OpticalMap
 
 
-@pytest.fixture(scope="session")
-def tmptestdir(tmptestdir):
-    p = tmptestdir / __name__
-    p.mkdir()  # note: will be cleaned up globally.
-    return p
-
-
 @pytest.fixture
 def tbl_hits(tmptestdir):
     evt_count = 100

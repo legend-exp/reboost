@@ -9,13 +9,6 @@ from reboost.build_glm import build_glm, get_glm_rows, get_stp_evtids
 from reboost.build_hit import GLMIterator
 
 
-@pytest.fixture(scope="session")
-def tmptestdir(tmptestdir):
-    p = tmptestdir / __name__
-    p.mkdir()  # note: will be cleaned up globally.
-    return p
-
-
 # test the basic (awkward operations) to get the glm rows
 def test_get_glm_rows():
     # some basic cases
