@@ -26,7 +26,7 @@ def evaluate_output_column(
 ) -> LGDO:
     """Evaluate an expression returning an LGDO.
 
-    Uses :func:`LGDO.Table.eval()` to compute a new column for the
+    Uses :func:`lgdo.Table.eval()` to compute a new column for the
     hit table. The expression can depend on any field in the Table
     (prefixed with table_name.) or objects contained in the local dict.
     In addition, the expression can use packages which are then imported.
@@ -38,7 +38,7 @@ def evaluate_output_column(
     expression
         the expression to evaluate.
     local_dict
-        local dictionary to pass to :func:`LGDO.Table.eval()`.
+        local dictionary to pass to :func:`lgdo.Table.eval()`.
     table_name
         keyword used to refer to the fields in the table.
     time_dict
@@ -48,7 +48,7 @@ def evaluate_output_column(
 
     Returns
     -------
-        an LGDO with the new field.
+    an LGDO with the new field.
     """
     if time_dict is not None:
         time_start = time.time()
@@ -102,7 +102,7 @@ def evaluate_object(
 
     Returns
     -------
-        the evaluated object.
+    the evaluated object.
     """
     func_call, globals_dict = utils.get_function_string(expression)
 
@@ -311,7 +311,7 @@ def evaluate_hit_table_layout(
 
     Returns
     -------
-    :class:`LGDO.Table` of the hits.
+    :class:`lgdo.Table` of the hits.
     """
     if time_dict is not None:
         time_start = time.time()

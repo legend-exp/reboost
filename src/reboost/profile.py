@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 class ProfileDict(AttrsDict):
     """A class to store the results of time profiling."""
 
-    def update_field(self, name: str, time_start: float):
+    def update_field(self, name: str, time_start: float) -> None:
         """Update the stored time.
 
         Parameters
@@ -52,7 +52,7 @@ class ProfileDict(AttrsDict):
         """Return a human-readable profiling summary."""
         return "\nReboost post processing took: \n" + self._format(self, indent=1)
 
-    def _format(self, data: ProfileDict, indent: int = 1):
+    def _format(self, data: ProfileDict, indent: int = 1) -> str:
         """Recursively format the dictionary.
 
         Parameters

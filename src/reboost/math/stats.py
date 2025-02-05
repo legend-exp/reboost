@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 def gaussian_sample(mu: ArrayLike, sigma: ArrayLike | float, *, seed: int = 999) -> Array:
     r"""Generate samples from a gaussian.
 
-      Based on:
+    Based on:
 
     .. math::
 
@@ -33,7 +33,7 @@ def gaussian_sample(mu: ArrayLike, sigma: ArrayLike | float, *, seed: int = 999)
 
     Returns
     -------
-    `LGDO.Array` of sampled values.
+    sampled values.
     """
     # convert inputs
 

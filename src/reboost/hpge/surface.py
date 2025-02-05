@@ -5,7 +5,7 @@ import logging
 import awkward as ak
 import legendhpges
 import numpy as np
-from lgdo import Array, VectorOfVectors
+from lgdo import VectorOfVectors
 from lgdo.types import LGDO
 from numpy.typing import ArrayLike
 
@@ -23,7 +23,7 @@ def distance_to_surface(
     unit: str = "mm",
     distances_precompute: VectorOfVectors | None = None,
     precompute_cutoff: float | None = None,
-) -> Array:
+) -> VectorOfVectors:
     """Computes the distance from each step to the detector surface.
 
     The calculation can be performed for any surface type `nplus`, `pplus`,

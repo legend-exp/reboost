@@ -187,8 +187,8 @@ def build_glm(
     """Builds a g4_evtid look up (glm) from the stp data.
 
     This object is used by `reboost` to efficiency iterate through the data.
-    It consists of a :class:`LGDO.VectorOfVectors` for each lh5_table in the input files.
-    The rows of this :class:`LGDO.VectorOfVectors` correspond to the `id_name` while the data
+    It consists of a :class:`lgdo.VectorOfVectors` for each lh5_table in the input files.
+    The rows of this :class:`lgdo.VectorOfVectors` correspond to the `id_name` while the data
     are the `stp` indices for this event.
 
     Parameters
