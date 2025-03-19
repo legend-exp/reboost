@@ -81,7 +81,9 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
 
 
 @numba.njit(cache=True)
-def psa(t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64) -> np.float64:
+def identification_metric(
+    t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64
+) -> np.float64:
     return abs(t1 - t2) / e_scaler(e1, e2)
 
 
@@ -151,9 +153,35 @@ def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64, drift_time_m
 
 
 @numba.njit(cache=True)
-def psa_heuristic_numba(
+def calculate_dt_heuristic(
     drift_times: np.array, energies: np.array, event_offsets: np.array
 ) -> np.array:
+    """Computes the drift time heuristic pulse shape analysis (PSA) metric for each event based on drift time and energy of hits (steps or clusters) within a Ge detector.
+
+    This function iterates over a set of events, extracts drift times and energies
+    for each event, and identifies the drift time separation that maximizes
+    the heuristic identification metric.
+
+    Parameters
+    ----------
+    drift_times : np.array
+        flattened array of drift times corresponding to hits in the detector.
+    energies : np.array
+        flattened array of energy depositions associated with each hit.
+    event_offsets : np.array
+        flattened array indicating the start and end indices of each event in `drift_times` and `energies`.
+
+    Returns
+    -------
+    np.array
+        Array containing the maximum PSA identification metric for each event.
+
+    Notes
+    -----
+    - The identification metric is computed by iterating through possible division points within an event,
+      separating the hits into two groups, and calculating energy weighted mean drift times.
+    - The function uses a numba JIT compilation for performance optimization.
+    """
     num_events = len(event_offsets) - 1
     dt_heuristic_output = np.zeros(num_events, dtype=np.float64)
 
@@ -187,7 +215,7 @@ def psa_heuristic_numba(
                 t1 = np.sum(sorted_drift_times[:mkr] * sorted_energies[:mkr]) / e1
                 t2 = np.sum(sorted_drift_times[mkr:] * sorted_energies[mkr:]) / e2
 
-                identify = psa(t1, e1, t2, e2)
+                identify = identification_metric(t1, e1, t2, e2)
                 max_identify = max(max_identify, identify)
 
         dt_heuristic_output[evt_idx] = max_identify
@@ -211,6 +239,6 @@ def dt_heuristic(data: ak.Array, drift_time_map: ReadHPGeMap) -> Array:
 
     event_offsets = np.append(0, np.cumsum(ak.num(drift_times)))
 
-    dt_heuristic_output = psa_heuristic_numba(drift_times_flat, energies_flat, event_offsets)
+    dt_heuristic_output = calculate_dt_heuristic(drift_times_flat, energies_flat, event_offsets)
 
     return Array(dt_heuristic_output)

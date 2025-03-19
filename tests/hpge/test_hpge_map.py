@@ -6,11 +6,8 @@ from pathlib import Path
 import legendhpges as hpges
 import numpy as np
 import pyg4ometry as pg4
-from lgdo import lh5
 
-from reboost.hpge.psd import do_cluster, dt_heuristic
 from reboost.hpge.utils import ReadHPGeMap
-from reboost.shape.group import group_by_time
 
 
 def create_test_registry():
@@ -42,20 +39,24 @@ def create_test_registry():
     return bege_l, reg
 
 
-def test_dt_heuristic():
-    data = lh5.read_as("stp/det001/", "test_files/internal_electron.lh5", "ak")
-    grouped_data = group_by_time(data, evtid_name="evtid").view_as("ak")
+def test_drift_time():
     bege, reg = create_test_registry()
 
     dt_file_obj = ReadHPGeMap(
         "test_files/B99000A_drift_time_map.lh5", "drift_times", reg.physicalVolumeDict["BEGe"]
     )
-    cluster_size_mm = 0.1
 
-    _non_clustered_dth = dt_heuristic(grouped_data, dt_file_obj)
-    cluster_data = do_cluster(grouped_data, cluster_size_mm, dt_file_obj)
-    _clustered_dth = dt_heuristic(cluster_data, dt_file_obj)
+    assert dt_file_obj.xpos == 0.05
+    assert dt_file_obj.ypos == 0
+    assert dt_file_obj.zpos == -0.03
+    assert (dt_file_obj.HPGeMap[0].r, dt_file_obj.HPGeMap[0].z, dt_file_obj.HPGeMap[0].val) == (
+        0.0,
+        0.0002,
+        364.0,
+    )
+    assert round(dt_file_obj.get_map_value(0.0 + 0.05, 0, 0.0002 - 0.03), 4) == 364
+    assert round(dt_file_obj.get_map_value(0.045, 0, -0.02), 5) == 218.0
 
 
 if __name__ == "__main__":
-    test_dt_heuristic()
+    test_drift_time()
