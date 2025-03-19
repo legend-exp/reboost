@@ -13,9 +13,9 @@ log = logging.getLogger(__name__)
 def calculate_drift_times(
     xdata: ak.Array, ydata: ak.Array, zdata: ak.Array, drift_time_map: ReadHPGeMap
 ) -> ak.Array:
-    x_flat = ak.flatten(xdata).to_numpy() * 1000  # Convert to mm
-    y_flat = ak.flatten(ydata).to_numpy() * 1000  # Convert to mm
-    z_flat = ak.flatten(zdata).to_numpy() * 1000  # Convert to mm
+    x_flat = ak.flatten(xdata).to_numpy()
+    y_flat = ak.flatten(ydata).to_numpy()
+    z_flat = ak.flatten(zdata).to_numpy()
 
     # Vectorized calculation of drift times for each cluster element
     drift_times_flat = np.vectorize(lambda x, y, z: drift_time_map.get_map_value(x, y, z))(

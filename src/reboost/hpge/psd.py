@@ -92,13 +92,45 @@ def e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
     return 1 / np.sqrt(e1 * e2)
 
 
-def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64, drift_time_map: ReadHPGeMap):
+def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64):
+    """Clusters grouped energy depositions in a germanium detector based on spatial proximity.
+
+    This function clusters depositions within a hit using a step-length-based method.
+    The steps are clustered using the same evtid. It then computes weighted averages of position,
+    time, and other properties for each cluster, applying energy-based weighting taking into
+    account the activeness of the depositions.
+
+    Parameters
+    ----------
+    grouped_data : ak.Array
+        Awkward array containing hit-level data, including:
+        - `evtid` : Event ID for grouping hits.
+        - `xloc`, `yloc`, `zloc` : step positions in m.
+        - `dist_to_surf` : Distance of the step from the detector surface in m.
+        - `edep` : Energy deposition of the step.
+        - `time` : Timestamp of the step.
+    cluster_size_mm : np.float64
+        Clustering threshold in mm, determining the maximum step
+        length for grouping hits into a single cluster.
+
+    Returns
+    -------
+    ak.Array
+        Awkward array containing clustered hit properties:
+        - `activeness` : Computed activeness factor for each cluster, based on FCCD and Transition layer models.
+        - `xloc`, `yloc`, `zloc` : Clustered positions (active energy-weighted).
+        - `time` : Clustered time (active energy-weighted).
+        - `dist_to_surf` : distance to surface of cluster (active energy-weighted).
+        - `edep` : Total active energy deposition of the cluster.
+        - `cluster_size` : Spatial extent of the cluster, computed as
+          the active energy-weighted spread of individual steps.
+    """
     cluster_indices = cluster_by_step_length(
         grouped_data["evtid"],
-        grouped_data["xloc"] * 1000,  # Convert to mm
-        grouped_data["yloc"] * 1000,  # Convert to mm
-        grouped_data["zloc"] * 1000,  # Convert to mm
-        grouped_data["dist_to_surf"] * 1000,  # Convert to mm
+        grouped_data["xloc"] * 1000,  # has to be in mm
+        grouped_data["yloc"] * 1000,  # has to be in mm
+        grouped_data["zloc"] * 1000,  # has to be in mm
+        grouped_data["dist_to_surf"] * 1000,  # has to be in mm
         threshold=cluster_size_mm,
     )
 
@@ -107,7 +139,7 @@ def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64, drift_time_m
         for field in ["edep", "xloc", "yloc", "zloc", "time", "dist_to_surf"]
     }
     clustered_data["activeness"] = piecewise_linear_activeness(
-        clustered_data["dist_to_surf"], 0.5, 0.5
+        clustered_data["dist_to_surf"], 0.5 / 1000, 0.5 / 1000
     ).view_as("ak")
 
     cluster_energy = ak.sum(clustered_data["edep"] * clustered_data["activeness"], axis=-1)
@@ -145,10 +177,6 @@ def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64, drift_time_m
         ** 0.5
     )
 
-    clusters["drift_time"] = calculate_drift_times(
-        clusters["xloc"], clusters["yloc"], clusters["zloc"], drift_time_map
-    )
-
     return ak.Array(clusters)
 
 
@@ -156,7 +184,7 @@ def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64, drift_time_m
 def calculate_dt_heuristic(
     drift_times: np.array, energies: np.array, event_offsets: np.array
 ) -> np.array:
-    """Computes the drift time heuristic pulse shape analysis (PSA) metric for each event based on drift time and energy of hits (steps or clusters) within a Ge detector.
+    r"""Computes the drift time heuristic pulse shape analysis (PSA) metric for each event based on drift time and energy of hits (steps or clusters) within a Ge detector.
 
     This function iterates over a set of events, extracts drift times and energies
     for each event, and identifies the drift time separation that maximizes
@@ -178,9 +206,21 @@ def calculate_dt_heuristic(
 
     Notes
     -----
-    - The identification metric is computed by iterating through possible division points within an event,
-      separating the hits into two groups, and calculating energy weighted mean drift times.
-    - The function uses a numba JIT compilation for performance optimization.
+    - For each event, the drift times and corresponding energies are sorted in ascending order.
+    - The function finds the optimal split point `m` that maximizes the **identification metric**:
+
+      .. math::
+
+          I = \\frac{|T_1 - T_2|}{E_{\text{scale}}(E_1, E_2)}
+
+      where:
+
+      - :math:`T_1 = \\frac{\sum_{i < m} t_i E_i}{\sum_{i < m} E_i}`  and
+        :math:`T_2 = \\frac{\sum_{i \geq m} t_i E_i}{\sum_{i \geq m} E_i}`
+        are the energy-weighted mean drift times of the two groups.
+      - :math:`E_{\text{scale}}(E_1, E_2) = \\frac{1}{\sqrt{E_1 E_2}}`
+        is the scaling factor.
+    - The function iterates over all possible values of `m` and selects the maximum `I`.
     """
     num_events = len(event_offsets) - 1
     dt_heuristic_output = np.zeros(num_events, dtype=np.float64)
@@ -224,7 +264,34 @@ def calculate_dt_heuristic(
 
 
 def dt_heuristic(data: ak.Array, drift_time_map: ReadHPGeMap) -> Array:
-    # Test if the data has activeness
+    """Computes the drift time heuristic pulse shape analysis (PSA) metric for each hit.
+
+    This function calculates drift times for each hit (step or cluster)
+    in a germanium detector and computes the heuristic metric based on drift time separation
+    and energy weighting.
+
+    Parameters
+    ----------
+    data : ak.Array
+        An awkward array containing event step or cluster, including hit positions
+        (`xloc`, `yloc`, `zloc`) and deposited energy (`edep`). Optionally, it may contain
+        `activeness` values.
+    drift_time_map : ReadHPGeMap
+        Drift time HPGe map used to determine drift times for given spatial coordinates.
+
+    Returns
+    -------
+    Array
+        A LDGO Array containing the computed dt heuristic value for each event.
+
+    Notes
+    -----
+    - If `activeness` is not present in `data`, it is computed using a piecewise linear function
+      based on distance to the detector surface.
+    - Drift times are computed using `calculate_drift_times()`, mapped from spatial coordinates.
+    - The function flattens energy and drift time arrays to prepare for numba processing.
+    - Then`calculate_dt_heuristic()` is called which does the computation.
+    """
     if "activeness" not in data.fields:
         activeness = piecewise_linear_activeness(
             data["dist_to_surf"], fccd=0.5 / 1000, tl=0.5 / 1000

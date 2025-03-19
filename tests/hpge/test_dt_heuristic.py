@@ -6,7 +6,7 @@ from pathlib import Path
 import legendhpges as hpges
 import numpy as np
 import pyg4ometry as pg4
-from lgdo import lh5
+from lgdo import Table, lh5
 
 from reboost.hpge.psd import do_cluster, dt_heuristic
 from reboost.hpge.utils import ReadHPGeMap
@@ -55,6 +55,19 @@ def test_dt_heuristic():
     _non_clustered_dth = dt_heuristic(grouped_data, dt_file_obj)
     cluster_data = do_cluster(grouped_data, cluster_size_mm, dt_file_obj)
     _clustered_dth = dt_heuristic(cluster_data, dt_file_obj)
+
+    sto = lh5.LH5Store()
+
+    sto.write(
+        Table({"dth": _non_clustered_dth}),
+        "/non_clustered_dth",
+        "test_files/internal_electron_dt.lh5",
+    )
+    sto.write(
+        Table({"dth": _clustered_dth}),
+        "/clustered_dth",
+        "test_files/internal_electron__clust_dt.lh5",
+    )
 
 
 if __name__ == "__main__":
