@@ -63,7 +63,7 @@ def build_optmap_evt(
     def _ensure_vert_df(vert_it: LH5Iterator, evtid: int) -> None:
         nonlocal vert_df, vert_df_bounds, vert_it_count, hits_expected
 
-        # skipping multiple chunks is possible in sparsely populated simulations. 
+        # skipping multiple chunks is possible in sparsely populated simulations.
         while vert_df_bounds is None or evtid > vert_df_bounds[1] or evtid < vert_df_bounds[0]:
             if vert_df_bounds is not None and vert_df is not None:
                 if evtid < vert_df_bounds[0]:
