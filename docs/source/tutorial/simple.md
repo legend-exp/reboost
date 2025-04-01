@@ -111,43 +111,7 @@ We use the second option and a time window of 10 us.
 hits = reboost.shape.group.group_by_time(stp, window=10).view_as("ak")
 ```
 
-Printing the data we can see it now has a jagged structure. Now each row corresponds to a particular hit in the HPGe detector in analogy to [[pygama-hit-tier-data]](https://pygama.readthedocs.io/en/stable/api/pygama.hit.html) used in the pygama data processing software.
-
-```python
-hits
-```
-
-<pre>[{evtid: [38, 38, 38, ..., 38, 38, 38], particle: [22, ...], edep: [...], ...},
- {evtid: [40, 40, 40, ..., 40, 40, 40], particle: [22, ...], edep: [...], ...},
- {evtid: [44, 44, 44, ..., 44, 44, 44], particle: [22, ...], edep: [...], ...},
- {evtid: [88, 88, 88, ..., 88, 88, 88], particle: [22, ...], edep: [...], ...},
- {evtid: [97, 97, 97, ..., 97, 97, 97], particle: [22, ...], edep: [...], ...},
- {evtid: [106, 106, 106, ..., 106, 106], particle: [22, ...], edep: [...], ...},
- {evtid: [116, 116, 116, ..., 116, 116], particle: [22, ...], edep: [...], ...},
- {evtid: [133, 133, 133, ..., 133, 133], particle: [22, ...], edep: [...], ...},
- {evtid: [165, 165, 165, ..., 165, 165], particle: [22, ...], edep: [...], ...},
- {evtid: [184, 184, 184, ..., 184, 184], particle: [22, ...], edep: [...], ...},
- ...,
- {evtid: [999906, 999906, ..., 999906], particle: [22, ...], edep: [...], ...},
- {evtid: [999929, 999929, ..., 999929], particle: [22, ...], edep: [...], ...},
- {evtid: [999960, 999960, ..., 999960], particle: [22, ...], edep: [...], ...},
- {evtid: [999966, 999966, ..., 999966], particle: [22, ...], edep: [...], ...},
- {evtid: [999970, 999970, ..., 999970], particle: [22, ...], edep: [...], ...},
- {evtid: [999974, 999974, ..., 999974], particle: [22, ...], edep: [...], ...},
- {evtid: [999975, 999975, ..., 999975], particle: [22, ...], edep: [...], ...},
- {evtid: [999995, 999995, ..., 999995], particle: [22, ...], edep: [...], ...},
- {evtid: [999999, 999999, ..., 999999], particle: [22, ...], edep: [...], ...}]
---------------------------------------------------------------------------------
-type: 91791 * {
-    evtid: var * int32,
-    particle: var * int32,
-    edep: var * float64,
-    time: var * float64,
-    xloc: var * float64,
-    yloc: var * float64,
-    zloc: var * float64,
-    dist_to_surf: var * float64
-}</pre>
+The data now has a jagged structure. Now each row corresponds to a particular hit in the HPGe detector in analogy to [[pygama-hit-tier-data]](https://pygama.readthedocs.io/en/stable/api/pygama.hit.html) used in the pygama data processing software.
 
 ## Processors
 
