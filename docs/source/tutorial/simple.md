@@ -30,6 +30,8 @@ For this example we simulate $^{228}$Th in the source. We use the following macr
 /run/beamOn 1000000
 ```
 
+We can follow the instructions from the remage tutorial to obtain the GDML file description of the experimental geometry (saved as `geometry.gdml`).
+
 And run the remage (from inside the remage container / after installation [[instructions]](https://remage.readthedocs.io/en/stable/manual/install.html)) simulation with:
 
 ```console
