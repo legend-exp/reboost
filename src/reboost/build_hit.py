@@ -246,6 +246,8 @@ def build_hit(
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
             proc_name = proc_group.get("name", "default")
+            msg = f"... starting group {proc_name}"
+            log.info(msg)
 
             if proc_name not in time_dict:
                 time_dict[proc_name] = ProfileDict()
@@ -261,9 +263,11 @@ def build_hit(
                     for mapping in proc_group.get("detector_mapping")
                 ]
             )
-
             # loop over detectors
             for in_det_idx, (in_detector, out_detectors) in enumerate(detectors_mapping.items()):
+                msg = f"... processing {in_detector} (to {out_detectors})"
+                log.info(msg)
+
                 # get detector objects
                 det_objects = core.get_detector_objects(
                     output_detectors=out_detectors,
@@ -286,7 +290,7 @@ def build_hit(
                     time_dict=time_dict[proc_name],
                 )
                 for stps, _, chunk_idx, _ in glm_it:
-                    # converting to awwkard
+                    # converting to awkward
                     if stps is None:
                         continue
 
