@@ -80,6 +80,51 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     return Array(ak.flatten(r90).to_numpy())
 
 
+def _cluster(data: ak.Array, cluster_size_mm: np.float64, cluster_string: str) -> ak.Array:
+    cluster_indices = cluster_by_step_length(
+        data[cluster_string],
+        data["xloc"] * 1000,  # has to be in mm
+        data["yloc"] * 1000,  # has to be in mm
+        data["zloc"] * 1000,  # has to be in mm
+        data["dist_to_surf"] * 1000,  # has to be in mm
+        threshold=cluster_size_mm,
+    )
+
+    return {
+        f"{field}": apply_cluster(cluster_indices, data[f"{field}"]).view_as("ak")
+        for field in ["edep", "xloc", "yloc", "zloc", "time", "dist_to_surf"]
+    }
+
+
+def _calculate_cluster_size(
+    clustered_data: ak.Array, clusters: ak.Array, weights: ak.Array
+) -> ak.Array:
+    return (
+        ak.sum(
+            weights
+            * (
+                (
+                    clustered_data["xloc"]
+                    - ak.broadcast_arrays(clustered_data["xloc"], clusters["xloc"])[1]
+                )
+                ** 2
+                + (
+                    clustered_data["yloc"]
+                    - ak.broadcast_arrays(clustered_data["yloc"], clusters["yloc"])[1]
+                )
+                ** 2
+                + (
+                    clustered_data["zloc"]
+                    - ak.broadcast_arrays(clustered_data["zloc"], clusters["zloc"])[1]
+                )
+                ** 2
+            ),
+            axis=-1,
+        )
+        ** 0.5
+    )
+
+
 @numba.njit(cache=True)
 def identification_metric(
     t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64
@@ -92,7 +137,12 @@ def e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
     return 1 / np.sqrt(e1 * e2)
 
 
-def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64):
+def do_cluster(
+    grouped_data: ak.Array,
+    cluster_size_mm: np.float64,
+    fccd_in_mm: np.float64,
+    tl_in_mm: np.float64,
+) -> ak.Array:
     """Clusters grouped energy depositions in a germanium detector based on spatial proximity.
 
     This function clusters depositions within a hit using a step-length-based method.
@@ -139,7 +189,7 @@ def do_cluster(grouped_data: ak.Array, cluster_size_mm: np.float64):
         for field in ["edep", "xloc", "yloc", "zloc", "time", "dist_to_surf"]
     }
     clustered_data["activeness"] = piecewise_linear_activeness(
-        clustered_data["dist_to_surf"], 0.5 / 1000, 0.5 / 1000
+        clustered_data["dist_to_surf"], fccd_in_mm / 1000, tl_in_mm / 1000
     ).view_as("ak")
 
     cluster_energy = ak.sum(clustered_data["edep"] * clustered_data["activeness"], axis=-1)
