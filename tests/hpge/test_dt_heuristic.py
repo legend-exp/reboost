@@ -4,12 +4,13 @@ import json
 from pathlib import Path
 
 import legendhpges as hpges
+import matplotlib.pyplot as plt
 import numpy as np
 import pyg4ometry as pg4
 from lgdo import lh5
 
 from reboost.hpge.psd import do_cluster, dt_heuristic
-from reboost.hpge.utils import ReadHPGeMap
+from reboost.hpge.utils import read_hpge_map
 from reboost.shape.group import group_by_time
 
 
@@ -47,14 +48,35 @@ def test_dt_heuristic():
     grouped_data = group_by_time(data, evtid_name="evtid").view_as("ak")
     bege, reg = create_test_registry()
 
-    dt_file_obj = ReadHPGeMap(
-        "test_files/B99000A_drift_time_map.lh5", "drift_times", reg.physicalVolumeDict["BEGe"]
+    dt_file_obj = read_hpge_map(
+        "test_files/drift_time_maps.lh5",
+        bege.metadata.name,
+        [float(val) for val in reg.physicalVolumeDict["BEGe"].position],
     )
+
+    r_vals = np.array(dt_file_obj["r"])
+    z_vals = np.array(dt_file_obj["z"])
+    t_vals = np.array(dt_file_obj["dt"])  # Drift times
+
+    # Plot as a scatter plot with drift times as the color
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(r_vals, z_vals, c=t_vals, cmap="viridis", s=10)
+
+    # Add a colorbar to show the drift times
+    plt.colorbar(scatter, label="Drift Time (t) [ns]")
+
+    # Add labels and title
+    plt.xlabel("Radial Position (r) [mm]")
+    plt.ylabel("Z Position (z) [mm]")
+    plt.title("Drift Map: Radial and Z Positions vs Drift Time")
+
+    plt.savefig("dt_map.pdf")
+
     cluster_size_mm = 0.1
-    fccd_in_mm = bege.metadata.characterization.combined_0vbb_analysis.fccd_in_mm.value
+    fccd_in_mm = float(bege.metadata.characterization.combined_0vbb_analysis.fccd_in_mm.value)
 
     _non_clustered_dth = dt_heuristic(grouped_data, dt_file_obj)
-    cluster_data = do_cluster(grouped_data, cluster_size_mm, dt_file_obj, fccd_in_mm=fccd_in_mm)
+    cluster_data = do_cluster(grouped_data, cluster_size_mm, fccd_in_mm=fccd_in_mm)
     _clustered_dth = dt_heuristic(cluster_data, dt_file_obj)
 
 
