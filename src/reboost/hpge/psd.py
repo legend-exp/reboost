@@ -8,9 +8,7 @@ import numpy as np
 from lgdo import Array
 
 from reboost.hpge.drift_time import calculate_drift_times
-from reboost.hpge.utils import ReadHPGeMap
 from reboost.math.functions import piecewise_linear_activeness
-from reboost.shape.cluster import apply_cluster, cluster_by_step_length
 
 log = logging.getLogger(__name__)
 
@@ -80,51 +78,6 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     return Array(ak.flatten(r90).to_numpy())
 
 
-def _cluster(data: ak.Array, cluster_size_mm: np.float64, cluster_string: str) -> ak.Array:
-    cluster_indices = cluster_by_step_length(
-        data[cluster_string],
-        data["xloc"] * 1000,  # has to be in mm
-        data["yloc"] * 1000,  # has to be in mm
-        data["zloc"] * 1000,  # has to be in mm
-        data["dist_to_surf"] * 1000,  # has to be in mm
-        threshold=cluster_size_mm,
-    )
-
-    return {
-        f"{field}": apply_cluster(cluster_indices, data[f"{field}"]).view_as("ak")
-        for field in ["edep", "xloc", "yloc", "zloc", "time", "dist_to_surf"]
-    }
-
-
-def _calculate_cluster_size(
-    clustered_data: ak.Array, clusters: ak.Array, weights: ak.Array
-) -> ak.Array:
-    return (
-        ak.sum(
-            weights
-            * (
-                (
-                    clustered_data["xloc"]
-                    - ak.broadcast_arrays(clustered_data["xloc"], clusters["xloc"])[1]
-                )
-                ** 2
-                + (
-                    clustered_data["yloc"]
-                    - ak.broadcast_arrays(clustered_data["yloc"], clusters["yloc"])[1]
-                )
-                ** 2
-                + (
-                    clustered_data["zloc"]
-                    - ak.broadcast_arrays(clustered_data["zloc"], clusters["zloc"])[1]
-                )
-                ** 2
-            ),
-            axis=-1,
-        )
-        ** 0.5
-    )
-
-
 @numba.njit(cache=True)
 def identification_metric(
     t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64
@@ -135,99 +88,6 @@ def identification_metric(
 @numba.njit(cache=True)
 def e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
     return 1 / np.sqrt(e1 * e2)
-
-
-def do_cluster(
-    grouped_data: ak.Array,
-    cluster_size_mm: np.float64,
-    fccd_in_mm: np.float64,
-    tl_in_mm: np.float64,
-) -> ak.Array:
-    """Clusters grouped energy depositions in a germanium detector based on spatial proximity.
-
-    This function clusters depositions within a hit using a step-length-based method.
-    The steps are clustered using the same evtid. It then computes weighted averages of position,
-    time, and other properties for each cluster, applying energy-based weighting taking into
-    account the activeness of the depositions.
-
-    Parameters
-    ----------
-    grouped_data : ak.Array
-        Awkward array containing hit-level data, including:
-        - `evtid` : Event ID for grouping hits.
-        - `xloc`, `yloc`, `zloc` : step positions in m.
-        - `dist_to_surf` : Distance of the step from the detector surface in m.
-        - `edep` : Energy deposition of the step.
-        - `time` : Timestamp of the step.
-    cluster_size_mm : np.float64
-        Clustering threshold in mm, determining the maximum step
-        length for grouping hits into a single cluster.
-
-    Returns
-    -------
-    ak.Array
-        Awkward array containing clustered hit properties:
-        - `activeness` : Computed activeness factor for each cluster, based on FCCD and Transition layer models.
-        - `xloc`, `yloc`, `zloc` : Clustered positions (active energy-weighted).
-        - `time` : Clustered time (active energy-weighted).
-        - `dist_to_surf` : distance to surface of cluster (active energy-weighted).
-        - `edep` : Total active energy deposition of the cluster.
-        - `cluster_size` : Spatial extent of the cluster, computed as
-          the active energy-weighted spread of individual steps.
-    """
-    cluster_indices = cluster_by_step_length(
-        grouped_data["evtid"],
-        grouped_data["xloc"] * 1000,  # has to be in mm
-        grouped_data["yloc"] * 1000,  # has to be in mm
-        grouped_data["zloc"] * 1000,  # has to be in mm
-        grouped_data["dist_to_surf"] * 1000,  # has to be in mm
-        threshold=cluster_size_mm,
-    )
-
-    clustered_data = {
-        f"{field}": apply_cluster(cluster_indices, grouped_data[f"{field}"]).view_as("ak")
-        for field in ["edep", "xloc", "yloc", "zloc", "time", "dist_to_surf"]
-    }
-    clustered_data["activeness"] = piecewise_linear_activeness(
-        clustered_data["dist_to_surf"], fccd_in_mm / 1000, tl_in_mm / 1000
-    ).view_as("ak")
-
-    cluster_energy = ak.sum(clustered_data["edep"] * clustered_data["activeness"], axis=-1)
-    cluster_energy_shaped = ak.broadcast_arrays(clustered_data["edep"], cluster_energy)[1]
-    weights = ak.where(cluster_energy_shaped > 0, clustered_data["edep"] / cluster_energy_shaped, 0)
-
-    clusters = {
-        f"{field}": ak.sum(clustered_data[f"{field}"] * weights, axis=-1)
-        for field in ["xloc", "yloc", "zloc", "time", "dist_to_surf", "activeness"]
-    }
-    clusters["edep"] = cluster_energy
-
-    clusters["cluster_size"] = (
-        ak.sum(
-            weights
-            * (
-                (
-                    clustered_data["xloc"]
-                    - ak.broadcast_arrays(clustered_data["xloc"], clusters["xloc"])[1]
-                )
-                ** 2
-                + (
-                    clustered_data["yloc"]
-                    - ak.broadcast_arrays(clustered_data["yloc"], clusters["yloc"])[1]
-                )
-                ** 2
-                + (
-                    clustered_data["zloc"]
-                    - ak.broadcast_arrays(clustered_data["zloc"], clusters["zloc"])[1]
-                )
-                ** 2
-            ),
-            axis=-1,
-        )
-        ** 0.5
-    )
-
-    return ak.Array(clusters)
 
 
 @numba.njit(cache=True)
@@ -313,7 +173,7 @@ def calculate_dt_heuristic(
     return dt_heuristic_output
 
 
-def dt_heuristic(data: ak.Array, drift_time_map: ReadHPGeMap) -> Array:
+def dt_heuristic(data: ak.Array, drift_time_map: dict) -> Array:
     """Computes the drift time heuristic pulse shape analysis (PSA) metric for each hit.
 
     This function calculates drift times for each hit (step or cluster)
