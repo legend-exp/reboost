@@ -12,7 +12,7 @@ from reboost.hpge.utils import interpolate2D, read_hpge_map
 
 def create_test_registry():
     reg = pg4.geant4.Registry()
-    json_path = Path("test_files/B99000A.json")
+    json_path = Path(f"{Path(__file__).parent}/test_files/B99000A.json")
     with json_path.open("r") as file:
         bege_meta = json.load(file)
 
@@ -42,7 +42,9 @@ def create_test_registry():
 def test_drift_time():
     bege, reg = create_test_registry()
 
-    dt_map_dict = read_hpge_map("test_files/drift_time_maps.lh5", bege.metadata.name)
+    dt_map_dict = read_hpge_map(
+        f"{Path(__file__).parent}/test_files/drift_time_maps.lh5", bege.metadata.name
+    )
 
     assert (dt_map_dict["r"][0], dt_map_dict["z"][0], dt_map_dict["dt"][0]) == (
         0.0,

@@ -16,7 +16,7 @@ from reboost.shape.group import group_by_time
 
 def create_test_registry():
     reg = pg4.geant4.Registry()
-    json_path = Path("test_files/B99000A.json")
+    json_path = Path(f"{Path(__file__).parent}/test_files/B99000A.json")
     with json_path.open("r") as file:
         bege_meta = json.load(file)
 
@@ -44,12 +44,16 @@ def create_test_registry():
 
 
 def test_dt_heuristic():
-    data = lh5.read_as("stp/det001/", "test_files/internal_electron.lh5", "ak")
+    data = lh5.read_as(
+        "stp/det001/", f"{Path(__file__).parent}/test_files/internal_electron.lh5", "ak"
+    )
     grouped_data = group_by_time(data, evtid_name="evtid").view_as("ak")
     bege, reg = create_test_registry()
     det_position = [float(val) for val in reg.physicalVolumeDict["BEGe"].position]
 
-    dt_map_dict = read_hpge_map("test_files/drift_time_maps.lh5", bege.metadata.name)
+    dt_map_dict = read_hpge_map(
+        f"{Path(__file__).parent}/test_files/drift_time_maps.lh5", bege.metadata.name
+    )
     xloc, yloc, zloc = get_relative_loc(
         grouped_data.xloc, grouped_data.yloc, grouped_data.zloc, det_position
     )
