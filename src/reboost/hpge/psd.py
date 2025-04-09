@@ -77,37 +77,43 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     return Array(ak.flatten(r90).to_numpy())
 
 
-def drift_time(xloc: ak.Array, yloc: ak.Array, zloc: ak.Array, dt_map_dict: dict) -> ak.Array:
-    """Calculate drift times for each hit (step/cluster) based on the provided drift time map.
+def drift_time(rloc: ak.Array, zloc: ak.Array, dt_map_dict: dict) -> ak.Array:
+    """Calculates drift times for each hit (step/cluster) in a HPGe detector.
 
-    Args:
-        xloc (ak.Array): X coordinates of the hits (step/cluster).
-        yloc (ak.Array): Y coordinates of the hits (step/cluster).
-        zloc (ak.Array): Z coordinates of the hits (step/cluster).
-        dt_map_dict (dict): Drift time map attributes dictionary.
+    Parameters
+    ----------
+    rloc : ak.Array
+        Relative radial coordinate of the hit in the detector.
+    zloc : ak.Array
+        Relative z coordinate of the hit in the detector.
+    dt_map_dict : dict
+        Dictionary containing the drift time map data, including the coordinates
+        and corresponding drift times.
 
     Returns
     -------
-        ak.Array: Drift times for each cluster element.
+    ak.Array
+        An awkward array containing the computed drift times for each hit.
+
+    Notes
+    -----
+    - The function flattens the input arrays to 1D for efficient processing.
+    - The drift times are calculated using a vectorized approach for better performance.
+    - The function returns the drift times reshaped back to the original input shape.
     """
     # Flatten the input arrays to 1D and calculate relative positions
-    loc_flat_relative = [
-        ak.flatten(iloc).to_numpy() - dt_map_dict["detector_position"][axis]
-        for iloc, axis in zip([xloc, yloc, zloc], ["x", "y", "z"])
-    ]
-    rloc = np.sqrt(loc_flat_relative[0] ** 2 + loc_flat_relative[1] ** 2)
+    rloc_flat = ak.flatten(rloc).to_numpy()
+    zloc_flat = ak.flatten(zloc).to_numpy()
 
     # Vectorized calculation of drift times for each cluster element
     drift_times_flat = np.vectorize(
         lambda dt_map, x, y, x_key, y_key, val_key: interpolate2D(
             dt_map, x, y, x_key, y_key, val_key
         )
-    )(
-        dt_map_dict, rloc, loc_flat_relative[2], "r", "z", "dt"
-    )  # interpolate using r and z coordinates
+    )(dt_map_dict, rloc_flat, zloc_flat, "r", "z", "dt")  # interpolate using r and z coordinates
 
     # Reshape the drift times back to the original shape
-    return ak.unflatten(drift_times_flat, ak.num(xloc))
+    return ak.unflatten(drift_times_flat, ak.num(zloc))
 
 
 @numba.njit(cache=True)
@@ -218,12 +224,12 @@ def dt_heuristic(
 
     Parameters
     ----------
-    data : ak.Array
-        An awkward array containing event step or cluster, including hit positions
-        (`xloc`, `yloc`, `zloc`) and deposited energy (`edep`). Optionally, it may contain
-        `activeness` values.
-    drift_time_map : ReadHPGeMap
-        Drift time HPGe map used to determine drift times for given spatial coordinates.
+    edep : ak.Array
+        An awkward array containing the hits (step/cluster) deposited energy.
+    activeness : ak.Array
+        An awkward array containing the hits (step/cluster) activeness.
+    drift_times : ak.Array
+        An awkward array containing the hits (step/cluster) drift time.
 
     Returns
     -------
@@ -232,11 +238,9 @@ def dt_heuristic(
 
     Notes
     -----
-    - If `activeness` is not present in `data`, it is computed using a piecewise linear function
-      based on distance to the detector surface.
-    - Drift times are computed using `calculate_drift_times()`, mapped from spatial coordinates.
-    - The function flattens energy and drift time arrays to prepare for numba processing.
-    - Then`calculate_dt_heuristic()` is called which does the computation.
+    - The function flattens the input arrays to 1D for efficient processing.
+    - The function uses the `_calculate_dt_heuristic` function to compute the heuristic metric.
+    - The function returns the dt heuristic values reshaped back to the original input shape.
     """
     energies = edep * activeness
     energies_flat = ak.flatten(energies).to_numpy()
