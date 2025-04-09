@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from math import floor
 
+import awkward as ak
 import numpy as np
 from lgdo.lh5 import LH5Store
 
@@ -13,23 +14,37 @@ def interpolate2D(
     x_key: str = "x",
     y_key: str = "y",
     val_key: str = "val",
-    is_relative: bool = True,
 ) -> np.float64:
-    """Interpolates the drift time map for a given x and y position.
+    """Bilinear interpolation of a 2D map at position (x, y).
 
-    Args:
-        map_dict (dict): The drift time map data.
-        x (np.float64): The x position.
-        y (np.float64): The y position.
+    Parameters
+    ----------
+        map_dict : dict
+            Dictionary containing the map data.
+        x : np.float64
+            X-coordinate for interpolation.
+        y : np.float64
+            Y-coordinate for interpolation.
+        x_key : str
+            Key for the x-coordinate in the map dictionary.
+        y_key : str
+            Key for the y-coordinate in the map dictionary.
+        val_key : str
+            Key for the value to be interpolated in the map dictionary.
 
     Returns
     -------
-        np.float64: The interpolated map value.
-    """
-    if not is_relative:
-        x -= map_dict["detector_position"][x_key]
-        y -= map_dict["detector_position"][y_key]
+        np.float64
+            Interpolated value at (x, y).
 
+    Notes
+    -----
+        - The function assumes that the map_dict contains the necessary keys for
+          x, y, and value arrays.
+        - The function uses bilinear interpolation to compute the value at the
+          specified coordinates.
+        - The function returns the interpolated value as a float.
+    """
     dx = map_dict[f"d{x_key}"]
     dy = map_dict[f"d{y_key}"]
     min_x = map_dict[f"min_{x_key}"]
@@ -76,21 +91,48 @@ def interpolate2D(
 
 def interpolate3D(
     map_dict: dict,
-    x: float,
-    y: float,
-    z: float,
+    x: np.float64,
+    y: np.float64,
+    z: np.float64,
     x_key: str = "x",
     y_key: str = "y",
     z_key: str = "z",
     val_key: str = "val",
-    is_relative: bool = True,
-) -> float:
-    """Trilinear interpolation of a 3D map at position (x, y, z)."""
-    if not is_relative:
-        x -= map_dict["detector_position"][x_key]
-        y -= map_dict["detector_position"][y_key]
-        z -= map_dict["detector_position"][z_key]
+) -> np.float64:
+    """Trilinear interpolation of a 3D map at position (x, y, z).
 
+    Parameters
+    ----------
+        map_dict : dict
+            Dictionary containing the map data.
+        x : np.float64
+            X-coordinate for interpolation.
+        y : np.float64
+            Y-coordinate for interpolation.
+        z : np.float64
+            Z-coordinate for interpolation.
+        x_key : str
+            Key for the x-coordinate in the map dictionary.
+        y_key : str
+            Key for the y-coordinate in the map dictionary.
+        z_key : str
+            Key for the z-coordinate in the map dictionary.
+        val_key : str
+            Key for the value to be interpolated in the map dictionary.
+
+    Returns
+    -------
+        np.float64
+            Interpolated value at (x, y, z).
+
+    Notes
+    -----
+        - The function assumes that the map_dict contains the necessary keys for
+          x, y, z, and value arrays.
+        - The function uses trilinear interpolation to compute the value at the
+          specified coordinates.
+        - The function returns the interpolated value as a np.float64.
+    """
     dx = map_dict[f"d{x_key}"]
     dy = map_dict[f"d{y_key}"]
     dz = map_dict[f"d{z_key}"]
@@ -153,17 +195,32 @@ def interpolate3D(
     return c0 * (1 - zd) + c1 * zd
 
 
-def read_hpge_map(filename: str, field_name: str, hpge_position: list) -> dict:
-    """Reads the HPGe map from the given file and returns a dictionary with the map data.
+def get_relative_loc(
+    xloc: ak.Array, yloc: ak.Array, zloc: ak.Array, detector_position: list
+) -> ak.Array:
+    return xloc - detector_position[0], yloc - detector_position[1], zloc - detector_position[2]
 
-    Args:
-        filename (str): Path to the file containing the HPGe map.
-        field_name (str): Name of the field in the file to read.
-        hpge (LogicalVolume): The HPGe detector volume.
+
+def read_hpge_map(filename: str, field_name: str) -> dict:
+    """Reads a HPGe map from an lh5 file and returns the data as a dictionary.
+
+    Parameters
+    ----------
+        filename : str
+            Path to the file containing the HPGe map.
+        field_name : str
+            Name of the field to be read from the file.
 
     Returns
     -------
-        dict: A dictionary containing the map data.
+        dict
+            Dictionary containing the map data.
+
+    Notes
+    -----
+        - The function uses the LH5Store class to read the data from the file.
+        - Assumes the data is stored in a specific format with coordinate and value arrays.
+        - The function returns a dictionary with coordinate arrays and value arrays.
     """
     store = LH5Store()
     dt_data, _ = store.read(f"/{field_name}", filename)
@@ -171,10 +228,7 @@ def read_hpge_map(filename: str, field_name: str, hpge_position: list) -> dict:
     unit_conversion = {"um": 1e-6, "mm": 1e-3, "cm": 1e-2, "m": 1}
     coord_keys = {"x", "y", "z", "r"}
 
-    result = {
-        "detector_position": {"x": hpge_position[0], "y": hpge_position[1], "z": hpge_position[2]}
-    }
-
+    result = {}
     # Separate coordinates and value fields
     coords = {}
     values = {}
