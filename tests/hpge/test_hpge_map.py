@@ -7,7 +7,7 @@ import legendhpges as hpges
 import numpy as np
 import pyg4ometry as pg4
 
-from reboost.hpge.utils import ReadHPGeMap
+from reboost.hpge.utils import interpolate2D, read_hpge_map
 
 
 def create_test_registry():
@@ -42,20 +42,16 @@ def create_test_registry():
 def test_drift_time():
     bege, reg = create_test_registry()
 
-    dt_file_obj = ReadHPGeMap(
-        "test_files/B99000A_drift_time_map.lh5", "drift_times", reg.physicalVolumeDict["BEGe"]
-    )
+    dt_map_dict = read_hpge_map("test_files/drift_time_maps.lh5", bege.metadata.name)
 
-    assert dt_file_obj.xpos == 0.05
-    assert dt_file_obj.ypos == 0
-    assert dt_file_obj.zpos == -0.03
-    assert (dt_file_obj.HPGeMap[0].r, dt_file_obj.HPGeMap[0].z, dt_file_obj.HPGeMap[0].val) == (
+    assert (dt_map_dict["r"][0], dt_map_dict["z"][0], dt_map_dict["dt"][0]) == (
         0.0,
         0.0002,
         364.0,
     )
-    assert round(dt_file_obj.get_map_value(0.0 + 0.05, 0, 0.0002 - 0.03), 4) == 364
-    assert round(dt_file_obj.get_map_value(0.045, 0, -0.02), 5) == 218.0
+
+    assert round(interpolate2D(dt_map_dict, 0, 0.0002, "r", "z", "dt"), 4) == 364
+    assert round(interpolate2D(dt_map_dict, 0.005, 0.01, "r", "z", "dt"), 5) == 218.0
 
 
 if __name__ == "__main__":

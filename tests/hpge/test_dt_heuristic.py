@@ -9,7 +9,7 @@ import pyg4ometry as pg4
 from lgdo import lh5
 
 from reboost.hpge.psd import drift_time, dt_heuristic
-from reboost.hpge.utils import read_hpge_map
+from reboost.hpge.utils import get_relative_loc, read_hpge_map
 from reboost.math.functions import piecewise_linear_activeness
 from reboost.shape.group import group_by_time
 
@@ -47,13 +47,15 @@ def test_dt_heuristic():
     data = lh5.read_as("stp/det001/", "test_files/internal_electron.lh5", "ak")
     grouped_data = group_by_time(data, evtid_name="evtid").view_as("ak")
     bege, reg = create_test_registry()
+    det_position = [float(val) for val in reg.physicalVolumeDict["BEGe"].position]
 
-    dt_map_dict = read_hpge_map(
-        "test_files/drift_time_maps.lh5",
-        bege.metadata.name,
-        [float(val) for val in reg.physicalVolumeDict["BEGe"].position],
+    dt_map_dict = read_hpge_map("test_files/drift_time_maps.lh5", bege.metadata.name)
+    xloc, yloc, zloc = get_relative_loc(
+        grouped_data.xloc, grouped_data.yloc, grouped_data.zloc, det_position
     )
-    drift_times = drift_time(grouped_data.xloc, grouped_data.yloc, grouped_data.zloc, dt_map_dict)
+    rloc = np.sqrt(xloc**2 + yloc**2)
+
+    drift_times = drift_time(rloc, zloc, dt_map_dict)
     activeness = piecewise_linear_activeness(
         data["dist_to_surf"], fccd=0.5 / 1000, tl=0.5 / 1000
     ).view_as("ak")
