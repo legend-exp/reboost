@@ -7,8 +7,7 @@ import numba
 import numpy as np
 from lgdo import Array
 
-from reboost.hpge.drift_time import calculate_drift_times
-from reboost.math.functions import piecewise_linear_activeness
+from reboost.hpge.utils import interpolate2D
 
 log = logging.getLogger(__name__)
 
@@ -78,20 +77,53 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     return Array(ak.flatten(r90).to_numpy())
 
 
+def drift_time(xloc: ak.Array, yloc: ak.Array, zloc: ak.Array, dt_map_dict: dict) -> ak.Array:
+    """Calculate drift times for each hit (step/cluster) based on the provided drift time map.
+
+    Args:
+        xloc (ak.Array): X coordinates of the hits (step/cluster).
+        yloc (ak.Array): Y coordinates of the hits (step/cluster).
+        zloc (ak.Array): Z coordinates of the hits (step/cluster).
+        dt_map_dict (dict): Drift time map attributes dictionary.
+
+    Returns
+    -------
+        ak.Array: Drift times for each cluster element.
+    """
+    # Flatten the input arrays to 1D and calculate relative positions
+    loc_flat_relative = [
+        ak.flatten(iloc).to_numpy() - dt_map_dict["detector_position"][axis]
+        for iloc, axis in zip([xloc, yloc, zloc], ["x", "y", "z"])
+    ]
+    rloc = np.sqrt(loc_flat_relative[0] ** 2 + loc_flat_relative[1] ** 2)
+
+    # Vectorized calculation of drift times for each cluster element
+    drift_times_flat = np.vectorize(
+        lambda dt_map, x, y, x_key, y_key, val_key: interpolate2D(
+            dt_map, x, y, x_key, y_key, val_key
+        )
+    )(
+        dt_map_dict, rloc, loc_flat_relative[2], "r", "z", "dt"
+    )  # interpolate using r and z coordinates
+
+    # Reshape the drift times back to the original shape
+    return ak.unflatten(drift_times_flat, ak.num(xloc))
+
+
 @numba.njit(cache=True)
-def identification_metric(
+def _identification_metric(
     t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64
 ) -> np.float64:
-    return abs(t1 - t2) / e_scaler(e1, e2)
+    return abs(t1 - t2) / _e_scaler(e1, e2)
 
 
 @numba.njit(cache=True)
-def e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
+def _e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
     return 1 / np.sqrt(e1 * e2)
 
 
 @numba.njit(cache=True)
-def calculate_dt_heuristic(
+def _calculate_dt_heuristic(
     drift_times: np.array, energies: np.array, event_offsets: np.array
 ) -> np.array:
     r"""Computes the drift time heuristic pulse shape analysis (PSA) metric for each event based on drift time and energy of hits (steps or clusters) within a Ge detector.
@@ -165,7 +197,7 @@ def calculate_dt_heuristic(
                 t1 = np.sum(sorted_drift_times[:mkr] * sorted_energies[:mkr]) / e1
                 t2 = np.sum(sorted_drift_times[mkr:] * sorted_energies[mkr:]) / e2
 
-                identify = identification_metric(t1, e1, t2, e2)
+                identify = _identification_metric(t1, e1, t2, e2)
                 max_identify = max(max_identify, identify)
 
         dt_heuristic_output[evt_idx] = max_identify
@@ -173,7 +205,11 @@ def calculate_dt_heuristic(
     return dt_heuristic_output
 
 
-def dt_heuristic(data: ak.Array, drift_time_map: dict) -> Array:
+def dt_heuristic(
+    edep: ak.Array,
+    activeness: ak.Array,
+    drift_times: ak.Array,
+) -> Array:
     """Computes the drift time heuristic pulse shape analysis (PSA) metric for each hit.
 
     This function calculates drift times for each hit (step or cluster)
@@ -202,20 +238,10 @@ def dt_heuristic(data: ak.Array, drift_time_map: dict) -> Array:
     - The function flattens energy and drift time arrays to prepare for numba processing.
     - Then`calculate_dt_heuristic()` is called which does the computation.
     """
-    if "activeness" not in data.fields:
-        activeness = piecewise_linear_activeness(
-            data["dist_to_surf"], fccd=0.5 / 1000, tl=0.5 / 1000
-        ).view_as("ak")
-        energies = data["edep"] * activeness
-    else:
-        energies = data["edep"]
+    energies = edep * activeness
     energies_flat = ak.flatten(energies).to_numpy()
-
-    drift_times = calculate_drift_times(data.xloc, data.yloc, data.zloc, drift_time_map)
     drift_times_flat = ak.flatten(drift_times).to_numpy()
-
     event_offsets = np.append(0, np.cumsum(ak.num(drift_times)))
-
-    dt_heuristic_output = calculate_dt_heuristic(drift_times_flat, energies_flat, event_offsets)
+    dt_heuristic_output = _calculate_dt_heuristic(drift_times_flat, energies_flat, event_offsets)
 
     return Array(dt_heuristic_output)

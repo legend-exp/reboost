@@ -8,8 +8,9 @@ import numpy as np
 import pyg4ometry as pg4
 from lgdo import lh5
 
-from reboost.hpge.psd import dt_heuristic
+from reboost.hpge.psd import drift_time, dt_heuristic
 from reboost.hpge.utils import read_hpge_map
+from reboost.math.functions import piecewise_linear_activeness
 from reboost.shape.group import group_by_time
 
 
@@ -47,12 +48,17 @@ def test_dt_heuristic():
     grouped_data = group_by_time(data, evtid_name="evtid").view_as("ak")
     bege, reg = create_test_registry()
 
-    dt_file_obj = read_hpge_map(
+    dt_map_dict = read_hpge_map(
         "test_files/drift_time_maps.lh5",
         bege.metadata.name,
         [float(val) for val in reg.physicalVolumeDict["BEGe"].position],
     )
-    _non_clustered_dth = dt_heuristic(grouped_data, dt_file_obj)
+    drift_times = drift_time(grouped_data.xloc, grouped_data.yloc, grouped_data.zloc, dt_map_dict)
+    activeness = piecewise_linear_activeness(
+        data["dist_to_surf"], fccd=0.5 / 1000, tl=0.5 / 1000
+    ).view_as("ak")
+
+    _non_clustered_dth = dt_heuristic(grouped_data.edep, activeness, drift_times)
 
 
 if __name__ == "__main__":
