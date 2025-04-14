@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 
 import awkward as ak
+import numba
 import numpy as np
 from lgdo import Array
+
+from reboost.hpge.utils import interpolate2D
 
 log = logging.getLogger(__name__)
 
@@ -72,3 +75,177 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     r90 = sorted_dist[r90_indices]
 
     return Array(ak.flatten(r90).to_numpy())
+
+
+def drift_time(rloc: ak.Array, zloc: ak.Array, dt_map_dict: dict) -> ak.Array:
+    """Calculates drift times for each hit (step/cluster) in a HPGe detector.
+
+    Parameters
+    ----------
+    rloc : ak.Array
+        Relative radial coordinate of the hit in the detector.
+    zloc : ak.Array
+        Relative z coordinate of the hit in the detector.
+    dt_map_dict : dict
+        Dictionary containing the drift time map data, including the coordinates
+        and corresponding drift times.
+
+    Returns
+    -------
+    ak.Array
+        An awkward array containing the computed drift times for each hit.
+
+    Notes
+    -----
+    - The function flattens the input arrays to 1D for efficient processing.
+    - The drift times are calculated using a vectorized approach for better performance.
+    - The function returns the drift times reshaped back to the original input shape.
+    """
+    # Flatten the input arrays to 1D and calculate relative positions
+    rloc_flat = ak.flatten(rloc).to_numpy()
+    zloc_flat = ak.flatten(zloc).to_numpy()
+
+    # Vectorized calculation of drift times for each cluster element
+    drift_times_flat = np.vectorize(
+        lambda dt_map, x, y, x_key, y_key, val_key: interpolate2D(
+            dt_map, x, y, x_key, y_key, val_key
+        )
+    )(dt_map_dict, rloc_flat, zloc_flat, "r", "z", "dt")  # interpolate using r and z coordinates
+
+    # Reshape the drift times back to the original shape
+    return ak.unflatten(drift_times_flat, ak.num(zloc))
+
+
+@numba.njit(cache=True)
+def _identification_metric(
+    t1: np.float64, e1: np.float64, t2: np.float64, e2: np.float64
+) -> np.float64:
+    return abs(t1 - t2) / _e_scaler(e1, e2)
+
+
+@numba.njit(cache=True)
+def _e_scaler(e1: np.float64, e2: np.float64) -> np.float64:
+    return 1 / np.sqrt(e1 * e2)
+
+
+@numba.njit(cache=True)
+def _calculate_dt_heuristic(
+    drift_times: np.array, energies: np.array, event_offsets: np.array
+) -> np.array:
+    r"""Computes the drift time heuristic pulse shape analysis (PSA) metric for each event based on drift time and energy of hits (steps or clusters) within a Ge detector.
+
+    This function iterates over a set of events, extracts drift times and energies
+    for each event, and identifies the drift time separation that maximizes
+    the heuristic identification metric.
+
+    Parameters
+    ----------
+    drift_times : np.array
+        flattened array of drift times corresponding to hits in the detector.
+    energies : np.array
+        flattened array of energy depositions associated with each hit.
+    event_offsets : np.array
+        flattened array indicating the start and end indices of each event in `drift_times` and `energies`.
+
+    Returns
+    -------
+    np.array
+        Array containing the maximum PSA identification metric for each event.
+
+    Notes
+    -----
+    - For each event, the drift times and corresponding energies are sorted in ascending order.
+    - The function finds the optimal split point `m` that maximizes the **identification metric**:
+
+      .. math::
+
+          I = \\frac{|T_1 - T_2|}{E_{\text{scale}}(E_1, E_2)}
+
+      where:
+
+      - :math:`T_1 = \\frac{\sum_{i < m} t_i E_i}{\sum_{i < m} E_i}`  and
+        :math:`T_2 = \\frac{\sum_{i \geq m} t_i E_i}{\sum_{i \geq m} E_i}`
+        are the energy-weighted mean drift times of the two groups.
+      - :math:`E_{\text{scale}}(E_1, E_2) = \\frac{1}{\sqrt{E_1 E_2}}`
+        is the scaling factor.
+    - The function iterates over all possible values of `m` and selects the maximum `I`.
+    """
+    num_events = len(event_offsets) - 1
+    dt_heuristic_output = np.zeros(num_events, dtype=np.float64)
+
+    for evt_idx in range(num_events):
+        start, end = event_offsets[evt_idx], event_offsets[evt_idx + 1]
+        if start == end:
+            continue
+
+        event_energies = energies[start:end]
+        event_drift_times = drift_times[start:end]
+
+        valid_indices = np.where(event_energies > 0)[0]
+        if len(valid_indices) < 2:
+            continue
+
+        filtered_drift_times = event_drift_times[valid_indices]
+        filtered_energies = event_energies[valid_indices]
+        nhits = len(event_drift_times)
+
+        sorted_indices = np.argsort(filtered_drift_times)
+        sorted_drift_times = filtered_drift_times[sorted_indices]
+        sorted_energies = filtered_energies[sorted_indices]
+
+        max_identify = 0
+        for mkr in range(1, nhits):
+            e1 = np.sum(sorted_energies[:mkr])
+            e2 = np.sum(sorted_energies[mkr:])
+
+            # when mkr == nhits, e1 = sum(sorted_energies) and e2 = 0
+            if e1 > 0 and e2 > 0:
+                t1 = np.sum(sorted_drift_times[:mkr] * sorted_energies[:mkr]) / e1
+                t2 = np.sum(sorted_drift_times[mkr:] * sorted_energies[mkr:]) / e2
+
+                identify = _identification_metric(t1, e1, t2, e2)
+                max_identify = max(max_identify, identify)
+
+        dt_heuristic_output[evt_idx] = max_identify
+
+    return dt_heuristic_output
+
+
+def dt_heuristic(
+    edep: ak.Array,
+    activeness: ak.Array,
+    drift_times: ak.Array,
+) -> Array:
+    """Computes the drift time heuristic pulse shape analysis (PSA) metric for each hit.
+
+    This function calculates drift times for each hit (step or cluster)
+    in a germanium detector and computes the heuristic metric based on drift time separation
+    and energy weighting.
+
+    Parameters
+    ----------
+    edep : ak.Array
+        An awkward array containing the hits (step/cluster) deposited energy.
+    activeness : ak.Array
+        An awkward array containing the hits (step/cluster) activeness.
+    drift_times : ak.Array
+        An awkward array containing the hits (step/cluster) drift time.
+
+    Returns
+    -------
+    Array
+        A LDGO Array containing the computed dt heuristic value for each event.
+
+    Notes
+    -----
+    - The function flattens the input arrays to 1D for efficient processing.
+    - The function uses the `_calculate_dt_heuristic` function to compute the heuristic metric.
+    - The function returns the dt heuristic values reshaped back to the original input shape.
+    """
+    energies = edep * activeness
+    energies_flat = ak.flatten(energies).to_numpy()
+    drift_times_flat = ak.flatten(drift_times).to_numpy()
+    event_offsets = np.append(0, np.cumsum(ak.num(drift_times)))
+    dt_heuristic_output = _calculate_dt_heuristic(drift_times_flat, energies_flat, event_offsets)
+
+    return Array(dt_heuristic_output)
