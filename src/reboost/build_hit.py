@@ -295,18 +295,21 @@ def build_hit(
                         continue
 
                     # produce the hit table
-                    ak_obj = stps.view_as("ak")
 
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
                         if out_detector not in output_tables and files.hit is None:
                             output_tables[out_detector] = None
 
-                        hit_table = core.evaluate_hit_table_layout(
-                            copy.deepcopy(ak_obj),
-                            expression=proc_group["hit_table_layout"],
-                            time_dict=time_dict[proc_name],
-                        )
+                        if "hit_table_layout" in proc_group:
+                            ak_obj = stps.view_as("ak")
+                            hit_table = core.evaluate_hit_table_layout(
+                                copy.deepcopy(ak_obj),
+                                expression=proc_group["hit_table_layout"],
+                                time_dict=time_dict[proc_name],
+                            )
+                        else:
+                            hit_table = copy.deepcopy(stps)
 
                         local_dict = {
                             "DETECTOR_OBJECTS": det_objects[out_detector],
@@ -314,7 +317,7 @@ def build_hit(
                             "DETECTOR": out_detector,
                         }
                         # add fields
-                        for field, expression in proc_group["operations"].items():
+                        for field, expression in proc_group.get("operations", {}).items():
                             # evaluate the expression
                             col = core.evaluate_output_column(
                                 hit_table,
@@ -327,7 +330,10 @@ def build_hit(
                             hit_table.add_field(field, col)
 
                         # remove unwanted fields
-                        hit_table = core.remove_columns(hit_table, outputs=proc_group["outputs"])
+                        if "outputs" in proc_group:
+                            hit_table = core.remove_columns(
+                                hit_table, outputs=proc_group["outputs"]
+                            )
 
                         # get the IO mode
 
