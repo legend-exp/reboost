@@ -246,6 +246,8 @@ def build_hit(
         # loop over processing groups
         for group_idx, proc_group in enumerate(config["processing_groups"]):
             proc_name = proc_group.get("name", "default")
+            msg = f"... starting group {proc_name}"
+            log.info(msg)
 
             if proc_name not in time_dict:
                 time_dict[proc_name] = ProfileDict()
@@ -261,9 +263,11 @@ def build_hit(
                     for mapping in proc_group.get("detector_mapping")
                 ]
             )
-
             # loop over detectors
             for in_det_idx, (in_detector, out_detectors) in enumerate(detectors_mapping.items()):
+                msg = f"... processing {in_detector} (to {out_detectors})"
+                log.info(msg)
+
                 # get detector objects
                 det_objects = core.get_detector_objects(
                     output_detectors=out_detectors,
@@ -286,23 +290,27 @@ def build_hit(
                     time_dict=time_dict[proc_name],
                 )
                 for stps, _, chunk_idx, _ in glm_it:
-                    # converting to awwkard
+                    # converting to awkward
                     if stps is None:
                         continue
 
-                    # produce the hit table
                     ak_obj = stps.view_as("ak")
+
+                    # produce the hit table
 
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
                         if out_detector not in output_tables and files.hit is None:
                             output_tables[out_detector] = None
 
-                        hit_table = core.evaluate_hit_table_layout(
-                            copy.deepcopy(ak_obj),
-                            expression=proc_group["hit_table_layout"],
-                            time_dict=time_dict[proc_name],
-                        )
+                        if "hit_table_layout" in proc_group:
+                            hit_table = core.evaluate_hit_table_layout(
+                                copy.deepcopy(ak_obj),
+                                expression=proc_group["hit_table_layout"],
+                                time_dict=time_dict[proc_name],
+                            )
+                        else:
+                            hit_table = copy.deepcopy(stps)
 
                         local_dict = {
                             "DETECTOR_OBJECTS": det_objects[out_detector],
@@ -310,7 +318,7 @@ def build_hit(
                             "DETECTOR": out_detector,
                         }
                         # add fields
-                        for field, expression in proc_group["operations"].items():
+                        for field, expression in proc_group.get("operations", {}).items():
                             # evaluate the expression
                             col = core.evaluate_output_column(
                                 hit_table,
@@ -323,7 +331,10 @@ def build_hit(
                             hit_table.add_field(field, col)
 
                         # remove unwanted fields
-                        hit_table = core.remove_columns(hit_table, outputs=proc_group["outputs"])
+                        if "outputs" in proc_group:
+                            hit_table = core.remove_columns(
+                                hit_table, outputs=proc_group["outputs"]
+                            )
 
                         # get the IO mode
 
