@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Callable, NamedTuple
 
 import lgdo
+import numpy as np
 import pint
 from dbetto import AttrsDict
 from lgdo import lh5
@@ -18,11 +19,13 @@ class HPGeScalarRZField(NamedTuple):
     "Physical units of the coordinate `r`."
     z_units: pint.Unit
     "Physical units of the coordinate `z`."
-    values_units: pint.Unit
+    φ_units: pint.Unit
     "Physical units of the field."
 
 
-def get_hpge_scalar_rz_field(filename: str, obj: str, field: str, **kwargs) -> HPGeScalarRZField:
+def get_hpge_scalar_rz_field(
+    filename: str, obj: str, field: str, out_of_bounds_val: int | float = np.nan, **kwargs
+) -> HPGeScalarRZField:
     """Create an interpolator for a gridded scalar HPGe field defined on `(r, z)`.
 
     Reads from disk the following data structure: ::
@@ -54,6 +57,8 @@ def get_hpge_scalar_rz_field(filename: str, obj: str, field: str, **kwargs) -> H
         name of the HDF5 dataset where the data is saved.
     field
         name of the HDF5 dataset holding the field values.
+    out_of_bounds_val
+        value to use to replace NaNs in the field values.
     """
     data = lh5.read(obj, filename)
 
@@ -61,7 +66,12 @@ def get_hpge_scalar_rz_field(filename: str, obj: str, field: str, **kwargs) -> H
         msg = f"{obj} in {filename} is not an LGDO Struct"
         raise ValueError(msg)
 
-    data = AttrsDict({k: data[k].view_as("np", with_units=True) for k in ("r", "z", field)})
+    data = AttrsDict(
+        {
+            k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
+            for k in ("r", "z", field)
+        }
+    )
 
     interpolator = RegularGridInterpolator((data.r.m, data.z.m), data[field].m, **kwargs)
 

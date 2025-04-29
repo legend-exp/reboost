@@ -40,9 +40,9 @@ calculate_weighting_potential!(
 
 spawn_positions = CartesianPoint{T}[]
 idx_spawn_positions = []
-gridsize = 0.001
-x_axis = gridsize:gridsize:meta.geometry.radius_in_mm / 1000 - gridsize
-z_axis = gridsize:gridsize:meta.geometry.height_in_mm / 1000 - gridsize
+gridsize = 0.001 # in m
+x_axis = -0.01:gridsize:(meta.geometry.radius_in_mm / 1000) + 0.01
+z_axis = -0.01:gridsize:(meta.geometry.height_in_mm / 1000) + 0.01
 idx_spawn_positions = CartesianIndex[]
 for (i,x) in enumerate(x_axis)
     for (k,z) in enumerate(z_axis)
@@ -77,7 +77,7 @@ end
 output = (
     r=collect(x_axis) * u"m",
     z=collect(z_axis) * u"m",
-    drift_time=drift_time * u"ns"
+    drift_time=transpose(drift_time) * u"ns"
 )
 
 lh5open("drift-time-maps.lh5", "w") do f
