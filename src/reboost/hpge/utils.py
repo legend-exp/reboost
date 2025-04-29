@@ -22,24 +22,26 @@ class HPGeScalarRZField(NamedTuple):
     "Physical units of the field."
 
 
-def get_hpge_scalar_rz_field(filename: str, obj: str, field: str) -> HPGeScalarRZField:
-    """Create an interpolator for a gridded scalar HPGe field defined on (r, z).
+def get_hpge_scalar_rz_field(filename: str, obj: str, field: str, **kwargs) -> HPGeScalarRZField:
+    """Create an interpolator for a gridded scalar HPGe field defined on `(r, z)`.
 
     Reads from disk the following data structure: ::
 
         FILENAME/
         └── OBJ · struct{r,z,FIELD}
-            ├── r · array<1>{real}
-            ├── z · array<1>{real}
-            └── FIELD · array<2>{real}
+            ├── r · array<1>{real} ── {'units': 'UNITS'}
+            ├── z · array<1>{real} ── {'units': 'UNITS'}
+            └── FIELD · array<2>{real} ── {'units': 'UNITS'}
 
     where ``FILENAME``, ``OBJ`` and ``FIELD`` are provided as
     arguments to this function. `obj` is a :class:`~lgdo.types.struct.Struct`,
     `r` and `z` are one dimensional arrays specifying the radial and z
     coordinates of the rectangular grid — not the coordinates of each single
-    grid point. `field` is instead a two-dimensional array specifying the field
-    value at each grid point. The first and second dimensions are `r` and `z`,
-    respectively.
+    grid point. In this coordinate system, the center of the p+ contact surface
+    is at `(0, 0)`, with the p+ contact facing downwards. `field` is instead a
+    two-dimensional array specifying the field value at each grid point. The
+    first and second dimensions are `r` and `z`, respectively. NaN values are
+    interpreted as points outside the detector profile in the `(r, z)` plane.
 
     Before returning a :class:`HPGeScalarRZField`, the gridded field is fed to
     :class:`scipy.interpolate.RegularGridInterpolator`.
@@ -61,6 +63,6 @@ def get_hpge_scalar_rz_field(filename: str, obj: str, field: str) -> HPGeScalarR
 
     data = AttrsDict({k: data[k].view_as("np", with_units=True) for k in ("r", "z", field)})
 
-    interpolator = RegularGridInterpolator((data.r.m, data.z.m), data[field].m)
+    interpolator = RegularGridInterpolator((data.r.m, data.z.m), data[field].m, **kwargs)
 
     return HPGeScalarRZField(interpolator, data.r.u, data.z.u, data[field].u)
