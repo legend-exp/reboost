@@ -43,18 +43,23 @@ calculate_weighting_potential!(
 )
 
 function make_axis(boundary, gridsize)
-    # exclude the exact endpoints to ensure all points are strictly inside the domain
-    start = 0 + eps()
-    stop = boundary - eps()
+    # define interior domain strictly within (0, boundary)
+    inner_start = 0 + eps()
+    inner_stop = boundary - eps()
 
-    # compute the number of intervals based on desired spacing
-    n = round(Int, (stop - start) / gridsize)
+    # compute number of intervals in the interior
+    n = round(Int, (inner_stop - inner_start) / gridsize)
 
-    # adjust step to evenly divide the range
-    step = (stop - start) / n
+    # recompute step to fit the inner domain evenly
+    step = (inner_stop - inner_start) / n
 
-    # construct and return the axis as a range
-    return range(start, step=step, length=n + 1)
+    # create interior axis
+    axis = range(inner_start, step=step, length=n + 1)
+
+    # prepend and append slightly out-of-bound points
+    extended_axis = [0 - eps(), axis..., boundary + eps()]
+
+    return extended_axis
 end
 
 gridsize = 0.001 # in m
@@ -84,7 +89,7 @@ n = length(in_idx)
 wfs_raw_threaded = Vector{Vector{Float64}}(undef, n)
 dt_threaded = Vector{Int}(undef, n)
 
-@info "Simulating energy depositions in r=$x_axis z=$z_axis grid..."
+@info "Simulating energy depositions on grid r=0:$gridsize:$radius and z=0:$gridsize:$height..."
 @threads for i in 1:n
     p = spawn_positions[in_idx[i]]
     e = SSD.Event([p], [2039u"keV"])
