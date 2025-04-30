@@ -38,11 +38,29 @@ calculate_weighting_potential!(
     verbose=false
 )
 
-spawn_positions = CartesianPoint{T}[]
-idx_spawn_positions = []
+function make_axis(boundary, gridsize)
+    # exclude the exact endpoints to ensure all points are strictly inside the domain
+    start = 0 + eps()
+    stop = boundary - eps()
+
+    # compute the number of intervals based on desired spacing
+    n = round(Int, (stop - start) / gridsize)
+
+    # adjust step to evenly divide the range
+    step = (stop - start) / n
+
+    # construct and return the axis as a range
+    return range(start, step=step, length=n + 1)
+end
+
 gridsize = 0.001 # in m
-x_axis = -0.01:gridsize:(meta.geometry.radius_in_mm / 1000) + 0.01
-z_axis = -0.01:gridsize:(meta.geometry.height_in_mm / 1000) + 0.01
+radius = meta.geometry.radius_in_mm / 1000
+height = meta.geometry.height_in_mm / 1000
+
+x_axis = make_axis(radius, gridsize)
+z_axis = make_axis(height, gridsize)
+
+spawn_positions = CartesianPoint{T}[]
 idx_spawn_positions = CartesianIndex[]
 for (i,x) in enumerate(x_axis)
     for (k,z) in enumerate(z_axis)
