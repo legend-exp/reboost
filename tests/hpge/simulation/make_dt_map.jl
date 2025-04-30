@@ -7,6 +7,7 @@ using Unitful
 using ProgressMeter
 using LegendHDF5IO
 using HDF5
+using Base.Threads
 
 SSD = SolidStateDetectors
 T = Float32
@@ -22,14 +23,17 @@ sim.detector = SolidStateDetector(
     contact_potential=meta.characterization.l200_site.recommended_voltage_in_V
 )
 
+@info "Calculating electric potential..."
 calculate_electric_potential!(
     sim,
     refinement_limits=[0.2, 0.1, 0.05, 0.01],
     depletion_handling=true
 )
 
+@info "Calculating electric field..."
 calculate_electric_field!(sim, n_points_in_φ=72)
 
+@info "Calculating weighting potential..."
 calculate_weighting_potential!(
     sim,
     sim.detector.contacts[1].id,
@@ -75,15 +79,26 @@ in_idx = findall(x -> x in sim.detector && !in(x, sim.detector.contacts), spawn_
 time_step = T(1)u"ns"
 max_nsteps = 10000
 
-wfs_raw = []
-dt = Int[]
+# prepare thread-local storage
+n = length(in_idx)
+wfs_raw_threaded = Vector{Vector{Float64}}(undef, n)
+dt_threaded = Vector{Int}(undef, n)
 
-@showprogress for p in spawn_positions[in_idx]
-    e = Event([p], [2039u"keV"])
+@info "Simulating energy depositions in r=$x_axis z=$z_axis grid..."
+@threads for i in 1:n
+    p = spawn_positions[in_idx[i]]
+    e = SSD.Event([p], [2039u"keV"])
     simulate!(e, sim, Δt = time_step, max_nsteps = max_nsteps, verbose = false)
-    push!(wfs_raw, ustrip(add_baseline_and_extend_tail(e.waveforms[1], 2000, 7000).signal))
-    push!(dt, length(e.waveforms[1].signal))
+
+    # store results in preallocated arrays
+    wf = add_baseline_and_extend_tail(e.waveforms[1], 2000, 7000).signal
+    wfs_raw_threaded[i] = ustrip(wf)
+    dt_threaded[i] = length(e.waveforms[1].signal)
 end
+
+# assign final results
+wfs_raw = wfs_raw_threaded
+dt = dt_threaded
 
 wfs = wfs_raw ./ maximum.(wfs_raw)
 
@@ -98,6 +113,7 @@ output = (
     drift_time=transpose(drift_time) * u"ns"
 )
 
+@info "Saving to disk..."
 lh5open("drift-time-maps.lh5", "w") do f
     f["V99999A"] = output
 end
