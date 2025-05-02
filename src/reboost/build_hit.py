@@ -179,7 +179,7 @@ def build_hit(
     config: Mapping | str,
     args: Mapping | AttrsDict,
     stp_files: str | list[str],
-    glm_files: str | list[str],
+    glm_files: str | list[str] | None,
     hit_files: str | list[str] | None,
     *,
     start_evtid: int = 0,
@@ -199,7 +199,7 @@ def build_hit(
     stp_files
         list of strings or string of the stp file path.
     glm_files
-        list of strings or string of the glm file path.
+        list of strings or string of the glm file path, if `None` will be build in memory.
     hit_files
         list of strings or string of the hit file path. The `hit` file can also be `None` in which
         case the hits are returned as an `ak.Array` in memory.
@@ -238,7 +238,7 @@ def build_hit(
     for file_idx, (stp_file, glm_file) in enumerate(zip(files.stp, files.glm)):
         msg = (
             f"... starting post processing of {stp_file} to {files.hit[file_idx]} "
-            if files.hit is not None
+            if files.hit[file_idx] is not None
             else f"... starting post processing of {stp_file}"
         )
         log.info(msg)
@@ -297,11 +297,13 @@ def build_hit(
                     ak_obj = stps.view_as("ak")
 
                     # produce the hit table
-
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
-                        if out_detector not in output_tables and files.hit is None:
+                        if out_detector not in output_tables and files.hit[file_idx] is None:
                             output_tables[out_detector] = None
+
+                        # get the attributes
+                        attrs = utils.copy_units(stps)
 
                         if "hit_table_layout" in proc_group:
                             hit_table = core.evaluate_hit_table_layout(
@@ -336,7 +338,14 @@ def build_hit(
                                 hit_table, outputs=proc_group["outputs"]
                             )
 
+                        # assign units in the output table
+                        hit_table = utils.assign_units(hit_table, attrs)
+
                         # get the IO mode
+
+                        new_hit_file = (file_idx == 0) or (
+                            files.hit[file_idx] != files.hit[file_idx - 1]
+                        )
 
                         wo_mode = (
                             "of"
@@ -345,12 +354,13 @@ def build_hit(
                                 and out_det_idx == 0
                                 and in_det_idx == 0
                                 and chunk_idx == 0
+                                and new_hit_file
                             )
                             else "append"
                         )
 
                         # now write
-                        if files.hit is not None:
+                        if files.hit[file_idx] is not None:
                             if time_dict is not None:
                                 start_time = time.time()
 

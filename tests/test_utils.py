@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from lgdo.types import Array, Table
 
 import reboost
-from reboost.utils import get_function_string, merge_dicts
+from reboost.shape import group
+from reboost.utils import assign_units, copy_units, get_file_dict, get_function_string, merge_dicts
 
 
 def test_search_string():
@@ -106,3 +108,95 @@ def test_save_dict(tmp_path):
         yaml.dump(data, yaml_file, default_flow_style=False)
 
     return tmp_path
+
+
+def test_get_files_dict():
+    # simplest case - all are str
+    files = get_file_dict(stp_files="stp.lh5", hit_files="hit.lh5", glm_files="glm.lh5")
+
+    assert files.stp == ["stp.lh5"]
+    assert files.hit == ["hit.lh5"]
+    assert files.glm == ["glm.lh5"]
+
+    # also support all being lists
+    files = get_file_dict(
+        stp_files=["stp1.lh5", "stp2.lh5"],
+        hit_files=["hit1.lh5", "hit2.lh5"],
+        glm_files=["glm1.lh5", "glm2.lh5"],
+    )
+
+    assert files.stp == ["stp1.lh5", "stp2.lh5"]
+    assert files.hit == ["hit1.lh5", "hit2.lh5"]
+    assert files.glm == ["glm1.lh5", "glm2.lh5"]
+
+    # hit file being None should be supported
+
+    files = get_file_dict(
+        stp_files=["stp1.lh5", "stp2.lh5"],
+        hit_files=None,
+        glm_files=["glm1.lh5", "glm2.lh5"],
+    )
+
+    assert files.stp == ["stp1.lh5", "stp2.lh5"]
+    assert files.hit == [None, None]
+    assert files.glm == ["glm1.lh5", "glm2.lh5"]
+
+    files = get_file_dict(
+        stp_files="stp.lh5",
+        hit_files=None,
+        glm_files="glm.lh5",
+    )
+
+    assert files.stp == ["stp.lh5"]
+    assert files.hit == [None]
+    assert files.glm == ["glm.lh5"]
+
+    # glm file can be None
+    files = get_file_dict(
+        stp_files=["stp1.lh5", "stp2.lh5"], hit_files=["hit1.lh5", "hit2.lh5"], glm_files=None
+    )
+
+    assert files.stp == ["stp1.lh5", "stp2.lh5"]
+    assert files.hit == ["hit1.lh5", "hit2.lh5"]
+    assert files.glm == [None, None]
+
+    # and hit file can be a string
+    files = get_file_dict(
+        stp_files=["stp1.lh5", "stp2.lh5"], hit_files="hit.lh5", glm_files=["glm1.lh5", "glm2.lh5"]
+    )
+    assert files.stp == ["stp1.lh5", "stp2.lh5"]
+    assert files.hit == ["hit.lh5", "hit.lh5"]
+    assert files.glm == ["glm1.lh5", "glm2.lh5"]
+
+    # list of one hit file should also work
+    files = get_file_dict(
+        stp_files=["stp1.lh5", "stp2.lh5"],
+        hit_files=["hit.lh5"],
+        glm_files=["glm1.lh5", "glm2.lh5"],
+    )
+    assert files.stp == ["stp1.lh5", "stp2.lh5"]
+    assert files.hit == ["hit.lh5", "hit.lh5"]
+    assert files.glm == ["glm1.lh5", "glm2.lh5"]
+
+
+def test_units():
+    table = Table({"a": Array([1, 2, 3]), "b": Array([4, 5, 6]), "evtid": Array([0, 0, 1])})
+
+    table.a.attrs = {"datatype": "array<1>{real}", "units": "ns"}
+    table.b.attrs = {"datatype": "array<1>{real}", "units": "keV"}
+
+    units = copy_units(table)
+
+    assert units["a"] == "ns"
+    assert units["b"] == "keV"
+
+    reshaped = group.group_by_evtid(table.view_as("ak"))
+
+    reshaped = assign_units(reshaped, units)
+
+    assert reshaped.a.attrs["units"] == "ns"
+    assert reshaped.b.attrs["units"] == "keV"
+
+
+def test_get_channels():
+    pass

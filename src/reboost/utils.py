@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import importlib
+import itertools
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 import pint
 from dbetto import AttrsDict
 from lgdo import LGDO
+from lgdo.types import Table
 
 log = logging.getLogger(__name__)
 u = pint.get_application_registry()
@@ -54,12 +56,50 @@ def _un_lgdo(data: Any, library: str = "ak") -> tuple(Any, dict | None):
 
 def get_file_dict(
     stp_files: list[str] | str,
-    glm_files: list[str] | str,
+    glm_files: list[str] | str | None,
     hit_files: list[str] | str | None = None,
 ) -> AttrsDict:
-    """Get the file info as a AttrsDict."""
+    """Get the file info as a AttrsDict.
+
+    Creates an :class:`dbetto.AttrsDict` with keys `stp_files`,
+    `glm_files` and `hit_files`. Each key contains a list of
+    file-paths (or `None`).
+
+    Parameters
+    ----------
+    stp_files
+        string or list of strings of the stp files.
+    glm_files
+        string or list of strings of the glm files, or None in which
+        case the glm will be created in memory.
+    hit_files
+        string or list of strings of the hit files, if None the output
+        files will be created in memory.
+    """
+    # make a list of the right length
+    if isinstance(stp_files, str):
+        stp_files = [stp_files]
+
+    glm_files_list = [None] * len(stp_files) if glm_files is None else glm_files
+
+    # make a list of files in case
+    # 1) hit_files is a str and stp_files is a list
+    # 2) hit_files and stp_files are both lists of different length
+
+    hit_is_list = isinstance(hit_files, list)
+
+    if not hit_is_list:
+        hit_files_list = [hit_files] * len(stp_files)
+    elif hit_is_list and len(hit_files) == 1 and len(stp_files) > 1:
+        hit_files_list = [hit_files[0]] * len(stp_files)
+    else:
+        hit_files_list = hit_files
+
     files = {}
-    for file_type, file_list in zip(["stp", "glm", "hit"], [stp_files, glm_files, hit_files]):
+
+    for file_type, file_list in zip(
+        ["stp", "glm", "hit"], [stp_files, glm_files_list, hit_files_list]
+    ):
         if isinstance(file_list, str):
             files[file_type] = [file_list]
         else:
@@ -73,6 +113,48 @@ def get_file_list(path: str | None, threads: int | None = None) -> list[str]:
     if threads is None or path is None:
         return path
     return [f"{(Path(path).with_suffix(''))}_t{idx}.lh5" for idx in range(threads)]
+
+
+def copy_units(tab: Table) -> dict:
+    """Extract a dictionary of attributes (i.e. units).
+
+    Parameters
+    ----------
+    tab
+        Table to get the units from.
+
+    Returns
+    -------
+    a dictionary with the units for each field
+    in the table.
+    """
+    units = {}
+
+    for field in tab:
+        if "units" in tab[field].attrs:
+            units[field] = tab[field].attrs["units"]
+
+    return units
+
+
+def assign_units(tab: Table, units: Mapping) -> Table:
+    """Copy the attributes from the map of attributes to the table.
+
+    Parameters
+    ----------
+    tab
+        Table to add attributes to.
+    units
+        mapping (dictionary like) of units of each field
+
+    Returns
+    -------
+    an updated table with LGDO attributes.
+    """
+    for field in tab:
+        if field in units:
+            tab[field].attrs["units"] = units[field]
+    return tab
 
 
 def _search_string(string: str):
@@ -157,6 +239,33 @@ def get_function_string(expr: str, aliases: dict | None = None) -> tuple[str, di
             continue
 
     return expr, globs
+
+
+def get_channels_from_groups(names: list | str | None, groupings: dict | None = None) -> list:
+    """Get a list of channels from a list of groups.
+
+    Parameters
+    ----------
+    names
+        list of channel names
+    groupings
+        dictionary of the groupings of channels
+
+    Returns
+    -------
+    list of channels
+    """
+    if names is None:
+        channels_e = []
+    elif isinstance(names, str):
+        channels_e = groupings[names]
+    elif isinstance(names, list):
+        channels_e = list(itertools.chain.from_iterable([groupings[e] for e in names]))
+    else:
+        msg = f"names {names} must be list or str or `None`"
+        raise ValueError(msg)
+
+    return channels_e
 
 
 def merge_dicts(dict_list: list) -> dict:
