@@ -16,6 +16,7 @@ from lgdo.types import Table
 
 log = logging.getLogger(__name__)
 u = pint.get_application_registry()
+u.formatter.default_format = "~P"
 
 
 def _unit_conv_factor(data: Any, target_units: pint.Units) -> float:
@@ -30,28 +31,33 @@ def _unit_conv_factor(data: Any, target_units: pint.Units) -> float:
         units you wish to convert data to.
     """
     if isinstance(data, LGDO) and "units" in data.attrs:
-        return u[data.attrs["units"]].to(target_units).magnitude
+        return u(data.attrs["units"]).to(target_units).magnitude
     return 1
 
 
-def _un_lgdo(data: Any, library: str = "ak") -> tuple(Any, dict | None):
-    """Return a view of the data held by the LGDO and its attributes.
+def _un_lgdo(data: Any, library: str = "ak") -> tuple(Any, pint.Unit | None):
+    """Return a view of the data held by the LGDO and its physical units.
 
     Parameters
     ----------
     data
         the data container. If not an LGDO, it will be returned as is with
-        ``None`` attributes.
+        ``None`` units.
     library
         forwarded to :func:`lgdo.view_as`.
 
     Returns
     -------
-    A tuple of the un-lgdo'd data and the LGDO attributes.
+    A tuple of the un-lgdo'd data and the data units.
     """
+    ret_data = data
+    ret_units = None
     if isinstance(data, LGDO):
-        return data.view_as(library), data.attrs
-    return data, None
+        ret_data = data.view_as(library)
+        if "units" in data.attrs:
+            ret_units = u(data.attrs["units"])
+
+    return ret_data, ret_units
 
 
 def get_file_dict(

@@ -10,7 +10,6 @@ from lgdo import Array, VectorOfVectors
 from numpy.typing import ArrayLike, NDArray
 
 from .. import utils
-from ..utils import u
 from .utils import HPGeScalarRZField
 
 log = logging.getLogger(__name__)
@@ -156,7 +155,7 @@ def drift_time_heuristic(
     # we want to attach the right units to the dt heuristic, if possible
     attrs = {}
     if t_units is not None and e_units is not None:
-        attrs["units"] = u[t_units] / u[e_units]
+        attrs["units"] = str((t_units / e_units).u)
 
     return Array(_drift_time_heuristic_impl(drift_time, edep), attrs=attrs)
 
@@ -183,11 +182,7 @@ def _drift_time_heuristic_impl(
     .. math::
 
         T_1 = \frac{\sum_{i < m} t_i E_i}{\sum_{i < m} E_i}
-
-    and
-
-    .. math::
-
+        \quad \text{and} \quad
         T_2 = \frac{\sum_{i \geq m} t_i E_i}{\sum_{i \geq m} E_i}
 
     are the energy-weighted mean drift times of the two groups.
@@ -205,8 +200,8 @@ def _drift_time_heuristic_impl(
 
     # loop over hits
     for i in range(len(dt)):
-        t = dt[i]
-        e = edep[i]
+        t = np.asarray(dt[i])
+        e = np.asarray(edep[i])
 
         valid_idx = np.where(e > 0)[0]
         if len(valid_idx) < 2:
