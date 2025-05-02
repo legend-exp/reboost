@@ -180,11 +180,23 @@ def _drift_time_heuristic_impl(
 
     where:
 
-     - :math:`T_1 = \frac{\sum_{i < m} t_i E_i}{\sum_{i < m} E_i}` and
-       :math:`T_2 = \frac{\sum_{i \geq m} t_i E_i}{\sum_{i \geq m} E_i}`
-       are the energy-weighted mean drift times of the two groups.
-     - :math:`E_\text{scale}(E_1, E_2) = \frac{1}{\sqrt{E_1 E_2}}`
-       is the scaling factor.
+    .. math::
+
+        T_1 = \frac{\sum_{i < m} t_i E_i}{\sum_{i < m} E_i}
+
+    and
+
+    .. math::
+
+        T_2 = \frac{\sum_{i \geq m} t_i E_i}{\sum_{i \geq m} E_i}
+
+    are the energy-weighted mean drift times of the two groups.
+
+    .. math::
+
+        E_\text{scale}(E_1, E_2) = \frac{1}{\sqrt{E_1 E_2}}
+
+    is the scaling factor.
 
     The function iterates over all possible values of :math:`m` and selects the
     maximum `I` as the drift time heuristic value.
