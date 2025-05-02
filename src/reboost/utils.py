@@ -15,7 +15,11 @@ from lgdo import LGDO
 from lgdo.types import Table
 
 log = logging.getLogger(__name__)
+
 u = pint.get_application_registry()
+"""The physical units registry."""
+
+# this results in 'meter / second' being formatted as 'm/s' when calling str()
 u.formatter.default_format = "~P"
 
 
