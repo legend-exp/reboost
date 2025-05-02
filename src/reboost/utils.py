@@ -6,12 +6,50 @@ import re
 from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pint
 from dbetto import AttrsDict
+from lgdo import LGDO
 
 log = logging.getLogger(__name__)
 u = pint.get_application_registry()
+
+
+def _unit_conv_factor(data: Any, target_units: pint.Units) -> float:
+    """Calculate numeric conversion factor to reach `target_units`.
+
+    Parameters
+    ----------
+    data
+        starting data structure. If an LGDO, try to determine units by peeking
+        into its attributes. Otherwise, just return 1.
+    target_units
+        units you wish to convert data to.
+    """
+    if isinstance(data, LGDO) and "units" in data.attrs:
+        return u[data.attrs["units"]].to(target_units).magnitude
+    return 1
+
+
+def _un_lgdo(data: Any, library: str = "ak") -> tuple(Any, dict | None):
+    """Return a view of the data held by the LGDO and its attributes.
+
+    Parameters
+    ----------
+    data
+        the data container. If not an LGDO, it will be returned as is with
+        ``None`` attributes.
+    library
+        forwarded to :func:`lgdo.view_as`.
+
+    Returns
+    -------
+    A tuple of the un-lgdo'd data and the LGDO attributes.
+    """
+    if isinstance(data, LGDO):
+        return data.view_as(library), data.attrs
+    return data, None
 
 
 def get_file_dict(

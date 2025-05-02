@@ -87,3 +87,17 @@ def test_drift_time(dt_map):
     assert isinstance(dt_values, VectorOfVectors)
     assert dt_values.ndim == 2
     assert dt_values.attrs["units"] == "ns"
+
+
+def test_drift_time_heuristics(dt_map):
+    dt_values = psd.drift_time(
+        gamma_stp.xloc,
+        gamma_stp.xloc,
+        gamma_stp.xloc,
+        dt_map,
+    )
+
+    psd.drift_time_heuristic(
+        dt_values,
+        gamma_stp.edep,
+    )
