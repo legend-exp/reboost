@@ -1,6 +1,7 @@
 # courtesy of D. Hervas
 
 using SolidStateDetectors # >= 5f3a5cb
+using LegendTestData
 using LegendDataManagement # >= ad9555c
 using Plots
 using Unitful
@@ -13,8 +14,9 @@ SSD = SolidStateDetectors
 T = Float32
 
 # let's use V10437B. Note: private metadata
-meta = LegendDataManagement.readlprops("legend-metadata/hardware/detectors/germanium/diodes/V10437B.yaml")
-xtal_meta = LegendDataManagement.readlprops("legend-metadata/hardware/detectors/germanium/crystals/V10437.yaml")
+root_path = legend_test_data_path() * "/data/legend/metadata/hardware/detectors/germanium"
+meta = LegendDataManagement.readlprops("$root_path/diodes/V99000A.yaml")
+xtal_meta = LegendDataManagement.readlprops("$root_path/crystals/V99000.yaml")
 sim = Simulation{T}(LegendData, meta, xtal_meta)
 
 sim.detector = SolidStateDetector(
@@ -120,5 +122,5 @@ output = (
 
 @info "Saving to disk..."
 lh5open("drift-time-maps.lh5", "w") do f
-    f["V99999A"] = output
+    f["V99000A"] = output
 end

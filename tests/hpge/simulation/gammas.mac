@@ -1,4 +1,4 @@
-/RMG/Geometry/RegisterDetector Germanium V99999A 001
+/RMG/Geometry/RegisterDetector Germanium V99000A 001
 
 /run/initialize
 
@@ -6,6 +6,10 @@
 /RMG/Generator/Confinement/Physical/AddVolume Source
 
 /RMG/Output/Germanium/StoreTrackID
+/RMG/Output/Germanium/Cluster/PreClusterOutputs
+/RMG/Output/Germanium/Cluster/CombineLowEnergyElectronTracks
+/RMG/Output/Germanium/Cluster/RedistributeGammaEnergy
+/RMG/Output/Germanium/Cluster/PreClusterDistance 1 mm
 
 /RMG/Generator/Select GPS
 /gps/particle gamma

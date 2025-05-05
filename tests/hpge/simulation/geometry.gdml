@@ -30,28 +30,28 @@
 		</material>
 	</materials>
 	<solids>
-		<genericPolycone name="V99999A" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad">
-			<rzpoint r="0" z="0"/>
-			<rzpoint r="11" z="0"/>
-			<rzpoint r="11" z="2"/>
-			<rzpoint r="14" z="2"/>
-			<rzpoint r="14" z="0"/>
-			<rzpoint r="45.05" z="0"/>
-			<rzpoint r="46.05" z="1"/>
-			<rzpoint r="46.05" z="104.6"/>
-			<rzpoint r="45.05" z="105.6"/>
-			<rzpoint r="15.135154255655445" z="105.6"/>
-			<rzpoint r="6" z="40.599999999999994"/>
-			<rzpoint r="6" z="33.599999999999994"/>
-			<rzpoint r="0" z="33.599999999999994"/>
+		<genericPolycone name="V99000A" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad">
+			<rzpoint r="0" z="2"/>
+			<rzpoint r="3" z="2"/>
+			<rzpoint r="3" z="0"/>
+			<rzpoint r="9" z="0"/>
+			<rzpoint r="9" z="1"/>
+			<rzpoint r="10" z="1"/>
+			<rzpoint r="10" z="0"/>
+			<rzpoint r="35" z="0"/>
+			<rzpoint r="35" z="20"/>
+			<rzpoint r="24.420381157492102" z="80"/>
+			<rzpoint r="5" z="80"/>
+			<rzpoint r="5" z="25"/>
+			<rzpoint r="0" z="25"/>
 		</genericPolycone>
 		<orb name="World_s" r="20" lunit="cm"/>
 		<tube name="Source_s" rmin="0" rmax="1" z="1" startphi="0" deltaphi="6.283185307179586" lunit="mm" aunit="rad"/>
 	</solids>
 	<structure>
-		<volume name="V99999A">
+		<volume name="V99000A">
 			<materialref ref="NaturalGermanium"/>
-			<solidref ref="V99999A"/>
+			<solidref ref="V99000A"/>
 		</volume>
 		<volume name="Source_L">
 			<materialref ref="G4_BRAIN_ICRP"/>
@@ -60,8 +60,8 @@
 		<volume name="World">
 			<materialref ref="G4_Galactic"/>
 			<solidref ref="World_s"/>
-			<physvol name="V99999A">
-				<volumeref ref="V99999A"/>
+			<physvol name="V99000A">
+				<volumeref ref="V99000A"/>
 			</physvol>
 			<physvol name="Source">
 				<volumeref ref="Source_L"/>
