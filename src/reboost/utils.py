@@ -64,6 +64,14 @@ def _un_lgdo(data: Any, library: str = "ak") -> tuple(Any, pint.Unit | None):
     return ret_data, ret_units
 
 
+def unit_to_lh5_attr(unit: pint.Unit) -> str:
+    """Convert Pint unit to a string that can be used as attrs["units"] in an LGDO."""
+    # TODO: we should check if this can be always parsed by Unitful.jl
+    if isinstance(unit, pint.Unit):
+        return f"{unit:~C}"
+    return unit
+
+
 def get_file_dict(
     stp_files: list[str] | str,
     glm_files: list[str] | str | None,

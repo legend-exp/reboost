@@ -128,7 +128,7 @@ def drift_time(
 
     return VectorOfVectors(
         dt_values,
-        attrs={"units": str(dt_map.φ_units)},
+        attrs={"units": utils.unit_to_lh5_attr(dt_map.φ_units)},
     )
 
 
@@ -155,7 +155,7 @@ def drift_time_heuristic(
     # we want to attach the right units to the dt heuristic, if possible
     attrs = {}
     if t_units is not None and e_units is not None:
-        attrs["units"] = str((t_units / e_units).u)
+        attrs["units"] = utils.unit_to_lh5_attr((t_units / e_units).u)
 
     return Array(_drift_time_heuristic_impl(drift_time, edep), attrs=attrs)
 
