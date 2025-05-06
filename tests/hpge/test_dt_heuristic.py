@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 from dbetto import AttrsDict
@@ -9,7 +7,7 @@ from lgdo import Array, Table, VectorOfVectors, lh5
 from scipy.interpolate import RegularGridInterpolator
 
 from reboost.hpge import psd, utils
-from reboost.utils import u
+from reboost.units import ureg as u
 
 # data from remage sim in ./simulation
 # fmt: off
@@ -81,9 +79,9 @@ gamma_stp = Table(
 
 
 @pytest.fixture(scope="module")
-def dt_map():
+def dt_map(legendtestdata):
     return utils.get_hpge_scalar_rz_field(
-        f"{Path(__file__).parent}/simulation/drift-time-maps.lh5",
+        legendtestdata["lh5/hpge-drift-time-maps.lh5"],
         "V99000A",
         "drift_time",
         out_of_bounds_val=0,
@@ -98,8 +96,8 @@ def test_read_map_from_disk(dt_map):
 
 
 @pytest.fixture(scope="module")
-def dt_map_dummy():
-    data = lh5.read("V99000A", f"{Path(__file__).parent}/simulation/drift-time-maps.lh5")
+def dt_map_dummy(legendtestdata):
+    data = lh5.read("V99000A", legendtestdata["lh5/hpge-drift-time-maps.lh5"])
     data = AttrsDict({k: data[k].view_as("np", with_units=True) for k in ("r", "z", "drift_time")})
 
     nan_idx = np.where(data.drift_time.m == np.nan)
@@ -125,12 +123,27 @@ def dt_map_dummy():
 
 
 def test_drift_time_dummy(dt_map_dummy):
+    gamma_stp_shift = Table(
+        {
+            "edep": gamma_stp.edep,
+            "xloc": VectorOfVectors(gamma_stp.xloc.view_as("ak") + 10, attrs={"units": "m"}),
+            "yloc": VectorOfVectors(gamma_stp.yloc.view_as("ak") + 10, attrs={"units": "m"}),
+            "zloc": VectorOfVectors(gamma_stp.zloc.view_as("ak") + 10, attrs={"units": "m"}),
+        }
+    )
+
     # compute all drift-times with the dummy map
     dt_values = psd.drift_time(
-        gamma_stp.xloc,
-        gamma_stp.yloc,
-        gamma_stp.zloc,
+        gamma_stp_shift.xloc,
+        gamma_stp_shift.yloc,
+        gamma_stp_shift.zloc,
         dt_map_dummy,
+        coord_offset=(
+            10,
+            10,
+            10,
+        )
+        * u.m,
     )
     # turn into an Awkward array so we can index
     dt_arr = dt_values.view_as("ak")

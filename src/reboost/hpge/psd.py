@@ -1,33 +1,35 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
 
 import awkward as ak
 import numba
 import numpy as np
+import pint
+import pyg4ometry
 from lgdo import Array, VectorOfVectors
 from numpy.typing import ArrayLike, NDArray
 
-from .. import utils
+from .. import units
+from ..units import ureg as u
 from .utils import HPGeScalarRZField
 
 log = logging.getLogger(__name__)
 
 
 def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array:
-    """Computes r90 for each hit in an HPGe detector.
+    """R90 HPGe pulse shape heuristic.
 
     Parameters
     ----------
     edep
-        awkward array of energy.
+        array of energy.
     xloc
-        awkward array of x coordinate position.
+        array of x coordinate position.
     yloc
-        awkward array of y coordinate position.
+        array of y coordinate position.
     zloc
-        awkward array of z coordinate position.
+        array of z coordinate position.
     """
     tot_energy = ak.sum(edep, axis=-1, keepdims=True)
 
@@ -81,7 +83,7 @@ def drift_time(
     yloc: ArrayLike,
     zloc: ArrayLike,
     dt_map: HPGeScalarRZField,
-    coord_offset: Sequence[float] = (0, 0, 0),
+    coord_offset: pint.Quantity | pyg4ometry.gdml.Position = (0, 0, 0) * u.m,
 ) -> VectorOfVectors:
     """Calculates drift times for each step (cluster) in an HPGe detector.
 
@@ -100,12 +102,15 @@ def drift_time(
         before drift time computation. The length units must be the same as
         `xloc`, `yloc` and `zloc`.
     """
+    # sanitize coord_offset
+    coord_offset = units.pg4_to_pint(coord_offset)
+
     # unit handling (for matching with drift time map units)
-    xu, yu = [utils._unit_conv_factor(data, dt_map.r_units) for data in (xloc, yloc)]
-    zu = utils._unit_conv_factor(zloc, dt_map.z_units)
+    xu, yu = [units.units_convfact(data, dt_map.r_units) for data in (xloc, yloc)]
+    zu = units.units_convfact(zloc, dt_map.z_units)
 
     # unwrap LGDOs
-    xloc, yloc, zloc = [utils._un_lgdo(data)[0] for data in (xloc, yloc, zloc)]
+    xloc, yloc, zloc = [units.unwrap_lgdo(data)[0] for data in (xloc, yloc, zloc)]
 
     # awkward transform to apply the drift time map to the step coordinates
     def _ak_dt_map(layouts, **_kwargs):
@@ -116,19 +121,21 @@ def drift_time(
 
         return None
 
-    # compute radial coordinate
-    rloc = np.sqrt((xu * (xloc - coord_offset[0])) ** 2 + (yu * (yloc - coord_offset[1])) ** 2)
+    # transform coordinates
+    xloc = xu * xloc - coord_offset[0].to(dt_map.r_units).m
+    yloc = yu * yloc - coord_offset[1].to(dt_map.r_units).m
+    zloc = zu * zloc - coord_offset[2].to(dt_map.z_units).m
 
     # evaluate the drift time
     dt_values = ak.transform(
         _ak_dt_map,
-        rloc,
-        zu * (zloc - coord_offset[2]),
+        np.sqrt(xloc**2 + yloc**2),
+        zloc,
     )
 
     return VectorOfVectors(
         dt_values,
-        attrs={"units": utils.unit_to_lh5_attr(dt_map.φ_units)},
+        attrs={"units": units.unit_to_lh5_attr(dt_map.φ_units)},
     )
 
 
@@ -149,13 +156,13 @@ def drift_time_heuristic(
         energy deposited in step/cluster (same shape as `drift_time`).
     """
     # extract LGDO data and units
-    drift_time, t_units = utils._un_lgdo(drift_time)
-    edep, e_units = utils._un_lgdo(edep)
+    drift_time, t_units = units.unwrap_lgdo(drift_time)
+    edep, e_units = units.unwrap_lgdo(edep)
 
     # we want to attach the right units to the dt heuristic, if possible
     attrs = {}
     if t_units is not None and e_units is not None:
-        attrs["units"] = utils.unit_to_lh5_attr((t_units / e_units).u)
+        attrs["units"] = units.unit_to_lh5_attr(t_units / e_units)
 
     return Array(_drift_time_heuristic_impl(drift_time, edep), attrs=attrs)
 

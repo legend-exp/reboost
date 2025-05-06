@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from scipy.interpolate import RegularGridInterpolator
 
 from reboost.hpge.utils import HPGeScalarRZField, get_hpge_scalar_rz_field
-from reboost.utils import u
+from reboost.units import ureg as u
 
 
-def test_read_hpge_map():
+def test_read_hpge_map(legendtestdata):
     dt_map = get_hpge_scalar_rz_field(
-        f"{Path(__file__).parent}/simulation/drift-time-maps.lh5",
+        legendtestdata["lh5/hpge-drift-time-maps.lh5"],
         "V99000A",
         "drift_time",
         out_of_bounds_val=0,
