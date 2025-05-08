@@ -19,7 +19,7 @@ def get_wo_mode(indices: list[int], new_hit_file: bool, overwrite: bool = False)
     good_idx = all(i == 0 for i in indices)
     if good_idx and new_hit_file:
         return "of" if overwrite else "w"
-    return "append"
+    return "ac"
 
 
 def get_file_dict(

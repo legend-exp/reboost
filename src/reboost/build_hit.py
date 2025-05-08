@@ -166,6 +166,7 @@ import awkward as ak
 import dbetto
 from dbetto import AttrsDict
 from lgdo import lh5
+from lgdo.types import Struct
 
 from reboost.iterator import GLMIterator
 from reboost.profile import ProfileDict
@@ -361,8 +362,8 @@ def build_hit(
                                 start_time = time.time()
 
                             lh5.write(
-                                hit_table,
-                                f"{out_field}/{out_detector}",
+                                Struct({out_detector: hit_table}),
+                                out_field,
                                 files.hit[file_idx],
                                 wo_mode=wo_mode,
                             )
