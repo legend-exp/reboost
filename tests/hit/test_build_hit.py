@@ -47,7 +47,7 @@ def test_basic(test_gen_lh5, tmptestdir):
         hit_files=f"{tmptestdir}/basic_hit.lh5",
     )
 
-    hits = lh5.read("det1/hit", f"{tmptestdir}/basic_hit.lh5").view_as("ak")
+    hits = lh5.read("hit/det1", f"{tmptestdir}/basic_hit.lh5").view_as("ak")
 
     assert ak.all(hits.energy == [300, 330])
     assert ak.all(hits.t0 == [0, 0.1])
