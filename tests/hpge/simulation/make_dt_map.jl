@@ -33,7 +33,7 @@ calculate_electric_potential!(
 )
 
 @info "Calculating electric field..."
-calculate_electric_field!(sim, n_points_in_φ=72)
+calculate_electric_field!(sim, n_points_in_φ=2)
 
 @info "Calculating weighting potential..."
 calculate_weighting_potential!(
@@ -46,8 +46,9 @@ calculate_weighting_potential!(
 
 function make_axis(T, boundary, gridsize)
     # define interior domain strictly within (0, boundary)
-    inner_start = 0 + 2*SSD.ConstructiveSolidGeometry.csg_default_tol(T)
-    inner_stop = boundary - 2*SSD.ConstructiveSolidGeometry.csg_default_tol(T)
+    offset = 2*SSD.ConstructiveSolidGeometry.csg_default_tol(T)
+    inner_start = 0 + offset
+    inner_stop = boundary - offset
 
     # compute number of intervals in the interior
     n = round(Int, (inner_stop - inner_start) / gridsize)
@@ -59,7 +60,7 @@ function make_axis(T, boundary, gridsize)
     axis = range(inner_start, step=step, length=n + 1)
 
     # prepend and append slightly out-of-bound points
-    extended_axis = [0 - 2*SSD.ConstructiveSolidGeometry.csg_default_tol(T), axis..., boundary + 2*SSD.ConstructiveSolidGeometry.csg_default_tol(T)]
+    extended_axis = [0 - offset, axis..., boundary + offset]
 
     return extended_axis
 end
