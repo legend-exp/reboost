@@ -79,18 +79,10 @@ for (i,x) in enumerate(x_axis)
         push!(spawn_positions, CartesianPoint(T[x,0,z]))
         push!(idx_spawn_positions, CartesianIndex(i,k))
     end
-end
-in_idx = findall(x -> x in sim.detector && !in(x, sim.detector.contacts), spawn_positions)
 
-# simulate events
-
-time_step = T(1)u"ns"
-max_nsteps = 10000
-
-# prepare thread-local storage
-n = length(in_idx)
-wfs_raw_threaded = Vector{Vector{Float64}}(undef, n)
-dt_threaded = Vector{Int}(undef, n)
+    gridsize = 0.0005 # in m
+    radius = meta.geometry.radius_in_mm / 1000
+    height = meta.geometry.height_in_mm / 1000
 
 @info "Simulating energy depositions on grid r=0:$gridsize:$radius and z=0:$gridsize:$height..."
 @threads for i in 1:n
@@ -112,13 +104,19 @@ for (i, idx) in enumerate(idx_spawn_positions[in_idx])
     drift_time[idx] = dt[i]
 end
 
-output = (
-    r=collect(x_axis) * u"m",
-    z=collect(z_axis) * u"m",
-    drift_time=transpose(drift_time) * u"ns"
-)
+    output = (
+        r=collect(x_axis) * u"m",
+        z=collect(z_axis) * u"m",
+        drift_time=transpose(drift_time) * u"ns",
+    )
+    if id == 1
+        mode = "w"
+    else
+        mode = "r+"
+    end
 
-@info "Saving to disk..."
-lh5open("drift-time-maps.lh5", "w") do f
-    f["V99000A"] = output
+    @info "Saving to disk..."
+    lh5open("drift-time-maps.lh5", mode) do f
+        f["$(det)A"] = output
+    end
 end
