@@ -112,7 +112,7 @@ def test_full_chain(tmptestdir):
         "truth_energy",
         "active_energy",
         "smeared_energy",
-        }
+    }
     assert set(hits["det002"].view_as("ak").fields) == {
         "evtid",
         "t0",
