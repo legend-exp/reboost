@@ -361,12 +361,20 @@ def build_hit(
                             if time_dict is not None:
                                 start_time = time.time()
 
-                            lh5.write(
-                                Struct({out_detector: hit_table}),
-                                out_field,
-                                files.hit[file_idx],
-                                wo_mode=wo_mode,
-                            )
+                            if wo_mode != "a":
+                                lh5.write(
+                                    Struct({out_detector: hit_table}),
+                                    out_field,
+                                    files.hit[file_idx],
+                                    wo_mode=wo_mode,
+                                )
+                            else:
+                                lh5.write(
+                                    hit_table,
+                                    f"{out_field}/{out_detector}",
+                                    files.hit[file_idx],
+                                    wo_mode=wo_mode,
+                                )
                             if time_dict is not None:
                                 time_dict[proc_name].update_field("write", start_time)
 

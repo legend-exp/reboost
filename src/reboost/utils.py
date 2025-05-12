@@ -17,9 +17,13 @@ log = logging.getLogger(__name__)
 def get_wo_mode(indices: list[int], new_hit_file: bool, overwrite: bool = False):
     """Get the mode for lh5 file writing."""
     good_idx = all(i == 0 for i in indices)
+
     if good_idx and new_hit_file:
         return "of" if overwrite else "w"
-    return "ac"
+
+    if ((indices[2] > 0) or (indices[1] > 0)) & (indices[3] == 0):
+        return "ac"
+    return "a"
 
 
 def get_file_dict(
