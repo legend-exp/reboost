@@ -14,14 +14,18 @@ from lgdo.types import Table, VectorOfVectors
 log = logging.getLogger(__name__)
 
 
-def get_wo_mode(indices: list[int], new_hit_file: bool, overwrite: bool = False):
+def get_wo_mode(
+    group: int, out_det: int, in_det: int, chunk: int, new_hit_file: bool, overwrite: bool = False
+):
     """Get the mode for lh5 file writing."""
+    indices = [group, out_det, in_det, chunk]
+
     good_idx = all(i == 0 for i in indices)
 
     if good_idx and new_hit_file:
         return "of" if overwrite else "w"
 
-    if ((indices[2] > 0) or (indices[1] > 0)) & (indices[3] == 0):
+    if ((in_det > 0) or (out_det > 0)) & (chunk == 0):
         return "ac"
     return "a"
 

@@ -351,8 +351,11 @@ def build_hit(
                         )
 
                         wo_mode = utils.get_wo_mode(
-                            [group_idx, out_det_idx, in_det_idx, chunk_idx],
-                            new_hit_file,
+                            group=group_idx,
+                            out_det=out_det_idx,
+                            in_det=in_det_idx,
+                            chunk=chunk_idx,
+                            new_hit_file=new_hit_file,
                             overwrite=overwrite,
                         )
 

@@ -118,9 +118,10 @@ def test_save_dict(tmp_path):
 
 
 def test_wo_mode():
-    assert get_wo_mode([0, 0, 0], True, overwrite=True) == "of"
-    assert get_wo_mode([0, 0, 0], True, overwrite=False) == "w"
-    assert get_wo_mode([0, 0, 1], True, overwrite=False) == "ac"
+    assert get_wo_mode(0, 0, 0, 0, True, overwrite=True) == "of"
+    assert get_wo_mode(0, 0, 0, 0, True, overwrite=False) == "w"
+    assert get_wo_mode(0, 0, 0, 1, True, overwrite=False) == "ac"
+    assert get_wo_mode(0, 0, 1, 0, True, overwrite=False) == "ac"
 
 
 def test_get_files_dict():
