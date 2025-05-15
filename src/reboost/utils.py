@@ -25,6 +25,7 @@ def get_wo_mode(
     if good_idx and new_hit_file:
         return "of" if overwrite else "w"
 
+    # if we have a detector not the first and chunk 0 append column
     if ((in_det > 0) or (out_det > 0)) & (chunk == 0):
         return "ac"
     return "a"
