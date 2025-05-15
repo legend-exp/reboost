@@ -202,13 +202,16 @@ def test_units():
 
     assert units["a"] == "ns"
     assert units["b"] == "keV"
-
     reshaped = group.group_by_evtid(table.view_as("ak"))
 
+    # also add an array field
+    units["c"] = "keV"
+    reshaped["c"] = Array([1, 2])
     reshaped = assign_units(reshaped, units)
 
-    assert reshaped.a.attrs["units"] == "ns"
-    assert reshaped.b.attrs["units"] == "keV"
+    assert reshaped.a.flattened_data.attrs["units"] == "ns"
+    assert reshaped.b.flattened_data.attrs["units"] == "keV"
+    assert reshaped.c.attrs["units"] == "keV"
 
 
 def test_get_channels():

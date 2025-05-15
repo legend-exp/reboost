@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from dbetto import AttrsDict
-from lgdo.types import Table
+from lgdo.types import Table, VectorOfVectors
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +125,11 @@ def assign_units(tab: Table, units: Mapping) -> Table:
     """
     for field in tab:
         if field in units:
-            tab[field].attrs["units"] = units[field]
+            if not isinstance(tab[field], VectorOfVectors):
+                tab[field].attrs["units"] = units[field]
+            else:
+                tab[field].flattened_data.attrs["units"] = units[field]
+
     return tab
 
 
