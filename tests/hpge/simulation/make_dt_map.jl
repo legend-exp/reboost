@@ -102,7 +102,7 @@ for (id,det) in enumerate(["V99000","B99000"])
         simulate!(e, sim, Δt = time_step, max_nsteps = max_nsteps, verbose = false)
         wf = ustrip(e.waveforms[1].signal)
         collected_charge = wf[argmax(abs.(wf))]
-        
+
         if collected_charge < 0 #very rare, occurs when electron drift dominates and holes are stuck
             wf *= -1 #to ensure Intersect() works as intended
             collected_charge *= -1
@@ -111,21 +111,21 @@ for (id,det) in enumerate(["V99000","B99000"])
         dt_intersection = ceil(intersection.x)
         dt_fallback = length(wf)
         dt_diff = dt_fallback - dt_intersection
-        
-        dt_threaded[i] = if intersection.multiplicity > 0 
+
+        dt_threaded[i] = if intersection.multiplicity > 0
             if dt_diff > 2 # dt_intersection is not at the end of the wf
                 tint2 = Intersect(mintot = dt_diff) # check intersect again but with min_n_over_thresh (mintot) set to max
-                intersection2 = tint2(wf, rise_convergence_creteria*collected_charge) 
+                intersection2 = tint2(wf, rise_convergence_creteria*collected_charge)
                 if intersection2.multiplicity > 0  # usually monotonic waveforms which converge very slowly
                     dt_intersection
                 else # usually non-monotonic waveforms
-                    dt_fallback 
+                    dt_fallback
                 end
             else # dt_intersection is at the end of the wf (ie. both drift length and wf convergence methods agree)
                 dt_intersection
             end
         else # no intersection with minimal conditions (mintot=0) found
-            dt_fallback 
+            dt_fallback
         end
     end
 
