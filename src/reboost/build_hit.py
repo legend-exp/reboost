@@ -225,19 +225,19 @@ def build_hit(
     # get the arguments
     if not isinstance(args, AttrsDict):
         args = AttrsDict(args)
+
     time_dict = ProfileDict()
 
     # get the global objects
-    global_objects = AttrsDict(
-        core.get_global_objects(
-            expressions=config.get("objects", {}), local_dict={"ARGS": args}, time_dict=time_dict
-        )
+    global_objects = core.get_global_objects(
+        expressions=config.get("objects", {}), local_dict={"ARGS": args}, time_dict=time_dict
     )
 
     # get the input files
     files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files, hit_files=hit_files)
 
     output_tables = {}
+
     # iterate over files
     for file_idx, (stp_file, glm_file) in enumerate(zip(files.stp, files.glm)):
         msg = (
@@ -257,15 +257,8 @@ def build_hit(
                 time_dict[proc_name] = ProfileDict()
 
             # extract the output detectors and the mapping to input detectors
-            detectors_mapping = utils.merge_dicts(
-                [
-                    core.get_detectors_mapping(
-                        mapping["output"],
-                        input_detector_name=mapping.get("input", None),
-                        objects=global_objects,
-                    )
-                    for mapping in proc_group.get("detector_mapping")
-                ]
+            detectors_mapping = core.get_detector_mapping(
+                proc_group.get("detector_mapping"), global_objects
             )
 
             # loop over detectors
@@ -283,18 +276,18 @@ def build_hit(
                 )
 
                 # begin iterating over the glm
-                glm_it = GLMIterator(
+                iterator = GLMIterator(
                     glm_file,
                     stp_file,
                     lh5_group=in_detector,
                     start_row=start_evtid,
                     stp_field=in_field,
                     n_rows=n_evtid,
-                    read_vertices=False,
                     buffer=buffer,
                     time_dict=time_dict[proc_name],
                 )
-                for stps, _, chunk_idx, _ in glm_it:
+
+                for stps, chunk_idx, _ in iterator:
                     # converting to awkward
                     if stps is None:
                         continue
