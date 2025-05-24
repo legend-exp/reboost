@@ -283,6 +283,7 @@ def build_hit(
                     n_rows=n_evtid,
                     buffer=buffer,
                     time_dict=time_dict[proc_name],
+                    reshaped_files="hit_table_layout" not in proc_group,
                 )
 
                 for stps, chunk_idx, _ in iterator:
@@ -362,7 +363,7 @@ def build_hit(
                             # write the file
                             utils.write_lh5(
                                 hit_table,
-                                files[file_idx],
+                                files.hit[file_idx],
                                 time_dict[proc_name],
                                 out_field=out_field,
                                 out_detector=out_detector,

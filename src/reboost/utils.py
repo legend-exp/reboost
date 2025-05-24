@@ -8,11 +8,12 @@ import time
 from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from profile import ProfileDict
 
 from dbetto import AttrsDict
 from lgdo import lh5
 from lgdo.types import Struct, Table, VectorOfVectors
+
+from reboost.profile import ProfileDict
 
 log = logging.getLogger(__name__)
 
