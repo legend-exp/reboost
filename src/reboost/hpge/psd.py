@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from math import erf, exp
 
 import awkward as ak
 import numba
@@ -236,3 +237,275 @@ def _drift_time_heuristic_impl(
         dt_heu[i] = max_id_metric
 
     return dt_heu
+
+
+@numba.njit(cache=True)
+def _vectorized_erf(x: ArrayLike) -> NDArray:
+    """Error function that can take in a numpy array."""
+    out = np.empty_like(x)
+    for i in range(x.size):
+        out[i] = erf(x[i])
+    return out
+
+
+@numba.njit(cache=True)
+def _current_pulse_model(
+    times: ArrayLike, Amax: float, mu: float, sigma: float, tail_fraction: float, tau: float
+) -> NDArray:
+    r"""Analytic model for the current pulse in a Germanium detector.
+
+    Consists of a Gaussian and an exponential tail:
+
+     .. math::
+
+       A(t) = A_{max}\times (1-p)\times \text{Gauss}(t,\mu,\sigma)+ A \times p (1-\text{Erf}((t-\mu)/sigma))\times
+        \frac{e^{(t/\tau)}}{2e^{\mu/\tau}}
+
+    Parameters
+    ----------
+    times
+        Array of times to compute current for
+    Amax
+        Maximum current
+    mu
+        Time of the maximum current.
+    sigma
+        Width of the current pulse
+    tail_fraction
+        Fraction of the tail in the pulse.
+    tau
+        Time constant of the low time tail.
+
+    Returns
+    -------
+    The predicted current waveform for this energy deposit.
+    """
+    norm = 2 * exp(mu / tau)
+
+    dx = times - mu
+    term1 = Amax * (1 - tail_fraction) * np.exp(-(dx * dx) / (2 * sigma * sigma))
+    term2 = Amax * tail_fraction * (1 - _vectorized_erf(dx / sigma)) * np.exp(times / tau) / norm
+
+    return term1 + term2
+
+
+def convolve_surface_response(surf_current: np.ndarray, bulk_pulse: np.ndarray) -> NDArray:
+    """Convolve the surface response pulse with the bulk current pulse.
+
+    This combines the current induced on the edge of the FCCD region with the bulk response
+    on the p+ contact.
+
+    Parameters
+    ----------
+    surf_current
+        array of the current induced via diffusion against time.
+    bulk_pulse
+        the pulse template to convolve the surface current with.
+
+    Returns
+    -------
+    the current waveform after convolution.
+    """
+    return np.convolve(surf_current, bulk_pulse, mode="full")[: len(surf_current)]
+
+
+@numba.njit(cache=True)
+def get_current_waveform(
+    edep: ak.Array,
+    drift_time: ak.Array,
+    sigma: float,
+    tail_fraction: float,
+    tau: float,
+    norm: float,
+    low: float,
+    high: float,
+    steps: float,
+) -> tuple(NDArray, NDArray):
+    r"""Estimate the current waveform.
+
+    Based on modelling the current as a sum over the current pulse model in
+    :func:`_current_pulse_model`.
+
+    .. math::
+        A(t) = \sum_i E_i \times N f(t,dt_i,\vector{\theta})
+
+    Where:
+        - $f(t)$ is the template
+        - $\vector{\theta}$ are the parameters (sigma, p, tau)
+        - $E_i$ and $dt_i$ are the deposited energy and drift time.
+        - N is a normalisation term
+
+    Parameters
+    ----------
+    edep
+        Array of energies for each step
+    drift_time
+        Array of drift times for each step
+    sigma
+        Sigma parameter of the current pulse model.
+    tail_fraction
+        Tail-fraction parameter of the current pulse.
+    tau
+        Tail parameter of the current pulse
+    norm
+        Normalisation factor (from energy to current).
+    low
+        starting time for the waveform
+    high
+        ending time for the waveform
+    steps
+        number of steps
+
+    Returns
+    -------
+    A tuple of the time and current for the current waveform for this event.
+    """
+    times = np.linspace(low, high, steps)
+    y = np.zeros_like(times)
+
+    for i in range(len(edep)):
+        A = edep[i] * norm
+        mu = drift_time[i]
+        y += _current_pulse_model(
+            times, A, mu=mu, sigma=sigma, tail_fraction=tail_fraction, tau=tau
+        )
+
+    return times, y
+
+
+@numba.njit(cache=True)
+def _estimate_current_impl(
+    edep: ak.Array,
+    dt: ak.Array,
+    sigma: float,
+    tail_fraction: float,
+    tau: float,
+    mean_AoE: float = 0,
+) -> tuple[NDArray, NDArray]:
+    """Estimate the maximum current that would be measured in the HPGe detector.
+
+    This is based on extracting a waveform with :func:`get_current_waveform` and finding the maxima of it.
+    Two iterations are performed first with ~ 10 ns time steps then a fine scan with 1 ns.
+
+    Parameters
+    ----------
+    edep
+        Array of energies for each step.
+    drift_time
+        Array of drift times for each step.
+    sigma
+        Sigma parameter of the current pulse model.
+    tail_fraction
+        Tail-fraction parameter of the current pulse.
+    tau
+        Tail parameter of the current pulse
+    mean_AoE
+        The mean AoE value for this detector (to normalise current pulses).
+    """
+    A = np.zeros(len(dt))
+    maximum_t = np.zeros(len(dt))
+
+    # get normalisation factor
+    x = np.linspace(3000, 0, 3000)
+    y = _current_pulse_model(x, 1, 500, sigma, tail_fraction, tau)
+    factor = np.max(y)
+
+    for i in range(len(dt)):
+        t = np.asarray(dt[i])
+        e = np.asarray(edep[i])
+
+        # first pass
+        low, high = min(t), max(t)
+        x, W = get_current_waveform(
+            e,
+            t,
+            tau=tau,
+            tail_fraction=tail_fraction,
+            norm=mean_AoE / factor,
+            sigma=sigma,
+            low=low - 50,
+            high=high + 50,
+            steps=round((100 + high - low) / 10),
+        )
+
+        # second pass
+        max_t = x[np.argmax(W)]
+
+        x, W = get_current_waveform(
+            e,
+            t,
+            tau=tau,
+            tail_fraction=tail_fraction,
+            norm=mean_AoE / factor,
+            sigma=sigma,
+            low=max_t - 20,
+            high=max_t + 20,
+            steps=40,
+        )
+
+        # save current
+        A[i] = np.max(W)
+        maximum_t[i] = t[np.argmax(W)]
+
+    return A, max_t
+
+
+def maximum_current(
+    edep: ArrayLike,
+    drift_time: ArrayLike,
+    *,
+    sigma: float,
+    tail_fraction: float,
+    tau: float,
+    mean_AoE: float = 0,
+    get_timepoint: bool = False,
+) -> Array:
+    """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
+
+    Parameters
+    ----------
+    edep
+        Array of energies for each step.
+    drift_time
+        Array of drift times for each step.
+    sigma
+        Sigma parameter of the current pulse model.
+    tail_fraction
+        Tail-fraction parameter of the current pulse.
+    tau
+        Tail parameter of the current pulse
+    mean_AoE
+        The mean AoE value for this detector (to normalise current pulses).
+    get_timepoint
+        Flag to return the time of the maximum current (relative to t0) instead of the current.
+
+    Returns
+    -------
+    An Array of the maximum current for each hit.
+    """
+    # extract LGDO data and units
+    drift_time, time_unit = units.unwrap_lgdo(drift_time)
+
+    # if time_unit not in {"ns", "nanosecond", None}:
+    #    msg = f"Time unit must be ns not {time_unit}"
+    #    raise ValueError(msg)
+
+    edep, _ = units.unwrap_lgdo(edep)
+
+    curr, time = _estimate_current_impl(
+        ak.Array(edep),
+        ak.Array(drift_time),
+        sigma=sigma,
+        tail_fraction=tail_fraction,
+        tau=tau,
+        mean_AoE=mean_AoE,
+    )
+
+    attrs = {}
+    if time_unit is not None:
+        attrs["units"] = units.unit_to_lh5_attr(time_unit)
+
+    # return
+    if get_timepoint:
+        return Array(time, attrs=attrs)
+    return Array(curr)
