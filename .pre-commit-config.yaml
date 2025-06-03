@@ -42,7 +42,7 @@ repos:
         types_or: [yaml, markdown, json]
 
   - repo: https://github.com/PyCQA/docformatter
-    rev: v1.7.7 # use eb1df34 until https://github.com/PyCQA/docformatter/issues/293 is fixed
+    rev: v1.7.7
     hooks:
       - id: docformatter
         additional_dependencies: [tomli]
