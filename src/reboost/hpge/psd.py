@@ -207,8 +207,8 @@ def _drift_time_heuristic_impl(
 
     # loop over hits
     for i in range(len(dt)):
-        t = np.asarray(dt[i])
-        e = np.asarray(edep[i])
+        t = ak.to_numpy(dt[i])
+        e = ak.to_numpy(edep[i])
 
         valid_idx = np.where(e > 0)[0]
         if len(valid_idx) < 2:
