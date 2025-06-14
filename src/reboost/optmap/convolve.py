@@ -358,7 +358,7 @@ def convolve(
     it = LH5Iterator(edep_file, edep_path, buffer_len=buffer_len)
 
     for it_count, edep_lgdo in enumerate(it):
-        edep_df = edep_lgdo.view_as("pd").iloc.to_records()
+        edep_df = edep_lgdo.view_as("pd").to_records()
 
         log.info("start event processing (%d)", it_count)
         output_map = iterate_stepwise_depositions(
