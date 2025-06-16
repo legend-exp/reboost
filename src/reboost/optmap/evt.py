@@ -79,9 +79,7 @@ def build_optmap_evt(
             _store_vert_df()
 
             # read the next vertex chunk into memory.
-            vert_lgdo = next(vert_it)
-
-            vert_df = vert_lgdo.view_as("pd")
+            vert_df = next(vert_it).view_as("pd")
 
             # prepare vertex coordinates.
             vert_df = vert_df.set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
