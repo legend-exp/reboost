@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import NamedTuple
 
+import awkward as ak
 import legendoptics.scintillate as sc
 import numba
 import numpy as np
-import pint
-from legendoptics import lar
+from legendoptics import fibers, lar, pen
 from lgdo import lh5
 from lgdo.lh5 import LH5Iterator
 from lgdo.types import Array, Histogram, Table
 from numba import njit, prange
 from numpy.lib.recfunctions import structured_to_unstructured
+from numpy.typing import NDArray
+from pint import Quantity
 
 from .numba_pdg import numba_pdgid_funcs
 
@@ -23,7 +26,16 @@ OPTMAP_ANY_CH = -1
 OPTMAP_SUM_CH = -2
 
 
-def open_optmap(optmap_fn: str):
+class OptmapForConvolve(NamedTuple):
+    """A loaded optmap for convolving."""
+
+    detids: NDArray
+    detidx: NDArray
+    edges: NDArray
+    weights: NDArray
+
+
+def open_optmap(optmap_fn: str) -> OptmapForConvolve:
     maps = lh5.ls(optmap_fn)
     # only accept _<number> (/all is read separately)
     det_ntuples = [m for m in maps if re.match(r"_\d+$", m)]
@@ -72,12 +84,32 @@ def open_optmap(optmap_fn: str):
     except KeyError:  # the _hitcounts_exp might not be always present.
         pass
 
-    return detids, detidx, optmap_edges, ow
+    return OptmapForConvolve(detids, detidx, optmap_edges, ow)
+
+
+def open_optmap_single(optmap_fn: str, spm_det_uid: int) -> OptmapForConvolve:
+    try:
+        # check the exponent from the optical map file
+        optmap_multi_det_exp = lh5.read("/_hitcounts_exp", optmap_fn).value
+        assert isinstance(optmap_multi_det_exp, float)
+        if np.isfinite(optmap_multi_det_exp):
+            msg = f"found finite _hitcounts_exp {optmap_multi_det_exp} which is not supported any more"
+            raise RuntimeError(msg)
+    except KeyError:  # the _hitcounts_exp might not be always present.
+        pass
+
+    optmap = lh5.read(f"/_{spm_det_uid}/p_det", optmap_fn)
+    assert isinstance(optmap, Histogram)
+    ow = np.empty((1, *optmap.weights.nda.shape), dtype=np.float64)
+    ow[0] = optmap.weights.nda
+    optmap_edges = tuple([b.edges for b in optmap.binning])
+
+    return OptmapForConvolve(np.array([spm_det_uid]), np.array([0]), optmap_edges, ow)
 
 
 def iterate_stepwise_depositions(
     edep_df: np.rec.recarray,
-    optmap_for_convolve,
+    optmap: OptmapForConvolve,
     scint_mat_params: sc.ComputedScintParams,
     rng: np.random.Generator = None,
     dist: str = "poisson",
@@ -95,7 +127,17 @@ def iterate_stepwise_depositions(
 
     rng = np.random.default_rng() if rng is None else rng
     output_map, res = _iterate_stepwise_depositions(
-        edep_df, x0, x1, rng, *optmap_for_convolve, scint_mat_params, dist, mode
+        edep_df,
+        x0,
+        x1,
+        rng,
+        optmap.detids,
+        optmap.detidx,
+        optmap.edges,
+        optmap.weights,
+        scint_mat_params,
+        dist,
+        mode,
     )
     if res["any_no_stats"] > 0 or res["det_no_stats"] > 0:
         log.warning(
@@ -118,6 +160,52 @@ def iterate_stepwise_depositions(
     )
     log.debug("hits/hits_any %.2f", res["hits"] / res["hits_any"])
     return output_map
+
+
+def iterate_stepwise_depositions_pois(
+    edep_df: ak.Array,
+    optmap: OptmapForConvolve,
+    scint_mat_params: sc.ComputedScintParams,
+    det_uid: int,
+    rng: np.random.Generator = None,
+    mode: str = "no-fano",
+):
+    rng = np.random.default_rng() if rng is None else rng
+    res, output_list = _iterate_stepwise_depositions_pois(
+        edep_df,
+        rng,
+        np.where(optmap.detids == det_uid)[0][0],
+        optmap.edges,
+        optmap.weights,
+        scint_mat_params,
+        mode,
+    )
+
+    # convert the numba result back into an awkward array.
+    builder = ak.ArrayBuilder()
+    for r in output_list:
+        with builder.list():
+            for a in r:
+                builder.extend(a)
+
+    if res["det_no_stats"] > 0:
+        log.warning(
+            "had edep out in voxels without stats: %d",
+            res["det_no_stats"],
+        )
+    if res["oob"] > 0:
+        log.warning(
+            "had edep out of map bounds: %d (%.2f%%)",
+            res["oob"],
+            (res["oob"] / (res["ib"] + res["oob"])) * 100,
+        )
+    log.debug(
+        "VUV_primary %d ->hits %d (%.2f %% primaries detected in this channel)",
+        res["vuv_primary"],
+        res["hits"],
+        (res["hits"] / res["vuv_primary"]) * 100,
+    )
+    return builder.snapshot()
 
 
 _pdg_func = numba_pdgid_funcs()
@@ -318,6 +406,133 @@ def _iterate_stepwise_depositions(
     return output_map, stats
 
 
+# - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
+# - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
+# - the output dictionary is not threadsafe, so parallel=True is not working with it.
+@njit(parallel=False, nogil=True, cache=True)
+def _iterate_stepwise_depositions_pois(
+    edep_df,
+    rng,
+    detidx: int,
+    optmap_edges,
+    optmap_weights,
+    scint_mat_params: sc.ComputedScintParams,
+    mode: str,
+):
+    pdgid_map = {}
+    oob = ib = ph_cnt = ph_det2 = det_no_stats = 0  # for statistics
+    output_list = []
+
+    for rowid in prange(len(edep_df)):  # iterate hits
+        hit = edep_df[rowid]
+        hit_output = []
+
+        # iterate steps inside the hit
+        for si in range(len(hit.particle)):
+            # get the particle information.
+            particle = hit.particle[si]
+            if particle not in pdgid_map:
+                pdgid_map[particle] = (_pdgid_to_particle(particle), _pdg_func.charge(particle))
+            part, charge = pdgid_map[particle]
+
+            # do the scintillation.
+            # if we have both pre and post step points use them
+            # else pass as None
+            scint_times = sc.scintillate(
+                scint_mat_params,
+                np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]]),
+                None,
+                None,
+                None,
+                hit.time[si],
+                part,
+                charge,
+                hit.edep[si],
+                rng,
+                emission_term_model=("poisson" if mode == "no-fano" else "normal_fano"),
+            )
+            if scint_times.shape[0] == 0:  # short-circuit if we have no photons at all.
+                continue
+            ph_cnt += scint_times.shape[0]
+
+            # coordinates -> bins of the optical map.
+            bins = np.empty((scint_times.shape[0], 3), dtype=np.int64)
+            for j in range(3):
+                bins[:, j] = np.digitize(scint_times[:, j + 1], optmap_edges[j])
+                # normalize all out-of-bounds bins just to one end.
+                bins[:, j][bins[:, j] == optmap_edges[j].shape[0]] = 0
+
+            # there are _much_ less unique bins, unfortunately np.unique(..., axis=n) does not work
+            # with numba; also np.sort(..., axis=n) also does not work.
+
+            counts_per_bin = numba.typed.Dict.empty(
+                key_type=__counts_per_bin_key_type,
+                value_type=np.int64,
+            )
+
+            # get probabilities from map.
+            hitcount = np.zeros(bins.shape[0], dtype=np.int64)
+            for j in prange(bins.shape[0]):
+                # note: subtract 1 from bins, to account for np.digitize output.
+                cur_bins = (bins[j, 0] - 1, bins[j, 1] - 1, bins[j, 2] - 1)
+                if cur_bins[0] == -1 or cur_bins[1] == -1 or cur_bins[2] == -1:
+                    oob += 1
+                    continue  # out-of-bounds of optmap
+                ib += 1
+
+                # store the photon count in each bin, to sample them all at once below.
+                if cur_bins not in counts_per_bin:
+                    counts_per_bin[cur_bins] = 1
+                else:
+                    counts_per_bin[cur_bins] += 1
+
+            for j, (cur_bins, ph_counts_to_poisson) in enumerate(counts_per_bin.items()):
+                detp = optmap_weights[detidx, cur_bins[0], cur_bins[1], cur_bins[2]]
+                if detp < 0.0:
+                    det_no_stats += 1
+                    continue
+                pois_cnt = rng.poisson(lam=ph_counts_to_poisson * detp)
+                hitcount[j] += pois_cnt
+                ph_det2 += pois_cnt
+
+            assert scint_times.shape[0] >= hitcount.shape[0]  # TODO: use the right assertion here.
+            out_hits_len = np.sum(hitcount)
+            if out_hits_len > 0:
+                out_times = np.empty(out_hits_len, dtype=np.float64)
+                out_idx = 0
+
+                hc_d_plane_max = np.max(hitcount[:])
+                # untangle the hitcount array in "planes" that only contain the given number of hits per
+                # channel. example: assume a "histogram" of hits per channel:
+                #     x |   |    <-- this is plane 2 with 1 hit ("max plane")
+                #     x |   | x  <-- this is plane 1 with 2 hits
+                # ch: 1 | 2 | 3
+                for hc_d_plane_cnt in range(1, hc_d_plane_max + 1):
+                    hc_d_plane = hitcount[:] >= hc_d_plane_cnt
+                    hc_d_plane_len = np.sum(hc_d_plane)
+                    if hc_d_plane_len == 0:
+                        continue
+
+                    # note: we assume "immediate" propagation after scintillation. Here, a single timestamp
+                    # might be coipied to output/"detected" twice.
+                    out_times[out_idx : out_idx + hc_d_plane_len] = scint_times[hc_d_plane, 0]
+                    out_idx += hc_d_plane_len
+
+                assert out_idx == out_hits_len  # ensure that all of out_{det,times} is filled.
+                hit_output.append(out_times)
+
+        output_list.append(hit_output)
+
+    stats = {
+        "oob": oob,
+        "ib": ib,
+        "vuv_primary": ph_cnt,
+        "hits": ph_det2,
+        "det_no_stats": det_no_stats,
+    }
+    return stats, output_list
+
+
 def get_output_table(output_map):
     ph_count_o = 0
     for _rawid, (_evtid, det, _times) in output_map.items():
@@ -342,25 +557,12 @@ def convolve(
     map_file: str,
     edep_file: str,
     edep_path: str,
-    material: str,
+    material: str | tuple[sc.ScintConfig, tuple[Quantity, ...]],
     output_file: str | None = None,
     buffer_len: int = int(1e6),
     dist_mode: str = "poisson+no-fano",
 ):
-    if material not in ["lar", "pen"]:
-        msg = f"unknown material {material} for scintillation"
-        raise ValueError(msg)
-
-    if material == "lar":
-        scint_mat_params = sc.precompute_scintillation_params(
-            lar.lar_scintillation_params(),
-            lar.lar_lifetimes().as_tuple(),
-        )
-    elif material == "pen":
-        scint_mat_params = sc.precompute_scintillation_params(
-            lar.pen_scintillation_params(),
-            (1 * pint.get_application_registry().ns),  # dummy!
-        )
+    scint_mat_params = _get_scint_params(material)
 
     # special handling of distributions and flags.
     dist, mode = dist_mode.split("+")
@@ -379,7 +581,7 @@ def convolve(
     it = LH5Iterator(edep_file, edep_path, buffer_len=buffer_len)
 
     for it_count, edep_lgdo in enumerate(it):
-        edep_df = edep_lgdo.view_as("pd").to_records()
+        edep_df = _reflatten_scint_vov(edep_lgdo.view_as("ak")).to_numpy()
 
         log.info("start event processing (%d)", it_count)
         output_map = iterate_stepwise_depositions(
@@ -393,3 +595,37 @@ def convolve(
         )
         if output_file is not None:
             lh5.write(tbl, "optical", lh5_file=output_file, group="stp", wo_mode="append")
+
+
+def _reflatten_scint_vov(arr: ak.Array) -> ak.Array:
+    if all(arr[f].ndim == 1 for f in ak.fields(arr)):
+        return arr
+
+    group_num = ak.num(arr["edep"]).to_numpy()
+    flattened = {
+        f: ak.flatten(arr[f]) if arr[f].ndim > 1 else np.repeat(arr[f].to_numpy(), group_num)
+        for f in ak.fields(arr)
+    }
+    return ak.Array(flattened)
+
+
+def _get_scint_params(material: str):
+    if material == "lar":
+        return sc.precompute_scintillation_params(
+            lar.lar_scintillation_params(),
+            lar.lar_lifetimes().as_tuple(),
+        )
+    if material == "pen":
+        return sc.precompute_scintillation_params(
+            pen.pen_scintillation_params(),
+            (pen.pen_scint_timeconstant(),),
+        )
+    if material == "fiber":
+        return sc.precompute_scintillation_params(
+            fibers.fiber_core_scintillation_params(),
+            (fibers.fiber_wls_timeconstant(),),
+        )
+    if isinstance(material, str):
+        msg = f"unknown material {material} for scintillation"
+        raise ValueError(msg)
+    return sc.precompute_scintillation_params(*material)
