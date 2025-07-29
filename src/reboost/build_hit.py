@@ -7,10 +7,15 @@ A :func:`build_hit` to parse the following configuration file:
     # dictionary of objects useful for later computation. they are constructed with
     # auxiliary data (e.g. metadata). They can be accessed later as OBJECTS (all caps)
     objects:
-     lmeta: LegendMetadata(ARGS.legendmetadata)
+     lmeta: legendmeta.LegendMetadata(ARGS.legendmetadata)
      geometry: pyg4ometry.load(ARGS.gdml)
      user_pars: dbetto.TextDB(ARGS.par)
      dataprod_pars: dbetto.TextDB(ARGS.dataprod_cycle)
+
+     _spms: OBJECTS.lmeta.channelmap(on=ARGS.timestamp)
+        .group("system").spms
+        .map("name")
+     spms: "{name: spm.daq.rawid for name, spm in OBJECTS._spms.items()}"
 
     # processing chain is defined to act on a group of detectors
     processing_groups:
@@ -107,9 +112,10 @@ A :func:`build_hit` to parse the following configuration file:
           outputs:
             - evtid
             - tot_edep_wlsr
+            - num_scint_ph_lar
 
           operations:
-            tot_edep_wlsr: ak.sum(HITS[(HITS.__detuid == 0) & (HITS.__zloc < 3000)].__edep, axis=-1)
+            tot_edep_wlsr: ak.sum(HITS.edep[np.abs(HITS.zloc) < 3000], axis=-1)
 
         - name: spms
 
@@ -117,11 +123,14 @@ A :func:`build_hit` to parse the following configuration file:
           # same name as the current detector. This can be overridden for special processors
 
           detector_mapping:
-           - output: OBJECTS.lmeta.channglmap(on=ARGS.timestamp)
-            .group("system").spms
-            .group("analysis.status").on
-            .map("name").keys()
-           - input: lar
+           - output: OBJECTS.spms.keys()
+             input: lar
+
+          hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
+
+          pre_operations:
+            num_scint_ph_lar: reboost.spms.emitted_scintillation_photons(HITS.edep, HITS.particle, "lar")
+            # num_scint_ph_pen: ...
 
           outputs:
             - t0
@@ -130,22 +139,23 @@ A :func:`build_hit` to parse the following configuration file:
 
           detector_objects:
              meta: pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR)
-             optmap_lar: lgdo.lh5.read(DETECTOR, "optmaps/pen", ARGS.optmap_path)
-             optmap_pen: lgdo.lh5.read(DETECTOR, "optmaps/lar", ARGS.optmap_path)
-
-          hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
+             spm_uid: OBJECTS.spms[DETECTOR]
+             optmap_lar: reboost.spms.load_optmap(ARGS.optmap_path_pen, DETECTOR_OBJECTS.spm_uid)
+             optmap_pen: reboost.spms.load_optmap(ARGS.optmap_path_lar, DETECTOR_OBJECTS.spm_uid)
 
           operations:
             pe_times_lar: reboost.spms.detected_photoelectrons(
-                STEPS,
+                HITS.num_scint_ph_lar, HITS.particle, HITS.time, HITS.xloc, HITS.yloc, HITS.zloc,
                 DETECTOR_OBJECTS.optmap_lar,
-                0
+                "lar",
+                DETECTOR_OBJECTS.spm_uid
              )
 
             pe_times_pen: reboost.spms.detected_photoelectrons(
-                STEPS,
+                HITS.num_scint_ph_pen, HITS.particle, HITS.time, HITS.xloc, HITS.yloc, HITS.zloc,
                 DETECTOR_OBJECTS.optmap_pen,
-                1
+                "pen",
+                DETECTOR_OBJECTS.spm_uid
              )
 
             pe_times: ak.concatenate([HITS.pe_times_lar, HITS.pe_times_pen], axis=-1)
@@ -257,7 +267,7 @@ def build_hit(
 
             # extract the output detectors and the mapping to input detectors
             detectors_mapping = core.get_detector_mapping(
-                proc_group.get("detector_mapping"), global_objects
+                proc_group.get("detector_mapping"), global_objects, args
             )
 
             # loop over detectors
@@ -305,6 +315,21 @@ def build_hit(
                     if time_dict is not None:
                         time_dict[proc_name].update_field("conv", start_time)
 
+                    if "hit_table_layout" in proc_group:
+                        hit_table_layouted = core.evaluate_hit_table_layout(
+                            copy.deepcopy(ak_obj),
+                            expression=proc_group["hit_table_layout"],
+                            time_dict=time_dict[proc_name],
+                        )
+                    else:
+                        hit_table_layouted = copy.deepcopy(stps)
+
+                    local_dict = {"OBJECTS": global_objects}
+                    for field, info in proc_group.get("pre_operations", {}).items():
+                        _evaluate_operation(
+                            hit_table_layouted, field, info, local_dict, time_dict[proc_name]
+                        )
+
                     # produce the hit table
                     for out_det_idx, out_detector in enumerate(out_detectors):
                         # loop over the rows
@@ -314,14 +339,12 @@ def build_hit(
                         # get the attributes
                         attrs = utils.copy_units(stps)
 
-                        if "hit_table_layout" in proc_group:
-                            hit_table = core.evaluate_hit_table_layout(
-                                copy.deepcopy(ak_obj),
-                                expression=proc_group["hit_table_layout"],
-                                time_dict=time_dict[proc_name],
-                            )
-                        else:
-                            hit_table = copy.deepcopy(stps)
+                        # if we have more than one output detector, make an independent copy.
+                        hit_table = (
+                            copy.deepcopy(hit_table_layouted)
+                            if len(out_detectors) > 1
+                            else hit_table_layouted
+                        )
 
                         local_dict = {
                             "DETECTOR_OBJECTS": det_objects[out_detector],
@@ -330,27 +353,9 @@ def build_hit(
                         }
                         # add fields
                         for field, info in proc_group.get("operations", {}).items():
-                            if isinstance(info, str):
-                                expression = info
-                                units = None
-                            else:
-                                expression = info["expression"]
-                                units = info.get("units", None)
-
-                            # evaluate the expression
-                            col = core.evaluate_output_column(
-                                hit_table,
-                                table_name="HITS",
-                                expression=expression,
-                                local_dict=local_dict,
-                                time_dict=time_dict[proc_name],
-                                name=field,
+                            _evaluate_operation(
+                                hit_table, field, info, local_dict, time_dict[proc_name]
                             )
-
-                            if units is not None:
-                                col.attrs["units"] = units
-
-                            core.add_field_with_nesting(hit_table, field, col)
 
                         # remove unwanted fields
                         if "outputs" in proc_group:
@@ -420,3 +425,29 @@ def build_hit(
         output_tables = None
 
     return output_tables, time_dict
+
+
+def _evaluate_operation(
+    hit_table, field: str, info: str | dict, local_dict: dict, time_dict: ProfileDict
+) -> None:
+    if isinstance(info, str):
+        expression = info
+        units = None
+    else:
+        expression = info["expression"]
+        units = info.get("units", None)
+
+    # evaluate the expression
+    col = core.evaluate_output_column(
+        hit_table,
+        table_name="HITS",
+        expression=expression,
+        local_dict=local_dict,
+        time_dict=time_dict,
+        name=field,
+    )
+
+    if units is not None:
+        col.attrs["units"] = units
+
+    core.add_field_with_nesting(hit_table, field, col)

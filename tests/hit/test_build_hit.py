@@ -19,7 +19,7 @@ def test_gen_lh5(tmptestdir):
     stp_path = str(tmptestdir / "basic.lh5")
 
     data = {}
-    data["evtid"] = VectorOfVectors([[0, 0], [1, 1, 1]])
+    data["evtid"] = Array([0, 1])
     data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]])  # keV
     data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]])  # ns
 
@@ -66,6 +66,37 @@ def test_gen_lh5_flat(tmptestdir):
 
     lh5.write(tab, "stp/det1", stp_path, wo_mode="of")
     lh5.write(tab2, "stp/det2", stp_path, wo_mode="append")
+    lh5.write(
+        Table({"evtid": Array(vertices)}),
+        "vtx",
+        stp_path,
+        wo_mode="append",
+    )
+
+    return stp_path
+
+
+@pytest.fixture(scope="module")
+def test_gen_lh5_scint(tmptestdir):
+    # write a basic lh5 file with scintillator
+
+    stp_path = str(tmptestdir / "basic_scint.lh5")
+
+    data = {}
+    data["evtid"] = Array([0, 1])
+    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]])  # keV
+    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]])  # ns
+
+    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
+    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
+    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]])  # m
+
+    data["particle"] = VectorOfVectors([[11, 11], [11, 11, 11]])
+
+    vertices = [0, 1]
+    tab = Table(data)
+
+    lh5.write(tab, "stp/det001", stp_path, wo_mode="of")
     lh5.write(
         Table({"evtid": Array(vertices)}),
         "vtx",
@@ -149,8 +180,8 @@ def test_basic(test_gen_lh5, tmptestdir):
 
     assert ak.all(hits.energy == [300, 330])
     assert ak.all(hits.t0 == [0, 0.1])
-    assert ak.all(hits.evtid[0] == [0, 0])
-    assert ak.all(hits.evtid[1] == [1, 1, 1])
+    assert hits.evtid[0] == 0
+    assert hits.evtid[1] == 1
 
     assert len(hits) == 2
 
@@ -177,7 +208,7 @@ def test_basic(test_gen_lh5, tmptestdir):
         "expressions",
     }
     assert set(time_dict["geds"]["read"].keys()) == {"stp"}
-    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "first_evtid", "energy"}
+    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "energy"}
 
 
 def test_file_merging(test_gen_lh5, tmptestdir):
@@ -291,3 +322,34 @@ def test_full_chain(test_gen_lh5, tmptestdir):
     # also check the processing of the vtx table
 
     assert hits["vtx"] == Table({"evtid": Array([0, 1])})
+
+
+def test_spms(test_gen_lh5_scint, tmptestdir):
+    from reboost.optmap import OpticalMap
+
+    # create a simple test map
+    map_file = f"{tmptestdir}/spms_hit_map.lh5"
+    m = OpticalMap.create_empty(
+        "_11", {"range_in_m": [[-1, 1], [-1, 1], [-1, 1]], "bins": [1, 1, 1]}
+    )
+    m._nda(m.h_vertex)[0, 0, 0] = 100
+    m._nda(m.h_hits)[0, 0, 0] = 10
+    m.create_probability()
+    m.write_lh5(map_file, "_11", "overwrite_file")
+    m.write_lh5(map_file, "_12", "write_safe")
+
+    outfile = f"{tmptestdir}/spms_hit.lh5"
+    reboost.build_hit(
+        f"{Path(__file__).parent}/configs/spms.yaml",
+        args={"optmap_path": map_file},
+        stp_files=test_gen_lh5_scint,
+        glm_files=None,
+        hit_files=outfile,
+        overwrite=True,
+    )
+    hits = lh5.read("hit", outfile)
+
+    assert "S001" in hits
+    assert "S002" in hits
+
+    assert isinstance(hits["S001"]["pe_times_lar"], VectorOfVectors)

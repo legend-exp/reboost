@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import logging
+
+import awkward as ak
+from lgdo import VectorOfVectors
+
+from ..optmap import convolve
+
+log = logging.getLogger(__name__)
+
+
+def load_optmap_all(map_file: str) -> convolve.OptmapForConvolve:
+    """Load an optical map file for later use with :py:func:`detected_photoelectrons`."""
+    return convolve.open_optmap(map_file)
+
+
+def load_optmap(map_file: str, spm_det_uid: int) -> convolve.OptmapForConvolve:
+    """Load an optical map file for later use with :py:func:`detected_photoelectrons`."""
+    return convolve.open_optmap_single(map_file, spm_det_uid)
+
+
+def detected_photoelectrons(
+    num_scint_ph: ak.Array,
+    particle: ak.Array,
+    time: ak.Array,
+    xloc: ak.Array,
+    yloc: ak.Array,
+    zloc: ak.Array,
+    optmap: convolve.OptmapForConvolve,
+    material: str,
+    spm_detector_uid: int,
+    map_scaling: float = 1,
+) -> VectorOfVectors:
+    """Derive the number of detected photoelectrons (p.e.) from scintillator hits using an optical map.
+
+    Parameters
+    ----------
+    optmap
+        the optical map loaded via py:func:`load_optmap`
+    material
+        scintillating material name
+    spm_detector
+        SiPM detector uid as used in the optical map.
+    map_scaling
+        scale the map for this detector by this factor.
+    """
+    hits = ak.Array(
+        {
+            "num_scint_ph": num_scint_ph,
+            "particle": particle,
+            "time": time,
+            "xloc": xloc,
+            "yloc": yloc,
+            "zloc": zloc,
+        }
+    )
+
+    scint_mat_params = convolve._get_scint_params(material)
+    pe = convolve.iterate_stepwise_depositions_pois(
+        hits, optmap, scint_mat_params, spm_detector_uid, map_scaling
+    )
+
+    # TODO: better unit handling. the input unit is stripped, so we just have to trust
+    # that everything is alright here.
+    return VectorOfVectors(pe, attrs={"units": "ns"})
+
+
+def emitted_scintillation_photons(
+    edep: ak.Array, particle: ak.Array, material: str
+) -> VectorOfVectors:
+    hits = ak.Array({"edep": edep, "particle": particle})
+
+    scint_mat_params = convolve._get_scint_params(material)
+    ph = convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
+    return VectorOfVectors(ph)
