@@ -39,7 +39,7 @@ And run the _remage_ (from inside the remage container / after installation
 simulation with:
 
 ```console
-$ remage --threads 1 --gdml-files geometry.gdml --output stp_out.lh5 -- th228.mac
+$ remage --threads 1 --gdml-files geometry.gdml --output-file stp_out.lh5 -- th228.mac
 ```
 
 This should take about 10 minutes to run.
