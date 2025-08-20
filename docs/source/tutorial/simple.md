@@ -170,9 +170,7 @@ We make a plot of the distance of the steps to the n+ electrode compared to the 
 ```python
 # extract r and z
 r = ak.flatten(
-    np.sqrt(
-        (stp.xloc * 1000 - position[0]) ** 2 + (stp.yloc * 1000 - position[1]) ** 2
-    )
+    np.sqrt((stp.xloc * 1000 - position[0]) ** 2 + (stp.yloc * 1000 - position[1]) ** 2)
 )
 z = ak.flatten(stp.zloc * 1000 - position[2])
 rng = np.random.default_rng()
