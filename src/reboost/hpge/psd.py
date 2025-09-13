@@ -133,7 +133,6 @@ def drift_time(
         np.sqrt(xloc**2 + yloc**2),
         zloc,
     )
-
     return VectorOfVectors(
         dt_values,
         attrs={"units": units.unit_to_lh5_attr(dt_map.φ_units)},
@@ -239,7 +238,7 @@ def _drift_time_heuristic_impl(
     return dt_heu
 
 
-@numba.njit(cache=True)
+@numba.njit
 def _vectorized_erf(x: ArrayLike) -> NDArray:
     """Error function that can take in a numpy array."""
     out = np.empty_like(x)
@@ -250,23 +249,31 @@ def _vectorized_erf(x: ArrayLike) -> NDArray:
 
 @numba.njit(cache=True)
 def _current_pulse_model(
-    times: ArrayLike, Amax: float, mu: float, sigma: float, tail_fraction: float, tau: float
+    times: ArrayLike,
+    amax: float,
+    mu: float,
+    sigma: float,
+    tail_fraction: float,
+    tau: float,
+    high_tail_fraction: float = 0,
+    high_tau: float = 0,
 ) -> NDArray:
     r"""Analytic model for the current pulse in a Germanium detector.
 
-    Consists of a Gaussian and an exponential tail:
+    Consists of a Gaussian a high side exponential tail and a low side tail:
 
      .. math::
 
-       A(t) = A_{max}\times (1-p)\times \text{Gauss}(t,\mu,\sigma)+ A \times p (1-\text{Erf}((t-\mu)/sigma))\times
-        \frac{e^{(t/\tau)}}{2e^{\mu/\tau}}
+       A(t) = A_{max}\times (1-p-p_h)\times \text{Gauss}(t,\mu,\sigma)+ A \times p (1-\text{Erf}((t-\mu)/sigma_i))\times
+        \frac{e^{( t/\tau)}}{2e^{\mu/\tau}} + A \times p_h (1-\text{Erf}(-(t-\mu)/sigma_i))\times
+        \frac{e^{-( t/\tau)}}{2}
 
     Parameters
     ----------
     times
-        Array of times to compute current for
-    Amax
-        Maximum current
+        Array of times to compute current for.
+    amax
+        Maximum current for the template
     mu
         Time of the maximum current.
     sigma
@@ -275,20 +282,88 @@ def _current_pulse_model(
         Fraction of the tail in the pulse.
     tau
         Time constant of the low time tail.
+    high__tail_fraction
+        Fraction of the high tail in the pulse.
+    high_tau
+        Time constant of the high time tail.
 
     Returns
     -------
     The predicted current waveform for this energy deposit.
     """
     norm = 2 * exp(mu / tau)
+    norm_high = 2
 
     dx = times - mu
-    term1 = Amax * (1 - tail_fraction) * np.exp(-(dx * dx) / (2 * sigma * sigma))
-    term2 = Amax * tail_fraction * (1 - _vectorized_erf(dx / sigma)) * np.exp(times / tau) / norm
+    term1 = (
+        amax * (1 - tail_fraction - high_tail_fraction) * np.exp(-(dx * dx) / (2 * sigma * sigma))
+    )
+    term2 = amax * tail_fraction * (1 - _vectorized_erf(dx / sigma)) * np.exp(times / tau) / norm
+    term3 = (
+        amax
+        * high_tail_fraction
+        * (1 - _vectorized_erf(-dx / sigma))
+        * np.exp(-(times - mu) / high_tau)
+        / norm_high
+    )
 
-    return term1 + term2
+    return term1 + term2 + term3
 
 
+@numba.njit(cache=True)
+def _interpolate_pulse_model(
+    template: Array, time: float, start: float, end: float, dt: float, mu: float
+) -> NDArray:
+    """Interpolate to extract the pulse model given a particular mu."""
+    local_time = time - mu - start
+
+    if (local_time < start) or (int(local_time) > end):
+        return 0
+
+    sample = int(local_time / dt)
+    A_before = template[sample]
+    A_after = template[sample + 1]
+
+    frac = (local_time - int(local_time)) / dt
+    return A_before + frac * (A_after - A_before)
+
+
+@numba.njit(cache=True)
+def _make_convolved_surface_library(bulk_template: np.array, surface_library: np.array) -> NDArray:
+    """Make the convolved surface library out of the template.
+
+    This convolves every row of the surface_library with the template and reshapes the output
+    to match the initial template. It returns a 2D array with one more row than the surface_library
+    and each row the same length as the template. The final row is the bulk_template for easier interpolation.
+
+    Parameters
+    ----------
+    bulk_template
+        The template for the bulk response
+    surface_library
+        The 2D array of the surface library.
+
+    Returns
+    -------
+    2D array of the surface library convolved with the bulk response.
+    """
+    # force surface library to be 2D
+    if surface_library.ndim == 1:
+        surface_library = surface_library.reshape((-1, 1))
+
+    templates = np.zeros((len(bulk_template), np.shape(surface_library)[1] + 1))
+
+    for i in range(np.shape(surface_library)[1]):
+        templates[:, i] = convolve_surface_response(
+            surface_library[1:, i] - surface_library[:-1, i], bulk_template
+        )[: len(bulk_template)]
+
+    templates[:, -1] = bulk_template
+
+    return templates
+
+
+@numba.njit(cache=True)
 def convolve_surface_response(surf_current: np.ndarray, bulk_pulse: np.ndarray) -> NDArray:
     """Convolve the surface response pulse with the bulk current pulse.
 
@@ -339,7 +414,7 @@ def get_current_waveform(
     drift_time
         Array of drift times for each step
     template
-        array of the template for the current waveforms, with 1 ns binning.
+        array of the template for the current waveforms
     start
         first time value of the template
     dt
@@ -354,35 +429,181 @@ def get_current_waveform(
     n = len(template)
 
     times = np.arange(n) * dt + start
-    y = np.zeros_like(times)
+    y = np.zeros_like(times, dtype=np.float64)
 
-    for i in range(len(edep)):
-        E = edep[i]
-        mu = drift_time[i]
-        shift = int(mu / dt)
-
-        # Add scaled template starting at index `shift`
-        for j in range(n):
-            if (
-                (shift + j) >= n
-                or (times[shift + j] < range_t[0])
-                or (times[shift + j] > range_t[1])
-            ):
-                continue
-            y[shift + j] += E * template[j]
+    for j in range(n):
+        time = start + dt * j
+        if (time < range_t[0]) or (time > (range_t[1] - dt)):
+            continue
+        y[j] = _get_waveform_value(j, edep, drift_time, template, start, dt, range_t)
 
     return times, y
 
 
+# @numba.njit(cache=True)
+def _get_waveform_value_surface(
+    idx: int,
+    edep: np.array,
+    drift_time: np.array,
+    dist_to_nplus: np.array,
+    bulk_template: ArrayLike,
+    templates_surface: ArrayLike,
+    activeness_surface: ArrayLike,
+    distance_step_in_um: float,
+    fccd: float,
+    start: float,
+    dt: float,
+) -> tuple[float, float]:
+    """Get the value of the waveform at a certain index.
+
+    Parameters
+    ----------
+    idx
+        the index of the time array to find the waveform at.
+    edep
+        Array of energies for each step
+    drift_time
+        Array of drift times for each step
+    template
+        array of the template for the current waveforms
+    templates_surface
+        The current templates from the surface.
+    activeness_surface
+        The total collected charge for each surface point.
+    dist_step_in_um
+        The binning in distance for the surface pulse library.
+    start
+        first time value of the template
+    dt
+        timestep (in ns) for the template.
+
+    Returns
+    -------
+    Value of the current waveform and the energy.
+    """
+    n = len(bulk_template)
+    out = 0
+    etmp = 0
+    for i in range(len(edep)):
+        E = edep[i]
+        mu = drift_time[i]
+        dist = dist_to_nplus[i]
+
+        time = start + dt * idx
+
+        if dist < fccd:
+            dist_bin = int(dist / distance_step_in_um)
+
+            # get two values (to allow linear interpolation)
+            value_low = _interpolate_pulse_model(
+                templates_surface[:, dist_bin], time, start, start + dt * n, dt, mu
+            )
+            value_high = _interpolate_pulse_model(
+                templates_surface[:, dist_bin + 1], time, start, start + dt * n, dt, mu
+            )
+
+            # interpolate between distance bins
+            diff = dist / distance_step_in_um - dist_bin
+            out += E * (value_low + diff * (value_high - value_low))
+
+            act_low = activeness_surface[dist_bin]
+            act_high = activeness_surface[dist_bin + 1]
+            etmp += (act_low + diff * (act_high - act_low)) * E
+
+        else:
+            out += E * _interpolate_pulse_model(bulk_template, time, start, start + dt * n, dt, mu)
+            etmp += E
+    return out, etmp
+
+
 @numba.njit(cache=True)
+def _get_waveform_value(
+    idx: int,
+    edep: ak.Array,
+    drift_time: ak.Array,
+    template: ArrayLike,
+    start: float,
+    dt: float,
+) -> float:
+    """Get the value of the waveform at a certain index.
+
+    Parameters
+    ----------
+    idx
+        the index of the time array to find the waveform at.
+    edep
+        Array of energies for each step
+    drift_time
+        Array of drift times for each step
+    template
+        array of the template for the current waveforms
+    start
+        first time value of the template
+    dt
+        timestep (in ns) for the template.
+
+    Returns
+    -------
+    Value of the current waveform
+    """
+    n = len(template)
+    out = 0
+
+    for i in range(len(edep)):
+        E = edep[i]
+        mu = drift_time[i]
+
+        time = start + dt * idx
+        out += E * _interpolate_pulse_model(template, time, start, start + dt * n, dt, mu)
+    return out
+
+
+def get_current_template(
+    low: float = -1000, high: float = 4000, step: float = 1, mean_aoe: float = 1, **kwargs
+) -> tuple[NDArray, NDArray]:
+    """Build the current template from the analytic model, defined by `reboost.hpge.psd._current_pulse_model`.
+
+    Parameters
+    ----------
+    low
+        start of the template
+    high
+        end of the template
+    step
+        time-step, this should divide high-low
+    mean_aoe
+        The mean AoE value for this detector (to normalise current pulses).
+    **kwargs
+        Other keyword arguments passed to `reboost.hpge.psd._current_pulse_model`.
+
+    Returns
+    -------
+    tuple of the (template,times)
+    """
+    if int((high - low) / step) != (high - low) / step:
+        msg = "Time template is not a multiple of the time-step."
+        raise ValueError(msg)
+
+    x = np.linspace(low, high, int((high - low) / step) + 1)
+    template = _current_pulse_model(x, **kwargs)
+    template /= np.max(template)
+    template *= mean_aoe
+
+    return template, x
+
+
+# @numba.njit(cache=True)
 def _estimate_current_impl(
     edep: ak.Array,
     dt: ak.Array,
-    sigma: float,
-    tail_fraction: float,
-    tau: float,
-    mean_AoE: float = 0,
-) -> tuple[NDArray, NDArray]:
+    dist_to_nplus: ak.Array,
+    template: np.array,
+    times: np.array,
+    include_surface_effects: bool,
+    fccd: float,
+    surface_library: np.array,
+    surface_step_in_um: float,
+) -> tuple[NDArray, NDArray, NDArray]:
     """Estimate the maximum current that would be measured in the HPGe detector.
 
     This is based on extracting a waveform with :func:`get_current_waveform` and finding the maxima of it.
@@ -391,66 +612,89 @@ def _estimate_current_impl(
     ----------
     edep
         Array of energies for each step.
-    drift_time
+    dt
         Array of drift times for each step.
-    sigma
-        Sigma parameter of the current pulse model.
-    tail_fraction
-        Tail-fraction parameter of the current pulse.
-    tau
-        Tail parameter of the current pulse
-    mean_AoE
-        The mean AoE value for this detector (to normalise current pulses).
+    dist_to_nplus
+        Array of distance to nplus contact for each step (can be `None`, in which case no surface effects are included.)
+    template
+        array of the bulk pulse template
+    times
+        time-stamps for the bulk pulse template
     """
     A = np.zeros(len(dt))
     maximum_t = np.zeros(len(dt))
+    energy = np.zeros(len(dt))
 
-    # get normalisation factor
-    x_coarse = np.linspace(-1000, 3000, 201)
-    x_fine = np.linspace(-1000, 3000, 4001)
+    n = len(template)
+    start = times[0]
+    step = np.diff(times)[0]
 
-    # make a template with 1 ns binning so
-    # template[(i-start)/dt] = _current_pulse_model(x,1,i,...)
+    # make the convolved surface library
+    if include_surface_effects:
+        if np.diff(times)[0] != 1.0:
+            msg = "The surface convolution requires a template with 1 ns binning"
+            raise ValueError(msg)
 
-    template_coarse = _current_pulse_model(x_coarse, 1, 0, sigma, tail_fraction, tau)
-    template_coarse /= np.max(template_coarse)
-    template_coarse *= mean_AoE
-
-    template_fine = _current_pulse_model(x_fine, 1, 0, sigma, tail_fraction, tau)
-    template_fine /= np.max(template_fine)
-    template_fine *= mean_AoE
+        templates_surface = _make_convolved_surface_library(template, surface_library)
+        activeness_surface = surface_library[:, -1]
 
     for i in range(len(dt)):
         t = np.asarray(dt[i])
+
+        tmin = float(np.min(t))
+        tmax = float(np.max(t))
+
         e = np.asarray(edep[i])
+        e_tmp = np.sum(e)
 
-        # first pass
-        times_coarse, W = get_current_waveform(
-            e, t, template=template_coarse, start=-1000, dt=20, range_t=(-1000, 3000)
-        )
+        if include_surface_effects:
+            dist = np.asarray(dist_to_nplus[i])
 
-        max_t = times_coarse[np.argmax(W)]
+        for j in range(n):
+            time = start + j
 
-        # fine scan
-        times, W = get_current_waveform(
-            e, t, template=template_fine, start=-1000, dt=1, range_t=(max_t - 50, max_t + 50)
-        )
+            # skip anything not in the range tmin to tmax (for surface affects this can be later)
+            has_surface_hit = include_surface_effects and np.any(dist < fccd)
+            if time < tmin or (time > (tmax + 1.0) and not has_surface_hit):
+                continue
 
-        A[i] = np.max(W)
-        maximum_t[i] = times[np.argmax(W)]
+            if not has_surface_hit:
+                val_tmp = _get_waveform_value(j, e, t, template, start=start, dt=step)
+            else:
+                val_tmp, e_tmp = _get_waveform_value_surface(
+                    j,
+                    e,
+                    t,
+                    dist,
+                    template,
+                    templates_surface,
+                    activeness_surface,
+                    distance_step_in_um=surface_step_in_um,
+                    fccd=fccd,
+                    start=start,
+                    dt=step,
+                )
 
-    return A, maximum_t
+            energy[i] = e_tmp
+
+            if val_tmp > A[i]:
+                maximum_t[i] = time
+                A[i] = val_tmp
+
+    return A, maximum_t, energy
 
 
 def maximum_current(
     edep: ArrayLike,
     drift_time: ArrayLike,
+    dist_to_nplus: ArrayLike | None = None,
     *,
-    sigma: float,
-    tail_fraction: float,
-    tau: float,
-    mean_AoE: float = 0,
-    get_timepoint: bool = False,
+    template: np.array,
+    times: np.array,
+    fccd: float = 0,
+    surface_library: ArrayLike | None = None,
+    surface_step_in_um: float = 10,
+    return_mode: str = "current",
 ) -> Array:
     """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
 
@@ -460,36 +704,60 @@ def maximum_current(
         Array of energies for each step.
     drift_time
         Array of drift times for each step.
-    sigma
-        Sigma parameter of the current pulse model.
-    tail_fraction
-        Tail-fraction parameter of the current pulse.
-    tau
-        Tail parameter of the current pulse
-    mean_AoE
-        The mean AoE value for this detector (to normalise current pulses).
-    get_timepoint
-        Flag to return the time of the maximum current (relative to t0) instead of the current.
+    dist_to_nplus
+        Distance to n-plus electrode, only needed if surface heuristics are enabled.
+    template
+        array of the bulk pulse template
+    times
+        time-stamps for the bulk pulse template
+    fccd
+        Value of the full-charge-collection depth, if `None` no surface corrections are performed.
+    surface_library
+        2D array (distance, time) of the rate of charge arriving at the p-n junction. Each row
+        should be an array of length 10000 giving the charge arriving at the p-n junction for each timestep
+        (in ns). This is produced by `reboost.hpge.surface.get_surface_response` or other libraries.
+    surface_step_in_um
+        Distance step for the surface library.
+    return_mode
+        either current, energy or max_time
 
     Returns
     -------
-    An Array of the maximum current for each hit.
+    An Array of the maximum current/ time / energy for each hit.
     """
     # extract LGDO data and units
-    drift_time, _ = units.unwrap_lgdo(drift_time)
 
+    drift_time, _ = units.unwrap_lgdo(drift_time)
     edep, _ = units.unwrap_lgdo(edep)
 
-    curr, time = _estimate_current_impl(
+    if dist_to_nplus is not None:
+        dist_to_nplus, _ = units.unwrap_lgdo(dist_to_nplus)
+    else:
+        dist_to_nplus = ak.full_like(edep, np.nan)
+
+    if not ak.all(ak.num(edep, axis=-1) == ak.num(drift_time, axis=-1)):
+        msg = "edep and drift time must have the same shape"
+        raise ValueError(msg)
+
+    curr, time, energy = _estimate_current_impl(
         ak.Array(edep),
         ak.Array(drift_time),
-        sigma=sigma,
-        tail_fraction=tail_fraction,
-        tau=tau,
-        mean_AoE=mean_AoE,
+        ak.Array(dist_to_nplus) * 1000,
+        template=template,
+        times=times,
+        fccd=fccd,
+        include_surface_effects=surface_library is not None,
+        surface_library=surface_library if surface_library is not None else np.array([[]]),
+        surface_step_in_um=surface_step_in_um,
     )
 
     # return
-    if get_timepoint:
+    if return_mode == "max_time":
         return Array(time)
-    return Array(curr)
+    if return_mode == "current":
+        return Array(curr)
+    if return_mode == "energy":
+        return Array(energy)
+
+    msg = f"Return mode {return_mode} is not implemented."
+    raise ValueError(msg)
