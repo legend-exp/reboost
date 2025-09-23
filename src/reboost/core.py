@@ -150,6 +150,9 @@ def evaluate_output_column(
     if globals_dict is not None and "pyg4ometry" in globals_dict:
         ctx = utils.filter_logging(logging.CRITICAL)
 
+    # add the full table as a local variable.
+    local_dict[table_name] = hit_table.view_as("ak", with_units=True)
+
     with ctx:
         res = hit_table.eval(
             func_call, local_dict, modules=globals_dict, library="ak", with_units=True
