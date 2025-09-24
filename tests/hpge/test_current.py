@@ -3,8 +3,9 @@ from __future__ import annotations
 import awkward as ak
 import numpy as np
 import pytest
-from lgdo import Array, VectorOfVectors
+from lgdo import VectorOfVectors
 
+from reboost import units
 from reboost.hpge import psd, surface
 from reboost.hpge.psd import _get_template_idx
 from reboost.hpge.utils import get_hpge_pulse_shape_library
@@ -59,15 +60,11 @@ def test_get_template(test_pulse_shape_library):
 def test_maximum_current(test_model):
     model, x = test_model
 
-    edep = VectorOfVectors(
-        ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), attrs={"unit": "keV"}
-    )
-    times = VectorOfVectors(
-        ak.Array([[400, 500, 700], [800, 0, 1500], [700]], attrs={"unit": "ns"})
-    )
+    edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), "ns")
 
     curr = psd.maximum_current(edep, times, template=model, times=x)
-    assert isinstance(curr, Array)
+    assert isinstance(curr, ak.Array)
 
     assert len(curr) == 3
 
@@ -83,7 +80,7 @@ def test_maximum_current(test_model):
         return_mode="max_time",
     )
 
-    assert isinstance(max_t, Array)
+    assert isinstance(max_t, ak.Array)
     assert len(max_t) == 3
 
     # should be close to 250 (could be some differences due to the discretisation)
@@ -97,41 +94,69 @@ def test_maximum_current(test_model):
         return_mode="energy",
     )
 
-    assert isinstance(energy, Array)
+    assert isinstance(energy, ak.Array)
     assert len(energy) == 3
 
     # should be close to 250 (could be some differences due to the discretisation)
     assert abs(energy[2] - 500.0) < 2
 
 
+def test_units(test_model):
+    # standard units
+    model, x = test_model
+
+    edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), "ns")
+
+    energy = psd.maximum_current(edep, times, template=model, times=x, return_mode="energy")
+    unit = units.get_unit_str(energy)
+
+    assert unit == "keV"
+
+    # try for time
+    time = psd.maximum_current(edep, times, template=model, times=x, return_mode="max_time")
+
+    unit = units.get_unit_str(time)
+    assert unit == "ns"
+
+    # try with different units and check the result is the same
+    times_us = units.attach_units(
+        ak.Array([[0.400, 0.500, 0.700], [0.800, 0, 1.500], [0.700]]), "us"
+    )
+
+    max_time_us = psd.maximum_current(
+        edep, times_us, template=model, times=x, return_mode="max_time"
+    )
+
+    unit = units.get_unit_str(max_time_us)
+    assert unit == "ns"
+
+    assert ak.all(time == max_time_us)
+
+
 def test_with_cluster(test_model):
     model, x = test_model
 
-    edep = VectorOfVectors(
-        ak.Array([[100.0, 300.0, 50.0], [10.0, 1.0, 100.0], [500.0]]), attrs={"unit": "keV"}
-    )
-    times = VectorOfVectors(
-        ak.Array([[400, 410, 420], [800, 0, 1500], [700]], attrs={"unit": "ns"})
-    )
-    xloc = VectorOfVectors(ak.Array([[1, 1.1, 1.2], [0, 50, 80], [100]], attrs={"unit": "mm"}))
-
-    dist = VectorOfVectors(ak.Array([[50, 40, 0.2], [300, 0.4, 0.2], [0.8]], attrs={"unit": "ns"}))
+    edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 1.0, 100.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400, 410, 420], [800, 0, 1500], [700]]), "ns")
+    xloc = units.attach_units(ak.Array([[1, 1.1, 1.2], [0, 50, 80], [100]]), "mm")
+    dist = units.attach_units(ak.Array([[50, 40, 0.2], [300, 0.4, 0.2], [0.8]]), "mm")
 
     yloc = ak.full_like(xloc, 0.0)
     zloc = ak.full_like(xloc, 0.0)
     trackid = ak.full_like(xloc, 0)
 
     clusters = cluster.cluster_by_step_length(
-        trackid, xloc, yloc, zloc, dist, threshold=1, threshold_surf=1, surf_cut=0
+        trackid, xloc, yloc, zloc, dist, threshold_in_mm=1, threshold_surf_in_mm=1, surf_cut=0
     )
-    cluster_edep = cluster.apply_cluster(clusters, edep).view_as("ak")
-    cluster_times = cluster.apply_cluster(clusters, times).view_as("ak")
+    cluster_edep = cluster.apply_cluster(clusters, edep)
+    cluster_times = cluster.apply_cluster(clusters, times)
 
     e = ak.sum(cluster_edep, axis=-1)
     t = ak.sum(cluster_edep * cluster_times, axis=-1) / e
     curr = psd.maximum_current(e, t, template=model, times=x)
 
-    assert isinstance(curr, Array)
+    assert isinstance(curr, ak.Array)
     assert len(curr) == 3
 
     # should be close to 250 (could be some differences due to the discretisation)
@@ -143,21 +168,23 @@ def test_maximum_current_surface(test_model):
 
     # test for both input types
     for dtype in [np.float64, np.float32]:
-        edep = VectorOfVectors(
-            ak.values_astype(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), dtype),
-            attrs={"unit": "keV"},
+        edep = units.attach_units(
+            ak.Array(
+                ak.values_astype(
+                    ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), dtype
+                ),
+            ),
+            "keV",
         )
 
-        times = VectorOfVectors(
-            ak.values_astype(
-                ak.Array([[400, 500, 700], [800, 0, 1500], [700]], attrs={"unit": "ns"}), dtype
-            )
+        times = units.attach_units(
+            ak.Array(ak.values_astype(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), dtype)),
+            "ns",
         )
 
-        dist = VectorOfVectors(
-            ak.values_astype(
-                ak.Array([[50, 40, 0.2], [300, 0.4, 0.2], [0.8]], attrs={"unit": "ns"}), dtype
-            )
+        dist = units.attach_units(
+            ak.Array(ak.values_astype(ak.Array([[50, 40, 0.2], [300, 0.4, 0.2], [0.8]]), dtype)),
+            "mm",
         )
 
         surface_models = surface.get_surface_library(1002, 10)
@@ -177,7 +204,7 @@ def test_maximum_current_surface(test_model):
             activeness_surface=surface_activeness,
             times=x,
             return_mode="current",
-        ).view_as("np")
+        )
 
         curr_bulk = psd.maximum_current(
             edep,
@@ -186,7 +213,7 @@ def test_maximum_current_surface(test_model):
             template=model,
             times=x,
             return_mode="current",
-        ).view_as("np")
+        )
         # check shape
 
         assert len(curr_surf) == 3
@@ -214,7 +241,9 @@ def test_maximum_current_library(test_pulse_shape_library):
         ak.Array([[40.0, 2.0, 25.0], [22.0, 4.0, 1.2], [20.0]]), attrs={"unit": "mm"}
     )
 
-    curr = psd.maximum_current(edep, times, template=model, times=x).view_as("ak")
-    curr2 = psd.maximum_current(edep, times, r=r, z=z, template=lib, times=x).view_as("ak")
+    curr = psd.maximum_current(edep, times, template=model, times=x)
+    curr2 = psd.maximum_current(edep, times, r=r, z=z, template=lib, times=x)
 
     assert ak.all(curr == curr2)
+
+    assert isinstance(curr, ak.Array)

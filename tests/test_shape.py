@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import awkward as ak
 import numpy as np
-from lgdo import Table
+from lgdo import Array, Table
 
 import reboost
+from reboost import units
 from reboost.shape import cluster, group
 
 
@@ -41,28 +42,33 @@ def test_evtid_group():
 
 def test_time_group():
     # time units are ns
-    in_arr_evtid = ak.Array(
+    in_arr_evtid = Table(
         {
-            "evtid": [1, 1, 1, 2, 2, 2, 2, 2, 11, 12, 12, 12, 15, 15, 15, 15, 15],
-            "time": [
-                0,
-                -2000,
-                3000,
-                0,
-                100,
-                1200,
-                17000,
-                17010,
-                0,
-                0,
-                0,
-                -5000,
-                150,
-                151,
-                152,
-                3000,
-                3100,
-            ],
+            "evtid": Array([1, 1, 1, 2, 2, 2, 2, 2, 11, 12, 12, 12, 15, 15, 15, 15, 15]),
+            "time": units.attach_units_lgdo(
+                Array(
+                    [
+                        0,
+                        -2000,
+                        3000,
+                        0,
+                        100,
+                        1200,
+                        17000,
+                        17010,
+                        0,
+                        0,
+                        0,
+                        -5000,
+                        150,
+                        151,
+                        152,
+                        3000,
+                        3100,
+                    ]
+                ),
+                "ns",
+            ),
         }
     )
 
@@ -70,7 +76,8 @@ def test_time_group():
 
     # 1us =1000ns
     out = group.group_by_time(in_tab, window=1)
-    out_ak = out.view_as("ak")
+    out_ak = out.view_as("ak", with_units=True)
+
     assert ak.all(
         out_ak.evtid
         == [[1], [1], [1], [2, 2], [2], [2, 2], [11], [12], [12, 12], [15, 15, 15], [15, 15]]
@@ -91,6 +98,9 @@ def test_time_group():
             [3000, 3100],
         ]
     )
+
+    # test units
+    assert units.get_unit_str(out_ak.time) == "ns"
 
 
 def test_isin_group():
@@ -118,7 +128,7 @@ def test_cluster_basic():
 
     runs = ak.run_lengths(trackid)
     assert ak.all(
-        cluster.apply_cluster(runs, trackid).view_as("ak")
+        cluster.apply_cluster(runs, trackid)
         == ak.Array([[[1, 1, 1], [2, 2], [3, 3], [7]], [[2, 2, 2], [3, 3, 3]], [[1]]])
     )
 
@@ -132,15 +142,15 @@ def test_cluster_by_step_length():
     dist = ak.Array([[0.1, 0.1, 0.1, 0.1, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2], [0.3]])
 
     clusters = cluster.cluster_by_step_length(
-        trackid, x, y, z, dist, threshold=0.2, threshold_surf=0.02, surf_cut=0.15
+        trackid, x, y, z, dist, threshold_in_mm=0.2, threshold_surf_in_mm=0.02, surf_cut=0.15
     )
 
-    assert ak.all(clusters.view_as("ak") == ak.Array([[1, 1, 1, 1, 3, 1], [1, 1, 1, 2, 1], [1]]))
+    assert ak.all(clusters == ak.Array([[1, 1, 1, 1, 3, 1], [1, 1, 1, 2, 1], [1]]))
 
     # test without surface region
 
-    clusters = cluster.cluster_by_step_length(trackid, x, y, z, threshold=0.2)
-    assert ak.all(clusters.view_as("ak") == ak.Array([[2, 1, 1, 3, 1], [1, 1, 1, 2, 1], [1]]))
+    clusters = cluster.cluster_by_step_length(trackid, x, y, z, threshold_in_mm=0.2)
+    assert ak.all(clusters == ak.Array([[2, 1, 1, 3, 1], [1, 1, 1, 2, 1], [1]]))
 
 
 def test_step_length():
@@ -151,11 +161,13 @@ def test_step_length():
 
     run = ak.run_lengths(trackid)
 
-    x_cluster = cluster.apply_cluster(run, x).view_as("ak")
-    y_cluster = cluster.apply_cluster(run, y).view_as("ak")
-    z_cluster = cluster.apply_cluster(run, z).view_as("ak")
+    x_cluster = cluster.apply_cluster(run, units.attach_units(x, "mm"))
+    y_cluster = cluster.apply_cluster(run, units.attach_units(y, "mm"))
+    z_cluster = cluster.apply_cluster(run, units.attach_units(z, "mm"))
 
-    steps = cluster.step_lengths(x_cluster, y_cluster, z_cluster).view_as("ak")
+    steps = cluster.step_lengths(x_cluster, y_cluster, z_cluster)
 
     for idx, sub_array in enumerate(steps):
         assert ak.all(sub_array == ak.Array([[[0, 1], [1], [1], []], [[1, 3], [0, 1.0]], []])[idx])
+
+    assert units.get_unit_str(x_cluster) == "mm"

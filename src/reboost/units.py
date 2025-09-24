@@ -45,6 +45,37 @@ def units_convfact(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -
     return 1
 
 
+def attach_units(data: ak.Array, unit: str | None) -> ak.Array:
+    """Convenience function to attach units to `ak.Array`.
+
+    Parameters
+    ----------
+    data
+        the array to add units to
+    unit
+        the unit
+    """
+    if unit is not None:
+        return ak.with_parameter(data, parameter="units", value=unit)
+
+    return data
+
+
+def attach_units_lgdo(data: LGDO, unit: str | None) -> LGDO:
+    """Convenience function to attach units to LGDO.
+
+    Parameters
+    ----------
+    data
+        the array to add units to
+    unit
+        the unit
+    """
+    if unit is not None:
+        data.attrs["units"] = unit
+    return data
+
+
 def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> ak.Array:
     """Calculate numeric conversion factor to reach `target_units`, and apply to data converted to ak.
 
@@ -97,6 +128,31 @@ def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, 
             ret_data = ak.without_parameters(data)
 
     return ret_data, ret_units
+
+
+def get_unit_str(data: ak.Array | LGDO) -> str | None:
+    """Get the units as a string for an awkward array with attached units.
+
+    Parameters
+    ----------
+    data
+        the array with attached units
+
+    Returns
+    -------
+    a string of the units.
+    """
+    if isinstance(data, ak.Array):
+        attrs = ak.parameters(data)
+    elif isinstance(data, LGDO):
+        attrs = data.attrs
+    else:
+        msg = f"Cannot extract units: {data} is not an LGDO or ak.Array"
+        raise ValueError(msg)
+
+    if "units" in attrs:
+        return attrs["units"]
+    return None
 
 
 def unit_to_lh5_attr(unit: pint.Unit) -> str:

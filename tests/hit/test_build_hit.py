@@ -21,13 +21,15 @@ def test_gen_lh5(tmptestdir):
 
     data = {}
     data["evtid"] = Array([0, 1])
-    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]])  # keV
-    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]])  # ns
+    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]], attrs={"units": "keV"})  # keV
+    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]], attrs={"units": "ns"})  # ns
 
-    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]])  # m
-    data["dist_to_surf"] = VectorOfVectors([[0.04, 0.02], [0.011, 0.003, 0.051]])  # m
+    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]], attrs={"units": "m"})  # m
+    data["dist_to_surf"] = VectorOfVectors(
+        [[0.04, 0.02], [0.011, 0.003, 0.051]], attrs={"units": "m"}
+    )  # m
 
     vertices = [0, 1]
     tab = Table(data)
@@ -53,13 +55,13 @@ def test_gen_lh5_flat(tmptestdir):
 
     data = {}
     data["evtid"] = Array([0, 0, 1, 1, 1])
-    data["edep"] = Array([100, 200, 10, 20, 300])  # keV
-    data["time"] = Array([0, 1.5, 0.1, 2.1, 3.7])  # ns
+    data["edep"] = Array([100, 200, 10, 20, 300], attrs={"units": "keV"})  # keV
+    data["time"] = Array([0, 1.5, 0.1, 2.1, 3.7], attrs={"units": "ns"})  # ns
 
-    data["xloc"] = Array([0.01, 0.02, 0.001, 0.003, 0.005])  # m
-    data["yloc"] = Array([0.01, 0.02, 0.001, 0.003, 0.005])  # m
-    data["zloc"] = Array([0.04, 0.02, 0.001, 0.023, 0.005])  # m
-    data["dist_to_surf"] = Array([0.04, 0.02, 0.011, 0.003, 0.051])  # m
+    data["xloc"] = Array([0.01, 0.02, 0.001, 0.003, 0.005], attrs={"units": "m"})  # m
+    data["yloc"] = Array([0.01, 0.02, 0.001, 0.003, 0.005], attrs={"units": "m"})  # m
+    data["zloc"] = Array([0.04, 0.02, 0.001, 0.023, 0.005], attrs={"units": "m"})  # m
+    data["dist_to_surf"] = Array([0.04, 0.02, 0.011, 0.003, 0.051], attrs={"units": "m"})  # m
 
     vertices = [0, 1]
     tab = Table(data)
@@ -85,12 +87,12 @@ def test_gen_lh5_scint(tmptestdir):
 
     data = {}
     data["evtid"] = Array([0, 1])
-    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]])  # keV
-    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]])  # ns
+    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]], attrs={"units": "keV"})  # keV
+    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]], attrs={"units": "ns"})  # ns
 
-    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]])  # m
+    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]], attrs={"units": "m"})  # m
 
     data["particle"] = VectorOfVectors([[11, 11], [11, 11, 11]])
 
@@ -123,13 +125,15 @@ def test_reshape(test_gen_lh5_flat, tmptestdir):
 
     data = {}
     data["evtid"] = VectorOfVectors([[0, 0], [1, 1, 1]])
-    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]])  # keV
-    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]])  # ns
+    data["edep"] = VectorOfVectors([[100, 200], [10, 20, 300]], attrs={"units": "keV"})  # keV
+    data["time"] = VectorOfVectors([[0, 1.5], [0.1, 2.1, 3.7]], attrs={"units": "ns"})  # ns
 
-    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]])  # m
-    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]])  # m
-    data["dist_to_surf"] = VectorOfVectors([[0.04, 0.02], [0.011, 0.003, 0.051]])  # m
+    data["xloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["yloc"] = VectorOfVectors([[0.01, 0.02], [0.001, 0.003, 0.005]], attrs={"units": "m"})  # m
+    data["zloc"] = VectorOfVectors([[0.04, 0.02], [0.001, 0.023, 0.005]], attrs={"units": "m"})  # m
+    data["dist_to_surf"] = VectorOfVectors(
+        [[0.04, 0.02], [0.011, 0.003, 0.051]], attrs={"units": "m"}
+    )  # m
     tab = Table(data)
 
     output = lh5.read("stp/det1", outfile)

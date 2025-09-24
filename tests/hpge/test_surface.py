@@ -5,11 +5,11 @@ import numpy as np
 import pyg4ometry
 import pytest
 from legendtestdata import LegendTestData
-from lgdo import types
-from lgdo.types import VectorOfVectors
 from pygeomhpges import make_hpge
 
+from reboost import units
 from reboost.hpge.surface import distance_to_surface, get_surface_response
+from reboost.units import ureg as u
 
 
 @pytest.fixture(scope="session")
@@ -21,7 +21,7 @@ def test_data_configs():
 
 def test_distance_to_surface(test_data_configs):
     gedet = make_hpge(test_data_configs + "/V99000A.json", registry=pyg4ometry.geant4.Registry())
-    dist = [100, 0, 0]
+    dist = [100, 0, 0] * u.mm
 
     pos = ak.Array(
         {
@@ -47,26 +47,62 @@ def test_distance_to_surface(test_data_configs):
     dist_full = distance_to_surface(
         pos.xloc, pos.yloc, pos.zloc, gedet, det_pos=dist, surface_type=None
     )
-    assert isinstance(dist_full, types.LGDO)
+    assert isinstance(dist_full, ak.Array)
 
     # check skipping the calculation for points > 5 mm
     dist = distance_to_surface(
-        VectorOfVectors(pos.xloc),
-        VectorOfVectors(pos.yloc),
-        VectorOfVectors(pos.zloc),
+        pos.xloc,
+        pos.yloc,
+        pos.zloc,
         gedet,
         det_pos=dist,
         surface_type=None,
-        distances_precompute=VectorOfVectors(pos.distance_to_surface),
+        distances_precompute=pos.distance_to_surface,
         precompute_cutoff=5,
     )
 
-    assert isinstance(dist, types.LGDO)
+    assert isinstance(dist, ak.Array)
 
     assert ak.all(dist[0] == dist_full[0])
     assert ak.all(dist[2] == dist_full[2])
 
     assert np.isnan(dist[1][0])
+
+
+def test_units(test_data_configs):
+    gedet = make_hpge(test_data_configs + "/V99000A.json", registry=pyg4ometry.geant4.Registry())
+    dist = [100, 0, 0] * u.mm
+
+    pos = ak.Array(
+        {
+            "xloc": units.attach_units([[0, 100, 200], [100], [700, 500, 200]], "mm"),
+            "yloc": units.attach_units([[100, 0, 0], [200], [100, 300, 200]], "mm"),
+            "zloc": units.attach_units([[700, 10, 20], [100], [300, 100, 0]], "mm"),
+            "distance_to_surface": units.attach_units([[1, 1, 1], [10], [1, 1, 1]], "m"),
+        }
+    )
+
+    dists = distance_to_surface(
+        pos.xloc, pos.yloc, pos.zloc, gedet, det_pos=dist, surface_type=None
+    )
+
+    assert units.get_unit_str(dists) == "mm"
+
+    pos_m = ak.Array(
+        {
+            "xloc": units.attach_units([[0, 0.100, 0.200], [0.100], [0.700, 0.500, 0.200]], "m"),
+            "yloc": units.attach_units([[0.100, 0, 0], [0.200], [0.100, 0.300, 0.200]], "m"),
+            "zloc": units.attach_units([[0.700, 0.01, 0.02], [0.100], [0.300, 0.100, 0]], "m"),
+            "distance_to_surface": units.attach_units([[1, 1, 1], [10], [1, 1, 1]], "m"),
+        }
+    )
+    dist_m = distance_to_surface(
+        pos_m.xloc, pos_m.yloc, pos_m.zloc, gedet, det_pos=dist, surface_type=None
+    )
+
+    assert units.get_unit_str(dist_m) == "mm"
+
+    assert ak.all(dists == dist_m)
 
 
 def test_surface_response():
