@@ -323,7 +323,7 @@ def build_hit(
                     if time_dict is not None:
                         start_time = time.time()
 
-                    ak_obj = stps.view_as("ak")
+                    ak_obj = stps.view_as("ak", with_units=True)
 
                     if time_dict is not None:
                         time_dict[proc_name].update_field("conv", start_time)
@@ -349,9 +349,6 @@ def build_hit(
                         if out_detector not in output_tables and files.hit[file_idx] is None:
                             output_tables[out_detector] = None
 
-                        # get the attributes
-                        attrs = utils.copy_units(stps)
-
                         # if we have more than one output detector, make an independent copy.
                         hit_table = (
                             copy.deepcopy(hit_table_layouted)
@@ -375,9 +372,6 @@ def build_hit(
                             hit_table = core.remove_columns(
                                 hit_table, outputs=proc_group["outputs"]
                             )
-
-                        # assign units in the output table
-                        hit_table = utils.assign_units(hit_table, attrs)
 
                         # now write
                         if files.hit[file_idx] is not None:
@@ -443,12 +437,7 @@ def build_hit(
 def _evaluate_operation(
     hit_table, field: str, info: str | dict, local_dict: dict, time_dict: ProfileDict
 ) -> None:
-    if isinstance(info, str):
-        expression = info
-        units = None
-    else:
-        expression = info["expression"]
-        units = info.get("units", None)
+    expression = info if isinstance(info, str) else info["expression"]
 
     # evaluate the expression
     col = core.evaluate_output_column(
@@ -459,8 +448,5 @@ def _evaluate_operation(
         time_dict=time_dict,
         name=field,
     )
-
-    if units is not None:
-        col.attrs["units"] = units
 
     core.add_field_with_nesting(hit_table, field, col)

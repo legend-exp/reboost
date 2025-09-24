@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import awkward as ak
 import numpy as np
 import pytest
 from dbetto import AttrsDict
-from lgdo import Array, Table, VectorOfVectors, lh5
+from lgdo import lh5
 from scipy.interpolate import RegularGridInterpolator
 
+from reboost import units
 from reboost.hpge import psd, utils
 from reboost.units import ureg as u
 
 # data from remage sim in ./simulation
 # fmt: off
-gamma_stp = Table(
-    {
-        "edep": VectorOfVectors(
+gamma_stp = ak.Array({
+        "edep": units.attach_units(ak.Array(
             [
                 [763, 20.1, 30.2, 40.5, 36.5, 110],
                 [0.0158, 526, 111],
@@ -26,9 +27,8 @@ gamma_stp = Table(
                 [728, 16.1, 256],
                 [613, 0.179, 9.03, 101, 26.9, 22.9, 26.1, 31.5, 11.1, 5.56, 31.7, 27.2, 23, 33.7, 37.6],
             ],
-            attrs={"units": "keV"},
-        ),
-        "xloc": VectorOfVectors(
+        ), "keV"),
+        "xloc": units.attach_units(ak.Array(
             [
                 [-0.0022, 0.0115, 0.0141, 0.0169, 0.0165, 0.0165],
                 [0.0106, 0.0104, 0.0103],
@@ -41,9 +41,9 @@ gamma_stp = Table(
                 [-0.00369, -0.00343, 0.00682],
                 [-0.0162, -0.0224, -0.0224, -0.0224, -0.0224, -0.0224, -0.0224, -0.0224, -0.022, -0.022, -0.022, -0.022, -0.022, -0.022, -0.022],
             ],
-            attrs={"units": "m"},
-        ),
-        "yloc": VectorOfVectors(
+
+        ), "m"),
+        "yloc": units.attach_units(ak.Array(
             [
                 [-0.00951, -0.0201, -0.0199, -0.014, -0.00924, -0.0092],
                 [-0.0264, -0.0264, -0.0264],
@@ -56,9 +56,8 @@ gamma_stp = Table(
                 [-0.000536, -0.000655, -0.00369],
                 [-0.00355, -0.0134, -0.0134, -0.0134, -0.0134, -0.0134, -0.0134, -0.0134, -0.0133, -0.0133, -0.0133, -0.0133, -0.0133, -0.0133, -0.0133],
             ],
-            attrs={"units": "m"},
-        ),
-        "zloc": VectorOfVectors(
+        ),"m"),
+        "zloc": units.attach_units(ak.Array(
             [
                 [0.0281, 0.0124, 0.0112, 0.00313, 0.0052, 0.00495],
                 [0.029, 0.0292, 0.0293],
@@ -71,8 +70,7 @@ gamma_stp = Table(
                 [0.0197, 0.0195, 0.0117],
                 [0.0029, 0.00108, 0.00108, 0.00107, 0.00106, 0.00106, 0.00106, 0.00106, 0.00128, 0.00128, 0.00129, 0.0013, 0.0013, 0.0013, 0.0013],
             ],
-            attrs={"units": "m"},
-        ),
+        ), "m"),
     }
 )
 # fmt: on
@@ -118,12 +116,12 @@ def dt_map_dummy(legendtestdata):
 
 
 def test_drift_time_dummy(dt_map_dummy):
-    gamma_stp_shift = Table(
+    gamma_stp_shift = ak.Array(
         {
             "edep": gamma_stp.edep,
-            "xloc": VectorOfVectors(gamma_stp.xloc.view_as("ak") + 10, attrs={"units": "m"}),
-            "yloc": VectorOfVectors(gamma_stp.yloc.view_as("ak") + 10, attrs={"units": "m"}),
-            "zloc": VectorOfVectors(gamma_stp.zloc.view_as("ak") + 10, attrs={"units": "m"}),
+            "xloc": ak.Array(gamma_stp.xloc + 10),
+            "yloc": ak.Array(gamma_stp.yloc + 10),
+            "zloc": ak.Array(gamma_stp.zloc + 10),
         }
     )
 
@@ -141,11 +139,11 @@ def test_drift_time_dummy(dt_map_dummy):
         * u.m,
     )
     # turn into an Awkward array so we can index
-    dt_arr = dt_values.view_as("ak")
+    dt_arr = dt_values
 
     # helper to pull out expected from the RegularGridInterpolator
     def expected_dt(event, step):
-        stp = gamma_stp.view_as("ak")
+        stp = gamma_stp
         x = stp.xloc[event][step]
         y = stp.yloc[event][step]
         z = stp.zloc[event][step]
@@ -171,20 +169,12 @@ def test_drift_time(dt_map):
         gamma_stp.zloc,
         dt_map,
     )
-    assert isinstance(dt_values, VectorOfVectors)
-    assert dt_values.ndim == 2
-    assert dt_values.attrs["units"] == "ns"
 
-    # test whether this works with non-LGDOs
-    data = gamma_stp.view_as("ak")
-    dt_values_nolgdo = psd.drift_time(
-        data.xloc,  # units should match the dt map units -> meters
-        data.yloc,
-        data.zloc,
-        dt_map,
-    )
-    assert isinstance(dt_values_nolgdo, VectorOfVectors)
-    assert dt_values_nolgdo == dt_values
+    dt_values, unit = units.unwrap_lgdo(dt_values)
+
+    assert isinstance(dt_values, ak.Array)
+    assert dt_values.ndim == 2
+    assert units.unit_to_lh5_attr(unit) == "ns"
 
 
 def test_drift_time_heuristics(dt_map):
@@ -199,6 +189,7 @@ def test_drift_time_heuristics(dt_map):
         dt_values,
         gamma_stp.edep,
     )
+    dt_heu, unit = units.unwrap_lgdo(dt_heu)
+    assert isinstance(dt_heu, ak.Array)
 
-    assert isinstance(dt_heu, Array)
-    assert dt_heu.attrs["units"] == "ns/keV"
+    assert units.unit_to_lh5_attr(unit) == "ns/keV"

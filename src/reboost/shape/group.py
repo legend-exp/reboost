@@ -8,6 +8,8 @@ from dbetto import AttrsDict
 from lgdo import Table, VectorOfVectors
 from numpy.typing import ArrayLike
 
+from reboost import units
+
 log = logging.getLogger(__name__)
 
 
@@ -63,13 +65,19 @@ def _sort_data(obj: ak.Array, *, time_name: str = "time", evtid_name: str = "evt
     -------
     sorted awkward array
     """
+    units_dict = {field: units.get_unit_str(obj[field]) for field in obj.fields}
+
     obj = obj[ak.argsort(obj[evtid_name])]
     obj_unflat = ak.unflatten(obj, ak.run_lengths(obj[evtid_name]))
 
     indices = ak.argsort(obj_unflat[time_name], axis=-1)
     sorted_obj = obj_unflat[indices]
 
-    return ak.flatten(sorted_obj)
+    out = {}
+    for field in sorted_obj.fields:
+        out[field] = units.attach_units(ak.flatten(sorted_obj[field]), units_dict[field])
+
+    return ak.Array(out)
 
 
 def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Table:
@@ -95,7 +103,9 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
     The input table must be sorted (by `evtid`).
     """
     # convert to awkward
-    obj_ak = data.view_as("ak") if isinstance(data, Table) else data
+    obj_ak = data.view_as("ak", with_units=True) if isinstance(data, Table) else data
+
+    units_dict = {field: units.get_unit_str(obj_ak[field]) for field in obj_ak.fields}
 
     # extract cumulative lengths
     counts = ak.run_lengths(obj_ak[evtid_name])
@@ -111,10 +121,14 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
     for f in obj_ak.fields:
         out_tbl.add_field(
             f,
-            VectorOfVectors(
-                cumulative_length=cumulative_length, flattened_data=obj_ak[f].to_numpy()
+            units.attach_units_lgdo(
+                VectorOfVectors(
+                    cumulative_length=cumulative_length, flattened_data=obj_ak[f].to_numpy()
+                ),
+                units_dict[f],
             ),
         )
+
     return out_tbl
 
 
@@ -155,10 +169,13 @@ def group_by_time(
     ----
     The input table must be sorted (first by `evtid` then `time`).
     """
-    obj = data.view_as("ak") if isinstance(data, Table) else data
+    obj = data.view_as("ak", with_units=True) if isinstance(data, Table) else data
+    units_dict = {field: units.get_unit_str(obj[field]) for field in obj.fields}
+
     obj = _sort_data(obj, time_name=time_name, evtid_name=evtid_name)
 
     # get difference
+
     time_diffs = np.diff(obj[time_name])
     index_diffs = np.diff(obj[evtid_name])
 
@@ -183,7 +200,12 @@ def group_by_time(
     for f in fields:
         out_tbl.add_field(
             f,
-            VectorOfVectors(cumulative_length=cumulative_length, flattened_data=obj[f].to_numpy()),
+            units.attach_units_lgdo(
+                VectorOfVectors(
+                    cumulative_length=cumulative_length, flattened_data=obj[f].to_numpy()
+                ),
+                units_dict[f],
+            ),
         )
 
     return out_tbl

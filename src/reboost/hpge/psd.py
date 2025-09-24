@@ -18,7 +18,7 @@ from .utils import HPGePulseShapeLibrary, HPGeRZField
 log = logging.getLogger(__name__)
 
 
-def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array:
+def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> ak.Array:
     """R90 HPGe pulse shape heuristic.
 
     Parameters
@@ -31,18 +31,22 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
         array of y coordinate position.
     zloc
         array of z coordinate position.
+
+    Returns
+    -------
+    calculated r90 for each hit
     """
+    pos = [units.units_conv_ak(pos, "mm") for pos in [xloc, yloc, zloc]]
+
+    edep = units.units_conv_ak(edep, "keV")
+
     tot_energy = ak.sum(edep, axis=-1, keepdims=True)
 
     def eweight_mean(field, energy):
         return ak.sum(energy * field, axis=-1, keepdims=True) / tot_energy
 
     # Compute distance of each edep to the weighted mean
-    dist = np.sqrt(
-        (xloc - eweight_mean(edep, xloc)) ** 2
-        + (yloc - eweight_mean(edep, yloc)) ** 2
-        + (zloc - eweight_mean(edep, zloc)) ** 2
-    )
+    dist = np.sqrt(sum((p - eweight_mean(edep, p)) ** 2 for p in pos))
 
     # Sort distances and corresponding edep within each event
     sorted_indices = ak.argsort(dist, axis=-1)
@@ -76,16 +80,16 @@ def r90(edep: ak.Array, xloc: ak.Array, yloc: ak.Array, zloc: ak.Array) -> Array
     r90_indices = ak.argmax(cumsum_edep_corrected >= threshold, axis=-1, keepdims=True)
     r90 = sorted_dist[r90_indices]
 
-    return Array(ak.flatten(r90).to_numpy())
+    return units.attach_units(ak.Array(ak.flatten(r90)), "mm")
 
 
 def drift_time(
-    xloc: ArrayLike,
-    yloc: ArrayLike,
-    zloc: ArrayLike,
+    xloc: ak.Array | VectorOfVectors,
+    yloc: ak.Array | VectorOfVectors,
+    zloc: ak.Array | VectorOfVectors,
     dt_map: HPGeRZField,
     coord_offset: pint.Quantity | pyg4ometry.gdml.Position = (0, 0, 0) * u.m,
-) -> VectorOfVectors:
+) -> ak.Array:
     """Calculates drift times for each step (cluster) in an HPGe detector.
 
     Parameters
@@ -106,7 +110,7 @@ def drift_time(
     # sanitize coord_offset
     coord_offset = units.pg4_to_pint(coord_offset)
 
-    # unit handling (for matching with drift time map units)
+    # unit handling (.r_units) for data in (xloc, yloc)]
     xu, yu = [units.units_convfact(data, dt_map.r_units) for data in (xloc, yloc)]
     zu = units.units_convfact(zloc, dt_map.z_units)
 
@@ -122,7 +126,6 @@ def drift_time(
 
         return None
 
-    # transform coordinates
     xloc = xu * xloc - coord_offset[0].to(dt_map.r_units).m
     yloc = yu * yloc - coord_offset[1].to(dt_map.r_units).m
     zloc = zu * zloc - coord_offset[2].to(dt_map.z_units).m
@@ -133,16 +136,13 @@ def drift_time(
         np.sqrt(xloc**2 + yloc**2),
         zloc,
     )
-    return VectorOfVectors(
-        dt_values,
-        attrs={"units": units.unit_to_lh5_attr(dt_map.φ_units)},
-    )
+    return units.attach_units(ak.Array(dt_values), units.unit_to_lh5_attr(dt_map.φ_units))
 
 
 def drift_time_heuristic(
-    drift_time: ArrayLike,
-    edep: ArrayLike,
-) -> Array:
+    drift_time: ak.Array | VectorOfVectors,
+    edep: ak.Array | VectorOfVectors,
+) -> ak.Array:
     """HPGe drift-time-based pulse-shape heuristic.
 
     See :func:`_drift_time_heuristic_impl` for a description of the algorithm.
@@ -160,11 +160,12 @@ def drift_time_heuristic(
     edep, e_units = units.unwrap_lgdo(edep)
 
     # we want to attach the right units to the dt heuristic, if possible
-    attrs = {}
+    unit = None
     if t_units is not None and e_units is not None:
-        attrs["units"] = units.unit_to_lh5_attr(t_units / e_units)
+        unit = units.unit_to_lh5_attr(t_units / e_units)
+        return units.attach_units(ak.Array(_drift_time_heuristic_impl(drift_time, edep)), unit)
 
-    return Array(_drift_time_heuristic_impl(drift_time, edep), attrs=attrs)
+    return ak.Array(_drift_time_heuristic_impl(drift_time, edep))
 
 
 @numba.njit(cache=True)
@@ -828,15 +829,15 @@ def maximum_current(
     activeness_surface: ArrayLike | None = None,
     surface_step_in_um: float = 10,
     return_mode: str = "current",
-) -> Array:
+) -> ak.Array:
     """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
 
     Parameters
     ----------
     edep
-        Array of energies for each step.
+       Energies for each step.
     drift_time
-        Array of drift times for each step.
+        Drift times for each step.
     dist_to_nplus
         Distance to n-plus electrode, only needed if surface heuristics are enabled.
     r
@@ -844,7 +845,7 @@ def maximum_current(
     z
         z coordinate (only needed if a full PSS library is used).
     template
-        array of the bulk pulse template, can also be a :class:`HPGePulseShapeLibrary`.
+        Array of the bulk pulse template
     times
         time-stamps for the bulk pulse template
     fccd_in_um
@@ -864,12 +865,12 @@ def maximum_current(
     -------
     An Array of the maximum current/ time / energy for each hit.
     """
-    # extract LGDO data and units
-    drift_time, _ = units.unwrap_lgdo(drift_time)
-    edep, _ = units.unwrap_lgdo(edep)
-    dist_to_nplus, _ = units.unwrap_lgdo(dist_to_nplus)
-    r, _ = units.unwrap_lgdo(r)
-    z, _ = units.unwrap_lgdo(z)
+    # convert to target units
+    drift_time = units.units_conv_ak(drift_time, "ns")
+    edep = units.units_conv_ak(edep, "keV")
+    dist_to_nplus = units.units_conv_ak(dist_to_nplus, "mm")
+    r = units.units_conv_ak(r, "mm")
+    z = units.units_conv_ak(z, "mm")
 
     # prepare inputs for surface sims
     include_surface_effects, dist_to_nplus, templates_surface, activeness_surface = (
@@ -901,11 +902,12 @@ def maximum_current(
 
     # return
     if return_mode == "max_time":
-        return Array(time)
+        return units.attach_units(ak.Array(time), "ns")
     if return_mode == "current":
-        return Array(curr)
+        # current has no unit (depends on the template)
+        return ak.Array(curr)
     if return_mode == "energy":
-        return Array(energy)
+        return units.attach_units(ak.Array(energy), "keV")
 
     msg = f"Return mode {return_mode} is not implemented."
     raise ValueError(msg)

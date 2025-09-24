@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import awkward as ak
 
+from reboost import units
 from reboost.hpge.psd import r90
 
 
@@ -116,8 +117,8 @@ def test_r90():
     elect_r90 = 0.0001816
     gamma_r90 = 0.0157370
 
-    assert round(r90_output.nda[0], 7) == elect_r90
-    assert round(r90_output.nda[1], 7) == gamma_r90
+    assert round(r90_output[0], 7) == elect_r90
+    assert round(r90_output[1], 7) == gamma_r90
 
     edep = [gamma_edep]
     xloc = [gamma_xloc]
@@ -134,4 +135,30 @@ def test_r90():
     )
 
     r90_output = r90(data.edep, data.xloc, data.yloc, data.zloc)
-    assert round(r90_output.nda[0], 7) == gamma_r90
+    assert round(r90_output[0], 7) == gamma_r90
+
+
+def test_units():
+    data = ak.Array(
+        {
+            "edep": units.attach_units([[100, 200, 300]], "keV"),
+            "xloc": units.attach_units([[10, 20, 300]], "mm"),
+            "yloc": units.attach_units([[2, 40, 40]], "mm"),
+            "zloc": units.attach_units([[1, 12, 0]], "mm"),
+        }
+    )
+    r90_mm = r90(data.edep, data.xloc, data.yloc, data.zloc)
+    assert units.get_unit_str(r90_mm) == "mm"
+
+    data = ak.Array(
+        {
+            "edep": units.attach_units([[100, 200, 300]], "keV"),
+            "xloc": units.attach_units([[10 / 1000.0, 20 / 1000.0, 300 / 1000.0]], "m"),
+            "yloc": units.attach_units([[2 / 1000.0, 40 / 1000.0, 40 / 1000.0]], "m"),
+            "zloc": units.attach_units([[1 / 1000.0, 12 / 1000.0, 0]], "m"),
+        }
+    )
+    # now run with m
+    r90_m = r90(data.edep, data.xloc, data.yloc, data.zloc)
+
+    assert ak.all(units.units_conv_ak(r90_mm, "mm") == units.units_conv_ak(r90_m, "mm"))
