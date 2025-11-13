@@ -80,7 +80,7 @@ gamma_stp = Table(
 
 @pytest.fixture(scope="module")
 def dt_map(legendtestdata):
-    return utils.get_hpge_scalar_rz_field(
+    return utils.get_hpge_rz_field(
         legendtestdata["lh5/hpge-drift-time-maps.lh5"],
         "V99000A",
         "drift_time",
@@ -114,7 +114,7 @@ def dt_map_dummy(legendtestdata):
         drift_time,
     )
 
-    return utils.HPGeScalarRZField(
+    return utils.HPGeRZField(
         interpolator,
         data.r.u,
         data.z.u,
