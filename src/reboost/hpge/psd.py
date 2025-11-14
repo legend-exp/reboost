@@ -262,11 +262,13 @@ def _current_pulse_model(
 
     Consists of a Gaussian, a high side exponential tail and a low side tail:
 
-     .. math::
+    .. math::
 
-       A(t) = A_{max}\times (1-p-p_h)\times \text{Gauss}(t,\mu,\sigma)+ A \times p (1-\text{Erf}((t-\mu)/sigma_i))\times
-        \frac{e^{( t/\tau)}}{2e^{\mu/\tau}} + A \times p_h (1-\text{Erf}(-(t-\mu)/sigma_i))\times
-        \frac{e^{-( t/\tau)}}{2}
+      \begin{align}
+      A(t) = \; &A_\text{max} \times (1-p-p_h) \times \text{Gauss}(t;\mu,\sigma) \\
+        &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
+        &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{1}{2}e^{-t/\tau}
+      \end{align}
 
     Parameters
     ----------
@@ -397,13 +399,13 @@ def get_current_waveform(
     the template.
 
     .. math::
-        A(t) = \sum_i E_i \times N f(t,dt_i,\vector{\theta})
+        A(t) = \sum_i E_i \times N f(t, dt_i, \vec{\theta})
 
     Where:
-        - $f(t)$ is the template
-        - $\vector{\theta}$ are the parameters (sigma, p, tau)
-        - $E_i$ and $dt_i$ are the deposited energy and drift time.
-        - N is a normalisation term
+        - :math:`f(t)` is the template
+        - :math`\vec{\theta}` are the parameters :math:`(\sigma, p, \tau)`
+        - :math:`E_i` and :math:`dt_i` are the deposited energy and drift time.
+        - :math:`N` is a normalisation term
 
     Parameters
     ----------
