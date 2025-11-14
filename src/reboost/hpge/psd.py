@@ -399,13 +399,13 @@ def get_current_waveform(
     the template.
 
     .. math::
-        A(t) = \sum_i E_i \times N f(t,dt_i,\vector{\theta})
+        A(t) = \sum_i E_i \times N f(t, dt_i, \vec{\theta})
 
     Where:
-        - $f(t)$ is the template
-        - $\vector{\theta}$ are the parameters (sigma, p, tau)
-        - $E_i$ and $dt_i$ are the deposited energy and drift time.
-        - N is a normalisation term
+        - :math:`f(t)` is the template
+        - :math`\vec{\theta}` are the parameters :math:`(\sigma, p, \tau)`
+        - :math:`E_i` and :math:`dt_i` are the deposited energy and drift time.
+        - :math:`N` is a normalisation term
 
     Parameters
     ----------
