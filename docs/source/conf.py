@@ -74,3 +74,8 @@ autoclass_content = "both"
 autodoc_typehints = "description"
 autodoc_typehints_description_target = "all"
 autodoc_typehints_format = "short"
+
+autodoc_type_aliases = {
+    "ArrayLike": "ArrayLike",
+    "NDArray": "NDArray",
+}
