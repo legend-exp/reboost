@@ -6,6 +6,8 @@ import pytest
 from lgdo import Array, VectorOfVectors
 
 from reboost.hpge import psd, surface
+from reboost.hpge.psd import _get_template
+from reboost.hpge.utils import get_hpge_pulse_shape_library
 from reboost.shape import cluster
 
 
@@ -44,6 +46,14 @@ def test_model():
     )
 
     return model, x
+
+
+def test_get_template(test_pulse_shape_library):
+    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+
+    temp = _get_template(10, 10, lib.waveforms, lib.r, lib.z, None)
+
+    assert len(temp) == 4001
 
 
 def test_maximum_current(test_model):
@@ -183,3 +193,28 @@ def test_maximum_current_surface(test_model):
 
         # surface effects reduce the current
         assert np.all(curr_surf < curr_bulk)
+
+
+def test_maximum_current_library(test_pulse_shape_library):
+    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+
+    model = lib.waveforms[0][0]
+    x = lib.t
+
+    edep = VectorOfVectors(
+        ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), attrs={"unit": "keV"}
+    )
+    times = VectorOfVectors(
+        ak.Array([[400, 500, 700], [800, 0, 1500], [700]], attrs={"unit": "ns"})
+    )
+    r = VectorOfVectors(
+        ak.Array([[20.0, 10.0, 5.0], [10.0, 1.0, 0.0], [70.0]]), attrs={"unit": "mm"}
+    )
+    z = VectorOfVectors(
+        ak.Array([[40.0, 2.0, 25.0], [22.0, 4.0, 1.2], [20.0]]), attrs={"unit": "mm"}
+    )
+
+    curr = psd.maximum_current(edep, times, template=model, times=x).view_as("ak")
+    curr2 = psd.maximum_current(edep, times, r=r, z=z, template=lib, times=x).view_as("ak")
+
+    assert ak.all(curr == curr2)

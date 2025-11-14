@@ -676,7 +676,16 @@ def _get_template(
     default: np.array | None = None,
 ) -> np.array:
     """Extract the closest template to a given (r,z) point."""
-    raise NotImplementedError
+    if (r < r_grid[0]) or (r > r_grid[-1]) or (z > z_grid[-1]) or (z < z_grid[0]):
+        return default
+
+    dz = z_grid[1] - z_grid[0]
+    dr = r_grid[1] - r_grid[0]
+
+    ri = int((r - r_grid[0]) / dr)
+    zi = int((z - z_grid[0]) / dz)
+
+    return waveforms[ri][zi]
 
 
 @numba.njit(cache=True)
@@ -717,7 +726,7 @@ def _estimate_current_impl(
     energy = np.zeros(len(dt))
 
     time_step = 1
-    n = len(template)
+    n = len(times)
     start = times[0]
 
     if include_surface_effects:
@@ -731,6 +740,9 @@ def _estimate_current_impl(
     for i in range(len(dt)):
         t = np.asarray(dt[i])
         e = np.asarray(edep[i])
+        r_tmp = np.asarray(r[i])
+        z_tmp = np.asarray(z[i])
+
         dist = np.asarray(dist_to_nplus[i])
 
         # get the expected maximum
@@ -744,7 +756,6 @@ def _estimate_current_impl(
             for j, d in enumerate(dist):
                 dtmp = int(d / surface_step_in_um)
 
-                # Use branchless selection
                 use_offset = dtmp <= ncols
                 offset_val = offsets[dtmp] if use_offset else 0.0
                 time_tmp = t[j] + offset_val * use_offset
@@ -761,8 +772,8 @@ def _estimate_current_impl(
                 t,
                 e,
                 dist,
-                r=r,
-                z=z,
+                r=r_tmp,
+                z=z_tmp,
                 template=template,
                 templates_surface=templates_surface,
                 activeness_surface=activeness_surface,
@@ -818,8 +829,9 @@ def prepare_pulse_shape_library(
     """Prepare the inputs for the full pulse shape library."""
     if isinstance(template, HPGePulseShapeLibrary):
         # convert to a form we can use
-        template = (template.r, template.z, template.waveforms)
-        times = template.times
+        times = template.t
+        template = (template.waveforms, template.r, template.z)
+
     else:
         r = ak.full_like(edep, np.nan)
         z = ak.full_like(edep, np.nan)
@@ -876,7 +888,6 @@ def maximum_current(
     An Array of the maximum current/ time / energy for each hit.
     """
     # extract LGDO data and units
-
     drift_time, _ = units.unwrap_lgdo(drift_time)
     edep, _ = units.unwrap_lgdo(edep)
     dist_to_nplus, _ = units.unwrap_lgdo(dist_to_nplus)
