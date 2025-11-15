@@ -10,7 +10,7 @@ import numba
 import numpy as np
 from legendoptics import fibers, lar, pen
 from lgdo import lh5
-from lgdo.types import Array, Histogram, Table
+from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray
 
@@ -312,38 +312,6 @@ def _iterate_stepwise_depositions_scintillate(
         output_list.append(hit_output)
 
     return output_list
-
-
-def get_output_table(output_map):
-    ph_count_o = 0
-    for _rawid, (_evtid, det, _times) in output_map.items():
-        ph_count_o += det.shape[0]
-
-    out_idx = 0
-    out_evtid = np.empty(ph_count_o, dtype=np.int64)
-    out_det = np.empty(ph_count_o, dtype=np.int64)
-    out_times = np.empty(ph_count_o, dtype=np.float64)
-    for _rawid, (evtid, det, times) in output_map.items():
-        o_len = det.shape[0]
-        out_evtid[out_idx : out_idx + o_len] = evtid
-        out_det[out_idx : out_idx + o_len] = det
-        out_times[out_idx : out_idx + o_len] = times
-        out_idx += o_len
-
-    tbl = Table({"evtid": Array(out_evtid), "det_uid": Array(out_det), "time": Array(out_times)})
-    return ph_count_o, tbl
-
-
-def _reflatten_scint_vov(arr: ak.Array) -> ak.Array:
-    if all(arr[f].ndim == 1 for f in ak.fields(arr)):
-        return arr
-
-    group_num = ak.num(arr["edep"]).to_numpy()
-    flattened = {
-        f: ak.flatten(arr[f]) if arr[f].ndim > 1 else np.repeat(arr[f].to_numpy(), group_num)
-        for f in ak.fields(arr)
-    }
-    return ak.Array(flattened)
 
 
 def _get_scint_params(material: str):
