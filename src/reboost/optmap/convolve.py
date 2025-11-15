@@ -63,15 +63,10 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
         detidx = np.array([OPTMAP_ANY_CH])
         dets = np.array(["all"])
 
-    try:
-        # check the exponent from the optical map file
-        optmap_multi_det_exp = lh5.read("/_hitcounts_exp", optmap_fn).value
-        assert isinstance(optmap_multi_det_exp, float)
-        if np.isfinite(optmap_multi_det_exp):
-            msg = f"found finite _hitcounts_exp {optmap_multi_det_exp} which is not supported any more"
-            raise RuntimeError(msg)
-    except lh5.exceptions.LH5DecodeError:  # the _hitcounts_exp might not be always present.
-        pass
+    # check the exponent from the optical map file
+    if "_hitcounts_exp" in lh5.ls(optmap_fn):
+        msg = "found _hitcounts_exp which is not supported any more"
+        raise RuntimeError(msg)
 
     dets = [d.replace("/channels/", "") for d in dets]
 
@@ -79,15 +74,10 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
 
 
 def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
-    try:
-        # check the exponent from the optical map file
-        optmap_multi_det_exp = lh5.read("/_hitcounts_exp", optmap_fn).value
-        assert isinstance(optmap_multi_det_exp, float)
-        if np.isfinite(optmap_multi_det_exp):
-            msg = f"found finite _hitcounts_exp {optmap_multi_det_exp} which is not supported any more"
-            raise RuntimeError(msg)
-    except lh5.exceptions.LH5DecodeError:  # the _hitcounts_exp might not be always present.
-        pass
+    # check the exponent from the optical map file
+    if "_hitcounts_exp" in lh5.ls(optmap_fn):
+        msg = "found _hitcounts_exp which is not supported any more"
+        raise RuntimeError(msg)
 
     h5_path = f"channels/{spm_det}" if spm_det != "all" else spm_det
     optmap = lh5.read(f"/{h5_path}/prob", optmap_fn)
