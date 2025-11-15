@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import NamedTuple
 
 import awkward as ak
@@ -26,18 +25,15 @@ OPTMAP_SUM_CH = -2
 class OptmapForConvolve(NamedTuple):
     """A loaded optmap for convolving."""
 
-    detids: NDArray
+    dets: NDArray
     detidx: NDArray
     edges: NDArray
     weights: NDArray
 
 
 def open_optmap(optmap_fn: str) -> OptmapForConvolve:
-    maps = lh5.ls(optmap_fn)
-    # only accept _<number> (/all is read separately)
-    det_ntuples = [m for m in maps if re.match(r"_\d+$", m)]
-    detids = np.array([int(m.lstrip("_")) for m in det_ntuples])
-    detidx = np.arange(0, detids.shape[0])
+    dets = lh5.ls(optmap_fn, "/channels/")
+    detidx = np.arange(0, dets.shape[0])
 
     optmap_all = lh5.read("/all/prob", optmap_fn)
     assert isinstance(optmap_all, Histogram)
@@ -46,7 +42,7 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
     ow = np.empty((detidx.shape[0] + 2, *optmap_all.weights.nda.shape), dtype=np.float64)
     # 0, ..., len(detidx)-1 AND OPTMAP_ANY_CH might be negative.
     ow[OPTMAP_ANY_CH] = optmap_all.weights.nda
-    for i, nt in zip(detidx, det_ntuples, strict=True):
+    for i, nt in zip(detidx, dets, strict=True):
         optmap = lh5.read(f"/{nt}/prob", optmap_fn)
         assert isinstance(optmap, Histogram)
         ow[i] = optmap.weights.nda
@@ -58,7 +54,7 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
         assert not np.any(ow[OPTMAP_SUM_CH] < 0)
     else:
         detidx = np.array([OPTMAP_ANY_CH])
-        detids = np.array([0])
+        dets = np.array(["all"])
         ow[OPTMAP_SUM_CH] = ow[OPTMAP_ANY_CH]
 
     # give this check some numerical slack.
@@ -81,10 +77,12 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
     except lh5.exceptions.LH5DecodeError:  # the _hitcounts_exp might not be always present.
         pass
 
-    return OptmapForConvolve(detids, detidx, optmap_edges, ow)
+    dets = [d.replace("/channels/", "") for d in dets]
+
+    return OptmapForConvolve(dets, detidx, optmap_edges, ow)
 
 
-def open_optmap_single(optmap_fn: str, spm_det_uid: int) -> OptmapForConvolve:
+def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
     try:
         # check the exponent from the optical map file
         optmap_multi_det_exp = lh5.read("/_hitcounts_exp", optmap_fn).value
@@ -95,20 +93,21 @@ def open_optmap_single(optmap_fn: str, spm_det_uid: int) -> OptmapForConvolve:
     except lh5.exceptions.LH5DecodeError:  # the _hitcounts_exp might not be always present.
         pass
 
-    optmap = lh5.read(f"/_{spm_det_uid}/prob", optmap_fn)
+    h5_path = f"channels/{spm_det}" if spm_det != "all" else spm_det
+    optmap = lh5.read(f"/{h5_path}/prob", optmap_fn)
     assert isinstance(optmap, Histogram)
     ow = np.empty((1, *optmap.weights.nda.shape), dtype=np.float64)
     ow[0] = optmap.weights.nda
     optmap_edges = tuple([b.edges for b in optmap.binning])
 
-    return OptmapForConvolve(np.array([spm_det_uid]), np.array([0]), optmap_edges, ow)
+    return OptmapForConvolve(np.array([spm_det]), np.array([0]), optmap_edges, ow)
 
 
 def iterate_stepwise_depositions_pois(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
     scint_mat_params: sc.ComputedScintParams,
-    det_uid: int,
+    det: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     rng: np.random.Generator | None = None,
@@ -117,11 +116,15 @@ def iterate_stepwise_depositions_pois(
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
+    if det not in optmap.dets:
+        msg = f"channel {det} not available in optical map (contains {optmap.dets})"
+        raise ValueError(msg)
+
     rng = np.random.default_rng() if rng is None else rng
     res, output_list = _iterate_stepwise_depositions_pois(
         edep_hits,
         rng,
-        np.where(optmap.detids == det_uid)[0][0],
+        np.where(optmap.dets == det)[0][0],
         map_scaling,
         map_scaling_sigma,
         optmap.edges,
