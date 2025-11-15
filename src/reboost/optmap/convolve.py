@@ -19,7 +19,6 @@ log = logging.getLogger(__name__)
 
 
 OPTMAP_ANY_CH = -1
-OPTMAP_SUM_CH = -2
 
 
 class OptmapForConvolve(NamedTuple):
@@ -50,22 +49,19 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
     # if we have any individual channels registered, the sum is potentially larger than the
     # probability to find _any_ hit.
     if len(detidx) != 0:
-        ow[OPTMAP_SUM_CH] = np.sum(ow[0:-2], axis=0, where=(ow[0:-2] >= 0))
-        assert not np.any(ow[OPTMAP_SUM_CH] < 0)
+        map_sum = np.sum(ow[0:-2], axis=0, where=(ow[0:-2] >= 0))
+        assert not np.any(map_sum < 0)
+
+        # give this check some numerical slack.
+        if np.any(
+            np.abs(map_sum[ow[OPTMAP_ANY_CH] >= 0] - ow[OPTMAP_ANY_CH][ow[OPTMAP_ANY_CH] >= 0])
+            < -1e-15
+        ):
+            msg = "optical map does not fulfill relation sum(p_i) >= p_any"
+            raise ValueError(msg)
     else:
         detidx = np.array([OPTMAP_ANY_CH])
         dets = np.array(["all"])
-        ow[OPTMAP_SUM_CH] = ow[OPTMAP_ANY_CH]
-
-    # give this check some numerical slack.
-    if np.any(
-        np.abs(
-            ow[OPTMAP_SUM_CH][ow[OPTMAP_ANY_CH] >= 0] - ow[OPTMAP_ANY_CH][ow[OPTMAP_ANY_CH] >= 0]
-        )
-        < -1e-15
-    ):
-        msg = "optical map does not fulfill relation sum(p_i) >= p_any"
-        raise ValueError(msg)
 
     try:
         # check the exponent from the optical map file
