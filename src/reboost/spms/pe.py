@@ -105,7 +105,7 @@ def detected_photoelectrons(
     zloc: ak.Array,
     optmap: convolve.OptmapForConvolve,
     material: str,
-    spm_detector_uid: int,
+    spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
 ) -> VectorOfVectors:
@@ -130,8 +130,8 @@ def detected_photoelectrons(
         the optical map loaded via py:func:`load_optmap`.
     material
         scintillating material name.
-    spm_detector_uid
-        SiPM detector uid as used in the optical map.
+    spm_detector
+        SiPM detector name as used in the optical map.
     map_scaling
         scale the detection probability in the map for this detector by this factor.
     map_scaling_sigma
@@ -151,7 +151,7 @@ def detected_photoelectrons(
 
     scint_mat_params = convolve._get_scint_params(material)
     pe = convolve.iterate_stepwise_depositions_pois(
-        hits, optmap, scint_mat_params, spm_detector_uid, map_scaling, map_scaling_sigma
+        hits, optmap, scint_mat_params, spm_detector, map_scaling, map_scaling_sigma
     )
 
     return VectorOfVectors(pe, attrs={"units": "ns"})

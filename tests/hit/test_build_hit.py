@@ -327,14 +327,12 @@ def test_spms(test_gen_lh5_scint, tmptestdir):
 
     # create a simple test map
     map_file = f"{tmptestdir}/spms_hit_map.lh5"
-    m = OpticalMap.create_empty(
-        "_11", {"range_in_m": [[-1, 1], [-1, 1], [-1, 1]], "bins": [1, 1, 1]}
-    )
+    m = OpticalMap.create_empty("_", {"range_in_m": [[-1, 1], [-1, 1], [-1, 1]], "bins": [1, 1, 1]})
     m._nda(m.h_vertex)[0, 0, 0] = 100
     m._nda(m.h_hits)[0, 0, 0] = 10
     m.create_probability()
-    m.write_lh5(map_file, "_11", "overwrite_file")
-    m.write_lh5(map_file, "_12", "write_safe")
+    m.write_lh5(map_file, "channels/S001", "overwrite_file")
+    m.write_lh5(map_file, "channels/S002", "write_safe")
 
     outfile = f"{tmptestdir}/spms_hit.lh5"
     reboost.build_hit(
