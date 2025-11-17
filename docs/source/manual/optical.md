@@ -154,19 +154,3 @@ An example using all these processors can be seen in the documentation of
 {mod}`reboost.build_hit`. Especially note the usage of `pre_operations` and
 `detector_mapping` to convert a single input table of type scintillator to
 multiple optical output tables.
-
-### Standalone tool `reboost-optical convolve` (deprecated)
-
-:::{important}
-
-This old standalone method is deprecated and will be removed in a future version
-of reboost.
-
-:::
-
-If the liquid argon volume is registered as a `Scintillator` detector with uid
-1, the optical response can be created with:
-
-```
-reboost-optical convolve --material lar --map map.lh5 --edep remage-output.lh5 --edep-lgdo /stp/det001 --output optical-response.lh5
-```
