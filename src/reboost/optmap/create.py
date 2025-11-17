@@ -369,11 +369,8 @@ def check_optical_map(map_l5_file: str):
 
     This checks for consistency, and outputs details on map statistics.
     """
-    if (
-        "_hitcounts_exp" in lh5.ls(map_l5_file)
-        and lh5.read("_hitcounts_exp", lh5_file=map_l5_file).value != np.inf
-    ):
-        log.error("unexpected _hitcounts_exp not equal to positive infinity")
+    if "_hitcounts_exp" in lh5.ls(map_l5_file):
+        log.error("found _hitcounts_exp which is not supported any more")
         return
 
     all_binning = None
