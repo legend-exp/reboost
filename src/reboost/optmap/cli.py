@@ -55,11 +55,6 @@ def optical_cli() -> None:
         "--geom",
         help="GDML geometry file",
     )
-    map_parser_det_group.add_argument(
-        "--evt",
-        action="store_true",
-        help="the input file is already an optmap-evt file.",
-    )
     map_parser.add_argument(
         "--n-procs",
         "-N",
