@@ -197,7 +197,6 @@ def optical_cli() -> None:
             args.input,
             settings,
             args.bufsize,
-            is_stp_file=(not args.evt),
             chfilter=chfilter,
             output_lh5_fn=args.output,
             check_after_create=args.check,
