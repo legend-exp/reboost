@@ -4,14 +4,14 @@ import logging
 from typing import NamedTuple
 
 import awkward as ak
-import legendoptics.scintillate as sc
 import numba
 import numpy as np
-from legendoptics import fibers, lar, pen
+import pygeomoptics.scintillate as sc
 from lgdo import lh5
 from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray
+from pygeomoptics import fibers, lar, pen
 
 from .numba_pdg import numba_pdgid_funcs
 

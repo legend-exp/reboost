@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 
 import awkward as ak
-import legendhpges
 import numba
 import numpy as np
+import pygeomhpges
 from lgdo import VectorOfVectors
 from lgdo.types import LGDO
 from numpy.typing import ArrayLike
@@ -18,7 +18,7 @@ def distance_to_surface(
     positions_x: VectorOfVectors,
     positions_y: VectorOfVectors,
     positions_z: VectorOfVectors,
-    hpge: legendhpges.base.HPGe,
+    hpge: pygeomhpges.base.HPGe,
     det_pos: ArrayLike,
     *,
     surface_type: str | None = None,
