@@ -42,7 +42,7 @@ A :func:`build_hit` to parse the following configuration file:
           # iteration of the for loop over input tables (i.e. detectors)
           detector_objects:
              # The following assumes that the detector metadata is stored in the GDML file
-             pyobj: legendhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
+             pyobj: pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
              phyvol: OBJECTS.geometry.physical_volume_dict[DETECTOR]
              drift_time_map: lgdo.lh5.read(DETECTOR, ARGS.dtmap_file)
 

@@ -4,10 +4,10 @@ import awkward as ak
 import numpy as np
 import pyg4ometry
 import pytest
-from legendhpges import make_hpge
 from legendtestdata import LegendTestData
 from lgdo import types
 from lgdo.types import VectorOfVectors
+from pygeomhpges import make_hpge
 
 from reboost.hpge.surface import distance_to_surface, get_surface_response
 

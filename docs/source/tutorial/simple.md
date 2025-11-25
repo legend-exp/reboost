@@ -53,8 +53,8 @@ from lgdo import lh5
 from lgdo.types import Table, Array, VectorOfVectors
 import numpy as np
 from pygeomtools.detectors import get_sensvol_metadata
-from legendhpges import make_hpge, draw
-import legendhpges
+from pygeomhpges import make_hpge, draw
+import pygeomhpges
 import pyg4ometry
 import awkward as ak
 from reboost.math.stats import gaussian_sample
@@ -89,7 +89,7 @@ detector properties (mass, surface area etc.) and to compute the distance of
 points from the detector surface.
 
 In this example we extract the _pyg4ometry.geant4.Registry_ object describing the geometry (see the [pyg4ometry documentation](https://pyg4ometry.readthedocs.io/en/stable/autoapi/pyg4ometry/geant4/Registry/index.html#pyg4ometry.geant4.Registry.Registry)),
-the _legend-pygeom-hpges_ HPGe python object (see the [legend-pygeom-hpges documentation](https://legend-pygeom-hpges.readthedocs.io/en/stable/api/legendhpges.html#legendhpges.base.HPGe)),
+the _legend-pygeom-hpges_ HPGe python object (see the [legend-pygeom-hpges documentation](https://legend-pygeom-hpges.readthedocs.io/en/stable/api/pygeomhpges.html#pygeomhpges.base.HPGe)),
 and finally we extract the position of the BEGe detector (which we focus on for this analysis).
 
 ```python
@@ -184,7 +184,7 @@ r = rng.choice([-1, 1], p=[0.5, 0.5], size=len(r)) * r
 
 # make the plot
 fig, ax = plt.subplots(figsize=(8, 4))
-legendhpges.draw.plot_profile(hpge_pyobj, axes=ax, split_by_type=True)
+pygeomhpges.draw.plot_profile(hpge_pyobj, axes=ax, split_by_type=True)
 
 cut = ak.flatten(dist_nplus) < 2
 s = ax.scatter(

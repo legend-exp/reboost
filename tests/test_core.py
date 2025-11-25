@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 
 import awkward as ak
-import legendhpges
 import numpy as np
 import pyg4ometry as pg4
+import pygeomhpges
 import pygeomtools
 import pytest
 from dbetto import AttrsDict
@@ -27,7 +27,7 @@ def test_data_configs():
 def make_gdml(test_data_configs):
     reg = pg4.geant4.Registry()
     meta = f"{test_data_configs}/C99000A.json"
-    hpge = legendhpges.make_hpge(meta, registry=reg)
+    hpge = pygeomhpges.make_hpge(meta, registry=reg)
 
     world_s = pg4.geant4.solid.Orb("World_s", 20, registry=reg, lunit="cm")
     world_l = pg4.geant4.LogicalVolume(world_s, "G4_Galactic", "World", registry=reg)
@@ -116,7 +116,7 @@ def test_get_objects(test_data_configs, make_gdml):
     # get legend-test data
     # check if we can make a HPGe
     path = test_data_configs + r"/{DETECTOR}"
-    expression = f"legendhpges.make_hpge(f'{path}.json',registry = OBJECTS.reg)"
+    expression = f"pygeomhpges.make_hpge(f'{path}.json',registry = OBJECTS.reg)"
     assert reboost.core.evaluate_object(expression, {"DETECTOR": "C99000A", "OBJECTS": objects})
 
     # test construction of the global objects
@@ -144,7 +144,7 @@ def test_get_objects(test_data_configs, make_gdml):
     # test getting detector objects
     expressions = {
         "meta": "pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR)",
-        "hpge": "legendhpges.make_hpge(pygeomtools.get_sensvol"
+        "hpge": "pygeomhpges.make_hpge(pygeomtools.get_sensvol"
         "_metadata(OBJECTS.geometry, DETECTOR),registry = OBJECTS.reg,name=ARGS.name)",
     }
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import legendhpges as hpges
 import numpy as np
 import pyg4ometry as pg4
+import pygeomhpges as hpges
 from legendtestdata import LegendTestData
 
 ldata = LegendTestData()

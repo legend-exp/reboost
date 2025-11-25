@@ -84,13 +84,13 @@ def test_get_function_string():
 
     # try a more compliated expression
     expression = (
-        "legendhpges.make_hpge(pygeomtools.get_sensvol"
+        "pygeomhpges.make_hpge(pygeomtools.get_sensvol"
         "_metadata(OBJECTS.geometry, DETECTOR),registry = OBJECT.reg,name=ARGS.name)"
     )
 
     func_string, globals_dict = get_function_string(expression)
 
-    assert list(globals_dict.keys()) == ["legendhpges", "pygeomtools"]
+    assert list(globals_dict.keys()) == ["pygeomhpges", "pygeomtools"]
 
 
 def test_merge_dicts():
