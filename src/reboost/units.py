@@ -45,6 +45,19 @@ def units_convfact(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -
     return 1
 
 
+def attach_units(data: ak.Array, unit: str) -> ak.Array:
+    """Convenience function to attach units to `ak.Array`.
+
+    Parameters
+    ----------
+    data
+        the array to add units to
+    unit
+        the unit
+    """
+    return ak.with_parameter(data, parameter="units", value=unit)
+
+
 def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> ak.Array:
     """Calculate numeric conversion factor to reach `target_units`, and apply to data converted to ak.
 
@@ -97,6 +110,25 @@ def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, 
             ret_data = ak.without_parameters(data)
 
     return ret_data, ret_units
+
+
+def get_unit_str(data: ak.Array) -> str:
+    """Get the units as a string for an awkward array with attached units.
+
+    Parameters
+    ----------
+    data
+        the array with attached units
+
+    Returns
+    -------
+    a string of the units.
+    """
+    attrs = ak.parameters(data)
+
+    if "units" in attrs:
+        return attrs["units"]
+    return None
 
 
 def unit_to_lh5_attr(unit: pint.Unit) -> str:
