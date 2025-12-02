@@ -35,21 +35,7 @@ def optical_cli() -> None:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # STEP 1: build evt file from stp tier
-    evt_parser = subparsers.add_parser("evt", help="build optmap-evt file from remage stp file")
-    evt_parser_det_group = evt_parser.add_mutually_exclusive_group(required=True)
-    evt_parser_det_group.add_argument(
-        "--geom",
-        help="GDML geometry file",
-    )
-    evt_parser_det_group.add_argument(
-        "--detectors",
-        help="file with detector ids of all optical channels.",
-    )
-    evt_parser.add_argument("input", help="input stp LH5 file", metavar="INPUT_STP")
-    evt_parser.add_argument("output", help="output evt LH5 file", metavar="OUTPUT_EVT")
-
-    # STEP 2a: build map file from evt tier
+    # STEP 1a: build map file from evt tier
     map_parser = subparsers.add_parser("createmap", help="build optical map from evt file(s)")
     map_parser.add_argument(
         "--settings",
@@ -69,11 +55,6 @@ def optical_cli() -> None:
         "--geom",
         help="GDML geometry file",
     )
-    map_parser_det_group.add_argument(
-        "--evt",
-        action="store_true",
-        help="the input file is already an optmap-evt file.",
-    )
     map_parser.add_argument(
         "--n-procs",
         "-N",
@@ -91,42 +72,67 @@ def optical_cli() -> None:
     )
     map_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
 
-    # STEP 2b: view maps
-    mapview_parser = subparsers.add_parser("viewmap", help="view optical map")
+    # STEP 1b: view maps
+    mapview_parser = subparsers.add_parser(
+        "viewmap",
+        help="view optical map (arrows: navigate slices/axes, 'c': channel selector)",
+        formatter_class=argparse.RawTextHelpFormatter,
+        description=(
+            "Interactively view optical maps stored in LH5 files.\n\n"
+            "Keyboard controls:\n"
+            "  left/right  - previous/next slice along the current axis\n"
+            "  up/down     - switch slicing axis (x, y, z)\n"
+            "  c           - open channel selector overlay to switch detector map\n\n"
+            "Display notes:\n"
+            "  - Cells where no primary photons were simulated are shown in white.\n"
+            "  - Cells where no photons were detected are shown in grey.\n"
+            "  - Cells with values above the colormap maximum are shown in red.\n"
+            "  - Use --hist to choose which histogram to display. 'prob_unc_rel' shows the\n"
+            "    relative uncertainty prob_unc / prob where defined.\n"
+            "  - Use --divide to show the ratio of two map files (this/other)."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  reboost-optical viewmap mymap.lh5\n"
+            "  reboost-optical viewmap mymap.lh5 --channel _1067205\n"
+            "  reboost-optical viewmap mymap.lh5 --hist prob_unc_rel --min 0 --max 1\n"
+            "  reboost-optical viewmap mymap.lh5 --divide other.lh5 --title 'Comparison'"
+        ),
+    )
     mapview_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
     mapview_parser.add_argument(
         "--channel",
         action="store",
         default="all",
-        help="default: %(default)s",
+        help="channel to display ('all' or '_<detid>'). Press 'c' in the viewer to switch. default: %(default)s",
     )
     mapview_parser.add_argument(
         "--hist",
-        choices=("nr_gen", "nr_det", "p_det", "p_det_err", "p_det_err_rel"),
+        choices=("_nr_gen", "_nr_det", "prob", "prob_unc", "prob_unc_rel"),
         action="store",
-        default="p_det",
+        default="prob",
         help="select optical map histogram to show. default: %(default)s",
     )
     mapview_parser.add_argument(
         "--divide",
         action="store",
-        help="default: none",
+        help="divide by another map file before display (ratio). default: none",
     )
     mapview_parser.add_argument(
         "--min",
         default=1e-4,
         type=(lambda s: s if s == "auto" else float(s)),
-        help="colormap min value. default: %(default)e",
+        help="colormap min value; use 'auto' for automatic scaling. default: %(default)e",
     )
     mapview_parser.add_argument(
         "--max",
         default=1e-2,
         type=(lambda s: s if s == "auto" else float(s)),
-        help="colormap max value. default: %(default)e",
+        help="colormap max value; use 'auto' for automatic scaling. default: %(default)e",
     )
     mapview_parser.add_argument("--title", help="title of figure. default: stem of filename")
 
-    # STEP 2c: merge maps
+    # STEP 1c: merge maps
     mapmerge_parser = subparsers.add_parser("mergemap", help="merge optical maps")
     mapmerge_parser.add_argument(
         "input", help="input map LH5 files", metavar="INPUT_MAP", nargs="+"
@@ -151,48 +157,9 @@ def optical_cli() -> None:
         help="""Check map statistics after creation. default: %(default)s""",
     )
 
-    # STEP 2d: check map
+    # STEP 1d: check map
     checkmap_parser = subparsers.add_parser("checkmap", help="check optical maps")
     checkmap_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
-
-    # STEP 3: convolve with hits from non-optical simulations
-    convolve_parser = subparsers.add_parser(
-        "convolve", help="convolve non-optical hits with optical map"
-    )
-    convolve_parser.add_argument(
-        "--material",
-        action="store",
-        choices=("lar", "pen", "fiber"),
-        default="lar",
-        help="default: %(default)s",
-    )
-    convolve_parser.add_argument(
-        "--map",
-        action="store",
-        required=True,
-        metavar="INPUT_MAP",
-        help="input map LH5 file",
-    )
-    convolve_parser.add_argument(
-        "--edep",
-        action="store",
-        required=True,
-        metavar="INPUT_EDEP",
-        help="input non-optical LH5 hit file",
-    )
-    convolve_parser.add_argument(
-        "--edep-lgdo",
-        action="store",
-        required=True,
-        metavar="LGDO_PATH",
-        help="path to LGDO inside non-optical LH5 hit file (e.g. /stp/detXX)",
-    )
-    convolve_parser.add_argument(
-        "--dist-mode",
-        action="store",
-        default="poisson+no-fano",
-    )
-    convolve_parser.add_argument("--output", help="output hit LH5 file", metavar="OUTPUT_HIT")
 
     # STEP X: rebin maps
     rebin_parser = subparsers.add_parser("rebin", help="rebin optical maps")
@@ -205,24 +172,7 @@ def optical_cli() -> None:
     log_level = (None, logging.INFO, logging.DEBUG)[min(args.verbose, 2)]
     setup_log(log_level)
 
-    # STEP 1: build evt file from hit tier
-    if args.command == "evt":
-        from .evt import build_optmap_evt, get_optical_detectors_from_geom
-
-        _check_input_file(parser, args.input)
-        _check_output_file(parser, args.output)
-
-        # load detector ids from the geometry.
-        if args.geom is not None:
-            _check_input_file(parser, args.geom, "geometry")
-            detectors = get_optical_detectors_from_geom(args.geom)
-        else:
-            _check_input_file(parser, args.detectors, "detectors")
-            detectors = dbetto.utils.load_dict(args.detectors)
-
-        build_optmap_evt(args.input, args.output, detectors, args.bufsize)
-
-    # STEP 2a: build map file from evt tier
+    # STEP 1a: build map file from evt tier
     if args.command == "createmap":
         from .create import create_optical_maps
 
@@ -242,7 +192,6 @@ def optical_cli() -> None:
             args.input,
             settings,
             args.bufsize,
-            is_stp_file=(not args.evt),
             chfilter=chfilter,
             output_lh5_fn=args.output,
             check_after_create=args.check,
@@ -250,7 +199,7 @@ def optical_cli() -> None:
             geom_fn=args.geom,
         )
 
-    # STEP 2b: view maps
+    # STEP 1b: view maps
     if args.command == "viewmap":
         from .mapview import view_optmap
 
@@ -267,7 +216,7 @@ def optical_cli() -> None:
             histogram_choice=args.hist,
         )
 
-    # STEP 2c: merge maps
+    # STEP 1c: merge maps
     if args.command == "mergemap":
         from .create import merge_optical_maps
 
@@ -281,28 +230,12 @@ def optical_cli() -> None:
             args.input, args.output, settings, check_after_create=args.check, n_procs=args.n_procs
         )
 
-    # STEP 2d: check maps
+    # STEP 1d: check maps
     if args.command == "checkmap":
         from .create import check_optical_map
 
         _check_input_file(parser, args.input)
         check_optical_map(args.input)
-
-    # STEP 3: convolve with hits from non-optical simulations
-    if args.command == "convolve":
-        from .convolve import convolve
-
-        _check_input_file(parser, [args.map, args.edep])
-        _check_output_file(parser, args.output, optional=True)
-        convolve(
-            args.map,
-            args.edep,
-            args.edep_lgdo,
-            args.material,
-            args.output,
-            args.bufsize,
-            dist_mode=args.dist_mode,
-        )
 
     # STEP X: rebin maps
     if args.command == "rebin":

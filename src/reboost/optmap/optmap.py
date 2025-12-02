@@ -8,7 +8,7 @@ import multiprocessing as mp
 from collections.abc import Mapping
 
 import numpy as np
-from lgdo import Histogram, lh5
+from lgdo import Histogram, Struct, lh5
 from numpy.typing import NDArray
 
 log = logging.getLogger(__name__)
@@ -66,10 +66,10 @@ class OpticalMap:
                 raise RuntimeError(msg)
             return h.weights.nda, h.binning
 
-        om.h_vertex, bin_nr_gen = read_hist("nr_gen", lh5_file, group=group)
-        om.h_hits, bin_nr_det = read_hist("nr_det", lh5_file, group=group)
-        om.h_prob, bin_p_det = read_hist("p_det", lh5_file, group=group)
-        om.h_prob_uncert, bin_p_det_err = read_hist("p_det_err", lh5_file, group=group)
+        om.h_vertex, bin_nr_gen = read_hist("_nr_gen", lh5_file, group=group)
+        om.h_hits, bin_nr_det = read_hist("_nr_det", lh5_file, group=group)
+        om.h_prob, bin_p_det = read_hist("prob", lh5_file, group=group)
+        om.h_prob_uncert, bin_p_det_err = read_hist("prob_unc", lh5_file, group=group)
 
         for bins in (bin_nr_det, bin_p_det, bin_p_det_err):
             if not OpticalMap._edges_eq(bin_nr_gen, bins):
@@ -227,18 +227,17 @@ class OpticalMap:
 
         def write_hist(h: NDArray, name: str, fn: str, group: str, wo_mode: str):
             lh5.write(
-                Histogram(self._nda(h), self.binning),
-                name,
+                Struct({name: Histogram(self._nda(h), self.binning)}),
+                group,
                 fn,
-                group=group,
                 wo_mode=wo_mode,
             )
 
         # only use the passed wo_mode for the first file.
-        write_hist(self.h_vertex, "nr_gen", lh5_file, group, wo_mode)
-        write_hist(self.h_hits, "nr_det", lh5_file, group, "write_safe")
-        write_hist(self.h_prob, "p_det", lh5_file, group, "write_safe")
-        write_hist(self.h_prob_uncert, "p_det_err", lh5_file, group, "write_safe")
+        write_hist(self.h_vertex, "_nr_gen", lh5_file, group, wo_mode)
+        write_hist(self.h_hits, "_nr_det", lh5_file, group, "append_column")
+        write_hist(self.h_prob, "prob", lh5_file, group, "append_column")
+        write_hist(self.h_prob_uncert, "prob_unc", lh5_file, group, "append_column")
 
     def get_settings(self) -> dict:
         """Get the binning settings that were used to create this optical map instance."""

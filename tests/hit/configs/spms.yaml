@@ -1,11 +1,11 @@
 objects:
-  spms: "{'S001': 11, 'S002': 12}"
+  spms: "['S001', 'S002']"
 
 processing_groups:
   - name: spms
 
     detector_mapping:
-      - output: OBJECTS.spms.keys()
+      - output: OBJECTS.spms
         input: det001
 
     outputs:
@@ -21,10 +21,10 @@ processing_groups:
         "lar")
 
     detector_objects:
-      optmap_lar: reboost.spms.load_optmap(ARGS.optmap_path, OBJECTS.spms[DETECTOR])
+      optmap_lar: reboost.spms.load_optmap(ARGS.optmap_path, DETECTOR)
 
     operations:
       pe_times_lar:
         reboost.spms.detected_photoelectrons( HITS.num_scint_ph, HITS.particle,
         HITS.time, HITS.xloc, HITS.yloc, HITS.zloc, DETECTOR_OBJECTS.optmap_lar,
-        "lar", OBJECTS.spms[DETECTOR] )
+        "lar", DETECTOR )

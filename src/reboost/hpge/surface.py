@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 
 import awkward as ak
-import legendhpges
 import numba
 import numpy as np
 import pint

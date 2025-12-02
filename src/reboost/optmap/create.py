@@ -9,17 +9,14 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-import scipy.optimize
-from lgdo import Array, Histogram, Scalar, lh5
+from lgdo import Histogram, lh5
 from numba import njit
 from numpy.typing import NDArray
 
 from ..log_utils import setup_log
 from .evt import (
-    EVT_TABLE_NAME,
     generate_optmap_evt,
     get_optical_detectors_from_geom,
-    read_optmap_evt,
 )
 from .optmap import OpticalMap
 
@@ -27,23 +24,21 @@ log = logging.getLogger(__name__)
 
 
 def _optmaps_for_channels(
-    optmap_evt_columns: list[str],
+    all_det_ids: dict[int, str],
     settings,
     chfilter: tuple[str | int] | Literal["*"] = (),
     use_shmem: bool = False,
 ):
-    all_det_ids = [ch_id for ch_id in optmap_evt_columns if ch_id.isnumeric()]
-
     if chfilter != "*":
         chfilter = [str(ch) for ch in chfilter]  # normalize types
-        optmap_det_ids = [det for det in all_det_ids if str(det) in chfilter]
+        optmap_det_ids = {det: name for det, name in all_det_ids.items() if str(det) in chfilter}
     else:
         optmap_det_ids = all_det_ids
 
     log.info("creating empty optmaps")
     optmap_count = len(optmap_det_ids) + 1
     optmaps = [
-        OpticalMap("all" if i == 0 else optmap_det_ids[i - 1], settings, use_shmem)
+        OpticalMap("all" if i == 0 else list(optmap_det_ids.values())[i - 1], settings, use_shmem)
         for i in range(optmap_count)
     ]
 
@@ -76,34 +71,6 @@ def _fill_hit_maps(optmaps: list[OpticalMap], loc, hitcounts: NDArray, ch_idx_to
         optmaps[i].fill_hits(locm)
 
 
-def _count_multi_ph_detection(hitcounts) -> NDArray:
-    hits_per_primary = hitcounts.sum(axis=1)
-    bins = np.arange(0, hits_per_primary.max() + 1.5) - 0.5
-    return np.histogram(hits_per_primary, bins)[0]
-
-
-def _fit_multi_ph_detection(hits_per_primary) -> float:
-    if len(hits_per_primary) <= 2:  # have only 0 and 1 hits, can't fit (and also don't need to).
-        return np.inf
-
-    x = np.arange(0, len(hits_per_primary))
-    popt, pcov = scipy.optimize.curve_fit(
-        lambda x, p0, k: p0 * np.exp(-k * x), x[1:], hits_per_primary[1:]
-    )
-    best_fit_exponent = popt[1]
-
-    log.info(
-        "p(> 1 detected photon)/p(1 detected photon) = %f",
-        sum(hits_per_primary[2:]) / hits_per_primary[1],
-    )
-    log.info(
-        "p(> 1 detected photon)/p(<=1 detected photon) = %f",
-        sum(hits_per_primary[2:]) / sum(hits_per_primary[0:2]),
-    )
-
-    return best_fit_exponent
-
-
 def _create_optical_maps_process_init(optmaps, log_level) -> None:
     # need to use shared global state. passing the shared memory arrays via "normal" arguments to
     # the worker function is not supported...
@@ -115,34 +82,29 @@ def _create_optical_maps_process_init(optmaps, log_level) -> None:
 
 
 def _create_optical_maps_process(
-    optmap_events_fn, buffer_len, is_stp_file, all_det_ids, ch_idx_to_map_idx
-) -> None:
+    optmap_events_fn, buffer_len, all_det_ids, ch_idx_to_map_idx
+) -> bool:
     log.info("started worker task for %s", optmap_events_fn)
     x = _create_optical_maps_chunk(
         optmap_events_fn,
         buffer_len,
-        is_stp_file,
         all_det_ids,
         _shared_optmaps,
         ch_idx_to_map_idx,
     )
     log.info("finished worker task for %s", optmap_events_fn)
-    return tuple(int(i) for i in x)
+    return x
 
 
 def _create_optical_maps_chunk(
-    optmap_events_fn, buffer_len, is_stp_file, all_det_ids, optmaps, ch_idx_to_map_idx
-) -> None:
-    if not is_stp_file:
-        optmap_events_it = read_optmap_evt(optmap_events_fn, buffer_len)
-    else:
-        optmap_events_it = generate_optmap_evt(optmap_events_fn, all_det_ids, buffer_len)
+    optmap_events_fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx
+) -> bool:
+    cols = [str(c) for c in all_det_ids]
+    optmap_events_it = generate_optmap_evt(optmap_events_fn, cols, buffer_len)
 
-    hits_per_primary = np.zeros(10, dtype=np.int64)
-    hits_per_primary_len = 0
     for it_count, events_lgdo in enumerate(optmap_events_it):
         optmap_events = events_lgdo.view_as("pd")
-        hitcounts = optmap_events[all_det_ids].to_numpy()
+        hitcounts = optmap_events[cols].to_numpy()
         loc = optmap_events[["xloc", "yloc", "zloc"]].to_numpy()
 
         log.debug("filling vertex histogram (%d)", it_count)
@@ -150,23 +112,19 @@ def _create_optical_maps_chunk(
 
         log.debug("filling hits histogram (%d)", it_count)
         _fill_hit_maps(optmaps, loc, hitcounts, ch_idx_to_map_idx)
-        hpp = _count_multi_ph_detection(hitcounts)
-        hits_per_primary_len = max(hits_per_primary_len, len(hpp))
-        hits_per_primary[0 : len(hpp)] += hpp
 
     # commit the final part of the hits to the maps.
     for i in range(len(optmaps)):
         optmaps[i].fill_hits_flush()
         gc.collect()
 
-    return hits_per_primary[0:hits_per_primary_len]
+    return True
 
 
 def create_optical_maps(
     optmap_events_fn: list[str],
     settings,
     buffer_len: int = int(5e6),
-    is_stp_file: bool = True,
     chfilter: tuple[str | int] | Literal["*"] = (),
     output_lh5_fn: str | None = None,
     after_save: Callable[[int, str, OpticalMap]] | None = None,
@@ -182,8 +140,6 @@ def create_optical_maps(
         list of filenames to lh5 files, that can either be stp files from remage or "optmap-evt"
         files with a table ``/optmap_evt`` with columns ``{x,y,z}loc`` and one column (with numeric
         header) for each SiPM channel.
-    is_stp_file
-        if true, do convert a remage output file (stp file) on-the-fly to an optmap-evt file.
     chfilter
         tuple of detector ids that will be included in the resulting optmap. Those have to match
         the column names in ``optmap_events_fn``.
@@ -196,12 +152,7 @@ def create_optical_maps(
 
     use_shmem = n_procs is None or n_procs > 1
 
-    if not is_stp_file:
-        optmap_evt_columns = list(
-            lh5.read(EVT_TABLE_NAME, optmap_events_fn[0], start_row=0, n_rows=1).keys()
-        )  # peek into the (first) file to find column names.
-    else:
-        optmap_evt_columns = [str(i) for i in get_optical_detectors_from_geom(geom_fn)]
+    optmap_evt_columns = get_optical_detectors_from_geom(geom_fn)
 
     all_det_ids, optmaps, optmap_det_ids = _optmaps_for_channels(
         optmap_evt_columns, settings, chfilter=chfilter, use_shmem=use_shmem
@@ -209,11 +160,17 @@ def create_optical_maps(
 
     # indices for later use in _compute_hit_maps.
     ch_idx_to_map_idx = np.array(
-        [optmap_det_ids.index(d) + 1 if d in optmap_det_ids else -1 for d in all_det_ids]
+        [
+            list(optmap_det_ids.keys()).index(d) + 1 if d in optmap_det_ids else -1
+            for d in all_det_ids
+        ]
     )
     assert np.sum(ch_idx_to_map_idx > 0) == len(optmaps) - 1
 
-    log.info("creating optical map groups: %s", ", ".join(["all", *optmap_det_ids]))
+    log.info(
+        "creating optical map groups: %s",
+        ", ".join(["all", *[str(t) for t in optmap_det_ids.items()]]),
+    )
 
     q = []
 
@@ -221,9 +178,7 @@ def create_optical_maps(
     if not use_shmem:
         for fn in optmap_events_fn:
             q.append(
-                _create_optical_maps_chunk(
-                    fn, buffer_len, is_stp_file, all_det_ids, optmaps, ch_idx_to_map_idx
-                )
+                _create_optical_maps_chunk(fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx)
             )
     else:
         ctx = mp.get_context("forkserver")
@@ -243,14 +198,14 @@ def create_optical_maps(
         for fn in optmap_events_fn:
             r = pool.apply_async(
                 _create_optical_maps_process,
-                args=(fn, buffer_len, is_stp_file, all_det_ids, ch_idx_to_map_idx),
+                args=(fn, buffer_len, all_det_ids, ch_idx_to_map_idx),
             )
             pool_results.append((r, fn))
 
         pool.close()
         for r, fn in pool_results:
             try:
-                q.append(np.array(r.get()))
+                q.append(r.get())
             except BaseException as e:
                 msg = f"error while processing file {fn}"
                 raise RuntimeError(msg) from e  # re-throw errors of workers.
@@ -258,17 +213,8 @@ def create_optical_maps(
         pool.join()
         log.info("joined worker process pool")
 
-    # merge hitcounts.
     if len(q) != len(optmap_events_fn):
         log.error("got %d results for %d files", len(q), len(optmap_events_fn))
-    hits_per_primary = np.zeros(10, dtype=np.int64)
-    hits_per_primary_len = 0
-    for hitcounts in q:
-        hits_per_primary[0 : len(hitcounts)] += hitcounts
-        hits_per_primary_len = max(hits_per_primary_len, len(hitcounts))
-
-    hits_per_primary = hits_per_primary[0:hits_per_primary_len]
-    hits_per_primary_exponent = _fit_multi_ph_detection(hits_per_primary)
 
     # all maps share the same vertex histogram.
     for i in range(1, len(optmaps)):
@@ -279,7 +225,7 @@ def create_optical_maps(
         optmaps[i].create_probability()
         if check_after_create:
             optmaps[i].check_histograms()
-        group = "all" if i == 0 else "_" + optmap_det_ids[i - 1]
+        group = "all" if i == 0 else "channels/" + list(optmap_det_ids.values())[i - 1]
         if output_lh5_fn is not None:
             optmaps[i].write_lh5(lh5_file=output_lh5_fn, group=group)
 
@@ -288,14 +234,12 @@ def create_optical_maps(
 
         optmaps[i] = None  # clear some memory.
 
-    if output_lh5_fn is not None:
-        lh5.write(Array(hits_per_primary), "_hitcounts", lh5_file=output_lh5_fn)
-        lh5.write(Scalar(hits_per_primary_exponent), "_hitcounts_exp", lh5_file=output_lh5_fn)
-
 
 def list_optical_maps(lh5_file: str) -> list[str]:
-    maps = lh5.ls(lh5_file)
-    return [m for m in maps if m not in ("_hitcounts", "_hitcounts_exp")]
+    maps = list(lh5.ls(lh5_file, "/channels/"))
+    if "all" in lh5.ls(lh5_file):
+        maps.append("all")
+    return maps
 
 
 def _merge_optical_maps_process(
@@ -313,9 +257,9 @@ def _merge_optical_maps_process(
 
     all_edges = None
     for optmap_fn in map_l5_files:
-        nr_det = lh5.read(f"/{d}/nr_det", optmap_fn)
+        nr_det = lh5.read(f"/{d}/_nr_det", optmap_fn)
         assert isinstance(nr_det, Histogram)
-        nr_gen = lh5.read(f"/{d}/nr_gen", optmap_fn)
+        nr_gen = lh5.read(f"/{d}/_nr_gen", optmap_fn)
         assert isinstance(nr_gen, Histogram)
 
         assert OpticalMap._edges_eq(nr_det.binning, nr_gen.binning)
@@ -333,7 +277,8 @@ def _merge_optical_maps_process(
         merged_map.check_histograms(include_prefix=True)
 
     if write_part_file:
-        output_lh5_fn = f"{output_lh5_fn}_{d}.mappart.lh5"
+        d_for_tmp = d.replace("/", "_")
+        output_lh5_fn = f"{output_lh5_fn}_{d_for_tmp}.mappart.lh5"
     wo_mode = "overwrite_file" if write_part_file else "write_safe"
     merged_map.write_lh5(lh5_file=output_lh5_fn, group=d, wo_mode=wo_mode)
 
@@ -410,7 +355,7 @@ def merge_optical_maps(
         # transfer to actual output file.
         for d, part_fn in q:
             assert isinstance(part_fn, str)
-            for h_name in ("nr_det", "nr_gen", "p_det", "p_det_err"):
+            for h_name in ("_nr_det", "_nr_gen", "prob", "prob_unc"):
                 obj = f"/{d}/{h_name}"
                 log.info("transfer %s from %s", obj, part_fn)
                 h = lh5.read(obj, part_fn)
@@ -418,41 +363,14 @@ def merge_optical_maps(
                 lh5.write(h, obj, output_lh5_fn, wo_mode="write_safe")
             Path(part_fn).unlink()
 
-    # merge hitcounts.
-    hits_per_primary = np.zeros(10, dtype=np.int64)
-    hits_per_primary_len = 0
-    for optmap_fn in map_l5_files:
-        if "_hitcounts" not in lh5.ls(optmap_fn):
-            log.warning("skipping _hitcounts calculations, missing in file %s", optmap_fn)
-            return
-        hitcounts = lh5.read("/_hitcounts", optmap_fn)
-        assert isinstance(hitcounts, Array)
-        hits_per_primary[0 : len(hitcounts)] += hitcounts
-        hits_per_primary_len = max(hits_per_primary_len, len(hitcounts))
-
-    hits_per_primary = hits_per_primary[0:hits_per_primary_len]
-    lh5.write(Array(hits_per_primary), "_hitcounts", lh5_file=output_lh5_fn)
-
-    # re-calculate hitcounts exponent.
-    hits_per_primary_exponent = _fit_multi_ph_detection(hits_per_primary)
-    lh5.write(Scalar(hits_per_primary_exponent), "_hitcounts_exp", lh5_file=output_lh5_fn)
-
 
 def check_optical_map(map_l5_file: str):
     """Run a health check on the map file.
 
     This checks for consistency, and outputs details on map statistics.
     """
-    if "_hitcounts_exp" not in lh5.ls(map_l5_file):
-        log.info("no _hitcounts_exp found")
-    elif lh5.read("_hitcounts_exp", lh5_file=map_l5_file).value != np.inf:
-        log.error("unexpected _hitcounts_exp not equal to positive infinity")
-        return
-
-    if "_hitcounts" not in lh5.ls(map_l5_file):
-        log.info("no _hitcounts found")
-    elif lh5.read("_hitcounts", lh5_file=map_l5_file).nda.shape != (2,):
-        log.error("unexpected _hitcounts shape")
+    if "_hitcounts_exp" in lh5.ls(map_l5_file):
+        log.error("found _hitcounts_exp which is not supported any more")
         return
 
     all_binning = None
@@ -503,8 +421,3 @@ def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
         om_new.h_hits = _rebin_map(om.h_hits, factor)
         om_new.create_probability()
         om_new.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")
-
-    # just copy hitcounts exponent.
-    for dset in ("_hitcounts_exp", "_hitcounts"):
-        if dset in lh5.ls(map_l5_file):
-            lh5.write(lh5.read(dset, lh5_file=map_l5_file), dset, lh5_file=output_lh5_file)

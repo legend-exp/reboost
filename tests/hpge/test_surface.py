@@ -4,7 +4,6 @@ import awkward as ak
 import numpy as np
 import pyg4ometry
 import pytest
-from legendhpges import make_hpge
 from legendtestdata import LegendTestData
 
 from reboost import units
