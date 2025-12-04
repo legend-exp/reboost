@@ -1,5 +1,6 @@
 objects:
   spms: "['S001', 'S002']"
+  optmap_test: reboost.spms.load_optmap_all(ARGS.optmap_path)
 
 processing_groups:
   - name: spms
