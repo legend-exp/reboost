@@ -140,8 +140,8 @@ def detected_photoelectrons(
     """
     hits = ak.Array(
         {
-            "num_scint_ph": num_scint_ph,
-            "particle": particle,
+            "num_scint_ph": units_conv_ak(num_scint_ph, "dimensionless"),
+            "particle": units_conv_ak(particle, "dimensionless"),
             "time": units_conv_ak(time, "ns"),
             "xloc": units_conv_ak(xloc, "m"),
             "yloc": units_conv_ak(yloc, "m"),
@@ -171,7 +171,12 @@ def emitted_scintillation_photons(
     material
         scintillating material name.
     """
-    hits = ak.Array({"edep": units_conv_ak(edep, "keV"), "particle": particle})
+    hits = ak.Array(
+        {
+            "edep": units_conv_ak(edep, "keV"),
+            "particle": units_conv_ak(particle, "dimensionless"),
+        }
+    )
 
     scint_mat_params = convolve._get_scint_params(material)
     ph = convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
