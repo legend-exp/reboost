@@ -32,7 +32,7 @@ class OptmapForConvolve(NamedTuple):
 
 def open_optmap(optmap_fn: str) -> OptmapForConvolve:
     dets = lh5.ls(optmap_fn, "/channels/")
-    detidx = np.arange(0, dets.shape[0])
+    detidx = np.arange(0, len(dets))
 
     optmap_all = lh5.read("/all/prob", optmap_fn)
     assert isinstance(optmap_all, Histogram)
@@ -61,14 +61,14 @@ def open_optmap(optmap_fn: str) -> OptmapForConvolve:
             raise ValueError(msg)
     else:
         detidx = np.array([OPTMAP_ANY_CH])
-        dets = np.array(["all"])
+        dets = ["all"]
 
     # check the exponent from the optical map file
     if "_hitcounts_exp" in lh5.ls(optmap_fn):
         msg = "found _hitcounts_exp which is not supported any more"
         raise RuntimeError(msg)
 
-    dets = [d.replace("/channels/", "") for d in dets]
+    dets = np.array([d.replace("/channels/", "") for d in dets])
 
     return OptmapForConvolve(dets, detidx, optmap_edges, ow)
 

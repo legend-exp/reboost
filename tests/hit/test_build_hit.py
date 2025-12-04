@@ -333,6 +333,7 @@ def test_spms(test_gen_lh5_scint, tmptestdir):
     m.create_probability()
     m.write_lh5(map_file, "channels/S001", "overwrite_file")
     m.write_lh5(map_file, "channels/S002", "write_safe")
+    m.write_lh5(map_file, "all", "write_safe")
 
     outfile = f"{tmptestdir}/spms_hit.lh5"
     reboost.build_hit(
