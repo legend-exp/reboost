@@ -88,7 +88,9 @@ def get_hpge_pulse_shape_library(
 
     times = t0 + np.arange(np.shape(data.waveforms.m)[2]) * dt
 
-    return HPGePulseShapeLibrary(data.waveforms.m, data.r.u, data.z.u, tu, data.r, data.z, times)
+    return HPGePulseShapeLibrary(
+        data.waveforms.m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times
+    )
 
 
 class HPGeRZField(NamedTuple):
