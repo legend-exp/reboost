@@ -350,4 +350,4 @@ def test_spms(test_gen_lh5_scint, tmptestdir):
     assert "S002" in hits
 
     assert isinstance(hits["S001"]["pe_times_lar"], VectorOfVectors)
-    assert isinstance(hits["S001"]["pe_times_lar0"], VectorOfVectors)
+    assert isinstance(hits["S001"]["pe_times_lar_full"], VectorOfVectors)
