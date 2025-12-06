@@ -155,14 +155,9 @@ def iterate_stepwise_depositions_scintillate(
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
-    rng = np.random.default_rng() if rng is None else rng
-    output_list = _iterate_stepwise_depositions_scintillate(edep_hits, rng, scint_mat_params, mode)
-
-    # convert the numba result back into an awkward array.
     builder = ak.ArrayBuilder()
-    for r in output_list:
-        with builder.list():
-            builder.extend(r)
+    rng = np.random.default_rng() if rng is None else rng
+    _iterate_stepwise_depositions_scintillate(edep_hits, rng, scint_mat_params, mode, builder)
 
     return builder.snapshot()
 
@@ -179,8 +174,9 @@ def iterate_stepwise_depositions_probability(
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
+    builder = ak.ArrayBuilder()
     rng = np.random.default_rng() if rng is None else rng
-    output_list = _iterate_stepwise_depositions_probability(
+    res = _iterate_stepwise_depositions_probability(
         edep_hits,
         rng,
         np.where(optmap.dets == det)[0][0],
@@ -188,13 +184,20 @@ def iterate_stepwise_depositions_probability(
         map_scaling_sigma,
         optmap.edges,
         optmap.weights,
+        builder,
     )
 
-    # convert the numba result back into an awkward array.
-    builder = ak.ArrayBuilder()
-    for r in output_list:
-        with builder.list():
-            builder.extend(r)
+    if res["det_no_stats"] > 0:
+        log.warning(
+            "had edep out in voxels without stats: %d",
+            res["det_no_stats"],
+        )
+    if res["oob"] > 0:
+        log.warning(
+            "had edep out of map bounds: %d (%.2f%%)",
+            res["oob"],
+            (res["oob"] / (res["ib"] + res["oob"])) * 100,
+        )
 
     return builder.snapshot()
 
@@ -207,14 +210,9 @@ def iterate_stepwise_depositions_numdet(
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
-    rng = np.random.default_rng() if rng is None else rng
-    output_list = _iterate_stepwise_depositions_numdet(edep_hits, rng)
-
-    # convert the numba result back into an awkward array.
     builder = ak.ArrayBuilder()
-    for r in output_list:
-        with builder.list():
-            builder.extend(r)
+    rng = np.random.default_rng() if rng is None else rng
+    _iterate_stepwise_depositions_numdet(edep_hits, rng, builder)
 
     return builder.snapshot()
 
@@ -228,15 +226,9 @@ def iterate_stepwise_depositions_times(
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
-    rng = np.random.default_rng() if rng is None else rng
-    output_list = _iterate_stepwise_depositions_times(edep_hits, rng, scint_mat_params)
-
-    # convert the numba result back into an awkward array.
     builder = ak.ArrayBuilder()
-    for r in output_list:
-        with builder.list():
-            for a in r:
-                builder.extend(a)
+    rng = np.random.default_rng() if rng is None else rng
+    _iterate_stepwise_depositions_times(edep_hits, rng, scint_mat_params, builder)
 
     return builder.snapshot()
 
@@ -344,14 +336,13 @@ def _iterate_stepwise_depositions_pois(
 # - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
 @njit(parallel=False, nogil=True, cache=True)
 def _iterate_stepwise_depositions_scintillate(
-    edep_hits, rng, scint_mat_params: sc.ComputedScintParams, mode: str
+    edep_hits, rng, scint_mat_params: sc.ComputedScintParams, mode: str, builder
 ):
     pdgid_map = {}
-    output_list = []
 
     for rowid in range(len(edep_hits)):  # iterate hits
         hit = edep_hits[rowid]
-        hit_output = []
+        builder.begin_list()
 
         # iterate steps inside the hit
         for si in range(len(hit.particle)):
@@ -369,12 +360,10 @@ def _iterate_stepwise_depositions_scintillate(
                 rng,
                 emission_term_model=("poisson" if mode == "no-fano" else "normal_fano"),
             )
-            hit_output.append(num_phot)
+            builder.integer(num_phot)
 
-        assert len(hit_output) == len(hit.particle)
-        output_list.append(hit_output)
-
-    return output_list
+        # assert len(hit_output) == len(hit.particle)
+        builder.end_list()
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
@@ -388,12 +377,13 @@ def _iterate_stepwise_depositions_probability(
     map_scaling_sigma: float,
     optmap_edges,
     optmap_weights,
+    builder,
 ):
-    output_list = []
+    oob = ib = det_no_stats = 0
 
     for rowid in range(len(edep_hits)):  # iterate hits
         hit = edep_hits[rowid]
-        hit_output = []
+        builder.begin_list()
 
         map_scaling_evt = map_scaling
         if map_scaling_sigma > 0:
@@ -401,40 +391,42 @@ def _iterate_stepwise_depositions_probability(
 
         # iterate steps inside the hit
         for si in range(len(hit.xloc)):
-            loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]])
+            loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]], dtype=np.float64)
             # coordinates -> bins of the optical map.
             bins = np.empty(3, dtype=np.int64)
             for j in range(3):
-                bins[j] = np.digitize(loc[j], optmap_edges[j])
-                # normalize all out-of-bounds bins just to one end.
-                if bins[j] == optmap_edges[j].shape[0]:
-                    bins[j] = 0
+                edges = optmap_edges[j].astype(np.float64)
+                start = edges[0]
+                width = edges[1] - edges[0]
+                nbins = edges.shape[0] - 1
+                bins[j] = int((loc[j] - start) / width)
 
-            # note: subtract 1 from bins, to account for np.digitize output.
-            cur_bins = (bins[0] - 1, bins[1] - 1, bins[2] - 1)
-            if cur_bins[0] == -1 or cur_bins[1] == -1 or cur_bins[2] == -1:
+                if bins[j] < 0 or bins[j] >= nbins:
+                    bins[j] = -1  # normalize all out-of-bounds bins just to one end.
+
+            if bins[0] == -1 or bins[1] == -1 or bins[2] == -1:
                 detp = 0.0  # out-of-bounds of optmap
+                oob += 1
             else:
                 # get probabilities from map.
-                detp = (
-                    optmap_weights[detidx, cur_bins[0], cur_bins[1], cur_bins[2]] * map_scaling_evt
-                )
-            hit_output.append(detp)
+                detp = optmap_weights[detidx, bins[0], bins[1], bins[2]] * map_scaling_evt
+                if detp < 0:
+                    det_no_stats += 1
+                ib += 1
+            builder.real(detp)
 
-        output_list.append(hit_output)
+        builder.end_list()
 
-    return output_list
+    return {"oob": oob, "ib": ib, "det_no_stats": det_no_stats}
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
 # - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
 @njit(parallel=False, nogil=True, cache=True)
-def _iterate_stepwise_depositions_numdet(edep_hits, rng):
-    output_list = []
-
+def _iterate_stepwise_depositions_numdet(edep_hits, rng, builder):
     for rowid in range(len(edep_hits)):  # iterate hits
         hit = edep_hits[rowid]
-        hit_output = []
+        builder.begin_list()
 
         # iterate steps inside the hit
         for si in range(len(hit.num_scint_ph)):
@@ -443,24 +435,23 @@ def _iterate_stepwise_depositions_numdet(edep_hits, rng):
                 pois_cnt = 0
             else:
                 pois_cnt = rng.poisson(lam=hit.num_scint_ph[si] * hit.detp[si])
-            hit_output.append(pois_cnt)
+            builder.integer(pois_cnt)
 
-        output_list.append(hit_output)
-
-    return output_list
+        builder.end_list()
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
 # - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
 # - the output dictionary is not threadsafe, so parallel=True is not working with it.
 @njit(parallel=False, nogil=True, cache=True)
-def _iterate_stepwise_depositions_times(edep_hits, rng, scint_mat_params: sc.ComputedScintParams):
+def _iterate_stepwise_depositions_times(
+    edep_hits, rng, scint_mat_params: sc.ComputedScintParams, builder
+):
     pdgid_map = {}
-    output_list = []
 
     for rowid in range(len(edep_hits)):  # iterate hits
         hit = edep_hits[rowid]
-        hit_output = []
+        builder.begin_list()
 
         assert len(hit.particle) == len(hit.num_det_ph)
         # iterate steps inside the hit
@@ -478,11 +469,10 @@ def _iterate_stepwise_depositions_times(edep_hits, rng, scint_mat_params: sc.Com
             # get time spectrum.
             # note: we assume "immediate" propagation after scintillation.
             scint_times = sc.scintillate_times(scint_mat_params, part, pois_cnt, rng) + hit.time[si]
-            hit_output.append(scint_times)
+            for ti in range(len(scint_times)):
+                builder.real(scint_times[ti])
 
-        output_list.append(hit_output)
-
-    return output_list
+        builder.end_list()
 
 
 def _get_scint_params(material: str):
