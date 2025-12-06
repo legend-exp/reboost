@@ -86,11 +86,9 @@ def get_hpge_pulse_shape_library(
         }
     )
 
-    times = t0 + np.arange(np.shape(data.waveforms.m)[2]) * dt
+    times = t0 + np.arange(np.shape(data[field].m)[2]) * dt
 
-    return HPGePulseShapeLibrary(
-        data.waveforms.m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times
-    )
+    return HPGePulseShapeLibrary(data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
 
 
 class HPGeRZField(NamedTuple):
@@ -160,6 +158,8 @@ def get_hpge_rz_field(
         }
     )
     ndim = data[field].m.ndim - 2
-    interpolator = RegularGridInterpolator((data.r.m, data.z.m), data[field].m, **kwargs)
+    interpolator = RegularGridInterpolator(
+        (data.r.m, data.z.m), data[field].m, **(kwargs | {"fill_value": out_of_bounds_val})
+    )
 
     return HPGeRZField(interpolator, data.r.u, data.z.u, data[field].u, ndim)
