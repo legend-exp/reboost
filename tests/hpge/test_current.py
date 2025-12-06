@@ -6,7 +6,7 @@ import pytest
 from lgdo import Array, VectorOfVectors
 
 from reboost.hpge import psd, surface
-from reboost.hpge.psd import _get_template
+from reboost.hpge.psd import _get_template_idx
 from reboost.hpge.utils import get_hpge_pulse_shape_library
 from reboost.shape import cluster
 
@@ -51,9 +51,9 @@ def test_model():
 def test_get_template(test_pulse_shape_library):
     lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
-    temp = _get_template(10, 10, lib.waveforms, lib.r, lib.z, None)
+    ri, zi = _get_template_idx(10, 10, lib.r, lib.z)
 
-    assert len(temp) == 4001
+    assert len(lib.waveforms[ri][zi]) == 4001
 
 
 def test_maximum_current(test_model):
