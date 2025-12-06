@@ -513,6 +513,7 @@ def _get_waveform_value_surface(
         else:
             out += E * _interpolate_pulse_model(bulk_template, time, start, start + dt * n, dt, mu)
             etmp += E
+
     return out, etmp
 
 
@@ -521,9 +522,7 @@ def _get_waveform_value(
     idx: int,
     edep: ak.Array,
     drift_time: ak.Array,
-    r: ak.Array,
-    z: ak.Array,
-    template: ArrayLike | tuple,
+    template: ArrayLike,
     start: float,
     dt: float,
 ) -> float:
@@ -552,17 +551,91 @@ def _get_waveform_value(
     time = start + dt * idx
 
     for i in range(len(edep)):
-        template_tmp = (
-            _get_template(r[i], z[i], *template) if isinstance(template, tuple) else template
-        )
-        n = len(template_tmp)
+        n = len(template)
 
         E = edep[i]
         mu = drift_time[i]
 
-        out += E * _interpolate_pulse_model(template_tmp, time, start, start + dt * n, dt, mu)
+        out += E * _interpolate_pulse_model(template, time, start, start + dt * n, dt, mu)
 
     return out
+
+
+@numba.njit(cache=True)
+def _get_waveform_value_pulse_shape_library(
+    idx: int,
+    edep: ak.Array,
+    drift_time: ak.Array,
+    r: ak.Array,
+    z: ak.Array,
+    pulse_shape_library: tuple[np.array, np.array, np.array],
+    start: float,
+    dt: float,
+) -> float:
+    """Get the value of the waveform at a certain index.
+
+    Parameters
+    ----------
+    idx
+        the index of the time array to find the waveform at.
+    edep
+        Array of energies for each step
+    drift_time
+        Array of drift times for each step
+    template
+        array of the template for the current waveforms
+    start
+        first time value of the template
+    dt
+        timestep (in ns) for the template.
+
+    Returns
+    -------
+    Value of the current waveform
+    """
+    out = 0
+    time = start + dt * idx
+
+    for i in range(len(edep)):
+        ri, zi = _get_template_idx(r[i], z[i], pulse_shape_library[1], pulse_shape_library[2])
+
+        n = len(pulse_shape_library[0][ri][zi])
+
+        E = edep[i]
+        mu = drift_time[i]
+
+        out += E * _interpolate_pulse_model(
+            pulse_shape_library[0][ri][zi], time, start, start + dt * n, dt, mu
+        )
+
+    return out
+
+
+@numba.njit(cache=True)
+def _get_template_idx(
+    r: float,
+    z: float,
+    r_grid: np.array,
+    z_grid: np.array,
+) -> tuple[int, int]:
+    """Extract the closest template to a given (r,z) point with uniform grid, apart from the first and last point."""
+    if r < r_grid[1]:
+        ri = 0
+    elif r > r_grid[-2]:
+        ri = len(r_grid) - 1
+    else:
+        dr = r_grid[2] - r_grid[1]
+        ri = int((r - r_grid[1]) / dr) + 1
+
+    if z < z_grid[1]:
+        zi = 0
+    elif z > z_grid[-2]:
+        zi = len(z_grid) - 1
+    else:
+        dz = z_grid[2] - z_grid[1]
+        zi = int((z - z_grid[1]) / dz) + 1
+
+    return ri, zi
 
 
 def get_current_template(
@@ -606,7 +679,8 @@ def _get_waveform_maximum_impl(
     dist: ArrayLike,
     r: ArrayLike,
     z: ArrayLike,
-    template: ArrayLike | tuple,
+    template: ArrayLike,
+    pulse_shape_library: tuple[np.array, np.array, np.array],
     templates_surface: ArrayLike,
     activeness_surface: ArrayLike,
     tmin: float,
@@ -617,18 +691,9 @@ def _get_waveform_maximum_impl(
     time_step: int,
     surface_step_in_um: float,
     include_surface_effects: bool,
+    use_library: bool,
 ):
-    """Basic implementation to get the maximum of the waveform.
-
-    Parameters
-    ----------
-    t
-        drift time for each step.
-    e
-        energy for each step.
-    dist
-        distance to surface for each step.
-    """
+    """Basic implementation to get the maximum of the waveform."""
     max_a = 0
     max_t = 0
     energy = np.sum(e)
@@ -642,8 +707,12 @@ def _get_waveform_maximum_impl(
         if time < tmin or (time > (tmax + time_step)):
             continue
 
-        if not has_surface_hit:
-            val_tmp = _get_waveform_value(j, e, t, r, z, template, start=start, dt=1.0)
+        if not has_surface_hit and (not use_library):
+            val_tmp = _get_waveform_value(j, e, t, template, start=start, dt=1.0)
+        elif use_library:
+            val_tmp = _get_waveform_value_pulse_shape_library(
+                j, e, t, r, z, pulse_shape_library, start=start, dt=1.0
+            )
         else:
             val_tmp, energy = _get_waveform_value_surface(
                 j,
@@ -667,37 +736,17 @@ def _get_waveform_maximum_impl(
 
 
 @numba.njit(cache=True)
-def _get_template(
-    r: float,
-    z: float,
-    waveforms: np.array,
-    r_grid: np.array,
-    z_grid: np.array,
-    default: np.array | None = None,
-) -> np.array:
-    """Extract the closest template to a given (r,z) point."""
-    if (r < r_grid[0]) or (r > r_grid[-1]) or (z > z_grid[-1]) or (z < z_grid[0]):
-        return default
-
-    dz = z_grid[1] - z_grid[0]
-    dr = r_grid[1] - r_grid[0]
-
-    ri = int((r - r_grid[0]) / dr)
-    zi = int((z - z_grid[0]) / dz)
-
-    return waveforms[ri][zi]
-
-
-@numba.njit(cache=True)
 def _estimate_current_impl(
     edep: ak.Array,
     dt: ak.Array,
     dist_to_nplus: ak.Array,
     r: ak.Array,
     z: ak.Array,
-    template: np.array | tuple[np.array, np.array, np.array],
+    template: np.array,
+    pulse_shape_library: tuple[np.array, np.array, np.array],
     times: np.array,
     include_surface_effects: bool,
+    use_library: bool,
     fccd: float,
     templates_surface: np.array,
     activeness_surface: np.array,
@@ -775,6 +824,7 @@ def _estimate_current_impl(
                 r=r_tmp,
                 z=z_tmp,
                 template=template,
+                pulse_shape_library=pulse_shape_library,
                 templates_surface=templates_surface,
                 activeness_surface=activeness_surface,
                 tmin=tmin,
@@ -785,6 +835,7 @@ def _estimate_current_impl(
                 time_step=time_step,
                 surface_step_in_um=surface_step_in_um,
                 include_surface_effects=include_surface_effects,
+                use_library=use_library,
             )
 
     return A, maximum_t, energy
@@ -827,16 +878,20 @@ def prepare_pulse_shape_library(
     z: ak.Array,
 ):
     """Prepare the inputs for the full pulse shape library."""
+    use_library = False
     if isinstance(template, HPGePulseShapeLibrary):
         # convert to a form we can use
         times = template.t
-        template = (template.waveforms, template.r, template.z)
+        pulse_shape_library = (template.waveforms, template.r, template.z)
+        template = np.zeros_like(template.waveforms[0][0])
+        use_library = True
 
     else:
+        pulse_shape_library = (np.zeros((1, 1, len(template))), np.zeros(1), np.zeros(1))
         r = ak.full_like(edep, np.nan)
         z = ak.full_like(edep, np.nan)
 
-    return template, times, r, z
+    return use_library, pulse_shape_library, template, times, r, z
 
 
 def maximum_current(
@@ -900,7 +955,9 @@ def maximum_current(
     )
 
     # and for the full PS library
-    template, times, r, z = prepare_pulse_shape_library(template, times, edep, r, z)
+    use_library, pulse_shape_library, template, times, r, z = prepare_pulse_shape_library(
+        template, times, edep, r, z
+    )
 
     # and now compute the current
     curr, time, energy = _estimate_current_impl(
@@ -910,9 +967,11 @@ def maximum_current(
         r=ak.values_astype(ak.Array(r), np.float64),
         z=ak.values_astype(ak.Array(z), np.float64),
         template=template,
+        pulse_shape_library=pulse_shape_library,
         times=times,
         fccd=fccd_in_um,
         include_surface_effects=include_surface_effects,
+        use_library=use_library,
         templates_surface=templates_surface,
         activeness_surface=activeness_surface,
         surface_step_in_um=surface_step_in_um,
