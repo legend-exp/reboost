@@ -39,7 +39,7 @@ dependencies = [
     "numba >=0.60",
     "legend-pydataobj >=1.15.1",
     "legend-pygeom-optics >=0.15.0",
-    "legend-pygeom-tools >=0.0.25",
+    "legend-pygeom-tools >=0.0.26",
     "legend-pygeom-hpges",
     "hist",
     "dbetto",
