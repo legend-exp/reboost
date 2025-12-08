@@ -131,9 +131,9 @@ def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:
     import pygeomtools
 
     geom_registry = pyg4ometry.gdml.Reader(geom_fn).getRegistry()
-    detectors = pygeomtools.get_all_sensvols(geom_registry)
+    detectors = pygeomtools.get_all_sensvols(geom_registry, type_filter="optical")
     return OrderedDict(
-        [(d.uid, name) for name, d in detectors.items() if d.detector_type == "optical"]
+        [(d.uid, d.ntuple_name if d.ntuple_name else name) for name, d in detectors.items()]
     )
 
 
