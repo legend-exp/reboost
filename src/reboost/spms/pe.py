@@ -111,6 +111,11 @@ def detected_photoelectrons(
 ) -> VectorOfVectors:
     """Derive the number and arrival times of detected photoelectrons (p.e.) from scintillator hits using an optical map.
 
+    .. deprecated :: 0.8.5
+        Use the other, more fine-granular and split processors
+        :func:`number_of_detected_photoelectrons` and :func:`photoelectron_times` to
+        replace this legacy processor.
+
     Parameters
     ----------
     num_scint_ph
