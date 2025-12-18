@@ -26,11 +26,9 @@ processing_groups:
       optmap_lar: reboost.spms.load_optmap(ARGS.optmap_path, DETECTOR)
 
     operations:
-      map_prob: reboost.spms.detection_probability(
-        HITS.xloc, HITS.yloc, HITS.zloc, DETECTOR_OBJECTS.optmap_lar,
-        DETECTOR)
       num_det_ph: reboost.spms.number_of_detected_photoelectrons(
-        HITS.num_scint_ph, HITS.map_prob)
+        HITS.xloc, HITS.yloc, HITS.zloc, HITS.num_scint_ph,
+        DETECTOR_OBJECTS.optmap_lar, DETECTOR)
       pe_times_lar:
         reboost.spms.photoelectron_times(HITS.num_det_ph, HITS.particle,
         HITS.time, "lar")
