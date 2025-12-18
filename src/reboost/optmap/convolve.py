@@ -162,7 +162,7 @@ def iterate_stepwise_depositions_scintillate(
     return builder.snapshot()
 
 
-def iterate_stepwise_depositions_probability(
+def iterate_stepwise_depositions_numdet(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
     det: str,
@@ -176,7 +176,7 @@ def iterate_stepwise_depositions_probability(
 
     builder = ak.ArrayBuilder()
     rng = np.random.default_rng() if rng is None else rng
-    res = _iterate_stepwise_depositions_probability(
+    res = _iterate_stepwise_depositions_numdet(
         edep_hits,
         rng,
         np.where(optmap.dets == det)[0][0],
@@ -198,21 +198,6 @@ def iterate_stepwise_depositions_probability(
             res["oob"],
             (res["oob"] / (res["ib"] + res["oob"])) * 100,
         )
-
-    return builder.snapshot()
-
-
-def iterate_stepwise_depositions_numdet(
-    edep_hits: ak.Array,
-    rng: np.random.Generator | None = None,
-):
-    if edep_hits.num_scint_ph.ndim == 1:
-        msg = "the pe processors only support already reshaped output"
-        raise ValueError(msg)
-
-    builder = ak.ArrayBuilder()
-    rng = np.random.default_rng() if rng is None else rng
-    _iterate_stepwise_depositions_numdet(edep_hits, rng, builder)
 
     return builder.snapshot()
 
@@ -369,7 +354,7 @@ def _iterate_stepwise_depositions_scintillate(
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
 # - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
 @njit(parallel=False, nogil=True, cache=True)
-def _iterate_stepwise_depositions_probability(
+def _iterate_stepwise_depositions_numdet(
     edep_hits,
     rng,
     detidx: int,
@@ -413,31 +398,13 @@ def _iterate_stepwise_depositions_probability(
                 if detp < 0:
                     det_no_stats += 1
                 ib += 1
-            builder.real(detp)
+
+            pois_cnt = 0 if detp <= 0.0 else rng.poisson(lam=hit.num_scint_ph[si] * detp)
+            builder.integer(pois_cnt)
 
         builder.end_list()
 
     return {"oob": oob, "ib": ib, "det_no_stats": det_no_stats}
-
-
-# - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
-# - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
-@njit(parallel=False, nogil=True, cache=True)
-def _iterate_stepwise_depositions_numdet(edep_hits, rng, builder):
-    for rowid in range(len(edep_hits)):  # iterate hits
-        hit = edep_hits[rowid]
-        builder.begin_list()
-
-        # iterate steps inside the hit
-        for si in range(len(hit.num_scint_ph)):
-            # get probabilities from map.
-            if hit.detp[si] < 0.0:
-                pois_cnt = 0
-            else:
-                pois_cnt = rng.poisson(lam=hit.num_scint_ph[si] * hit.detp[si])
-            builder.integer(pois_cnt)
-
-        builder.end_list()
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking

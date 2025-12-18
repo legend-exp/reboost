@@ -6,6 +6,7 @@ from pathlib import Path
 import awkward as ak
 import dbetto
 import h5py
+import numpy as np
 import pytest
 from lgdo import Array, Struct, Table, VectorOfVectors, lh5
 
@@ -351,3 +352,11 @@ def test_spms(test_gen_lh5_scint, tmptestdir):
 
     assert isinstance(hits["S001"]["pe_times_lar"], VectorOfVectors)
     assert isinstance(hits["S001"]["pe_times_lar_full"], VectorOfVectors)
+
+    pe_split = hits["S001"]["pe_times_lar"].view_as("ak")
+    pe_full = hits["S001"]["pe_times_lar_full"].view_as("ak")
+    pe_ratio = ak.count(pe_split) / ak.count(pe_full)
+
+    assert np.abs(pe_ratio - 1) < 0.1
+
+    # TODO: test they are statistically close
