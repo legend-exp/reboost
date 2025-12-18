@@ -145,7 +145,10 @@ map-based production of the optical response is divided into multiple steps:
    arbitrary user-supplied scaling factor for the channel {math}`c`.
 
    This is implemented in the processor
-   {func}`reboost.spms.pe.detected_photoelectrons`.
+   {func}`reboost.spms.pe.number_of_detected_photoelectrons`.
+
+3. (optional) sampling of the photon arrival times. This is implemented in the
+   processor {func}`reboost.spms.pe.photoelectron_times`.
 
 The used statistical model are developed and described in more detail in M.
 Huber's master thesis.
