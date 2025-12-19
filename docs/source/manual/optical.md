@@ -2,12 +2,6 @@
 
 # Using optical maps
 
-:::{warning}
-
-Work in progress, more will be added later!
-
-:::
-
 ## Creating optical maps
 
 ### 1. Running remage simulations to get an stp file
@@ -60,9 +54,9 @@ in this step). An example macro to showcase the required settings (`map.mac`):
 
 :::{important}
 
-This macro assumes the most recent versions of _remage_ and _legend-pygeom-l200_
-are being used. In older versions, not all macro commands might be available or
-volumes might be named differently.
+This macro assumes the most recent versions of _remage_ (0.18+) and
+_legend-pygeom-l200_ (0.7.0+) are being used. In older versions, not all macro
+commands might be available or volumes might be named differently.
 
 :::
 
