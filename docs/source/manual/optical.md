@@ -15,7 +15,7 @@ Work in progress, more will be added later!
 The map generation is performed directly with _remage_ (_reboost_ is not involved
 in this step). An example macro to showcase the required settings (`map.mac`):
 
-```
+```geant4
 /RMG/Processes/OpticalPhysics true
 /RMG/Processes/OpticalPhysicsMaxOneWLSPhoton true
 
@@ -36,7 +36,7 @@ in this step). An example macro to showcase the required settings (`map.mac`):
 /RMG/Generator/Confinement/SamplingMode IntersectPhysicalWithGeometrical
 /RMG/Generator/Confinement/ForceContainmentCheck true
 
-/RMG/Generator/Confinement/Physical/AddVolume lar
+/RMG/Generator/Confinement/Physical/AddVolume liquid_argon
 
 /RMG/Generator/Confinement/Geometrical/AddSolid Cylinder
 /RMG/Generator/Confinement/Geometrical/CenterPositionX 0 m
@@ -58,6 +58,14 @@ in this step). An example macro to showcase the required settings (`map.mac`):
 /run/beamOn 80000000
 ```
 
+:::{important}
+
+This macro assumes the most recent versions of _remage_ and _legend-pygeom-l200_
+are being used. In older versions, not all macro commands might be available or
+volumes might be named differently.
+
+:::
+
 Run remage with this macro to produce the (flat) output file:
 
 ```
@@ -76,7 +84,7 @@ range_in_m:
 bins: [280, 280, 480]
 ```
 
-```
+```console
 $ reboost-optical createmap --settings map-settings.yaml --geom l200-geometry.gdml map.stp.lh5 map.map.lh5
 ```
 
@@ -109,7 +117,7 @@ of 4096 remage output files can be read in parallel.
 
 The 12-16 output files can then be combined into one with
 
-```
+```console
 $ reboost-optical mergemap --settings map-settings.yaml map.map*.lh5 final-output-map.lh5
 ```
 
