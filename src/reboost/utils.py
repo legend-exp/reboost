@@ -483,7 +483,7 @@ def get_remage_detector_uids(h5file: str | Path, *, lh5_table: str = "stp") -> d
 
     out = {}
     with h5py.File(h5file, "r") as f:
-        g = f["/{lh5_table}/__by_uid__"]
+        g = f[f"/{lh5_table}/__by_uid__"]
         # loop over links
         for key in g:
             # is this a link?
