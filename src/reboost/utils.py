@@ -445,7 +445,7 @@ def write_lh5(
         time_dict.update_field("write", start_time)
 
 
-def get_remage_detector_uids(h5file: str | Path, *, lh5_table:str = "stp") -> dict:
+def get_remage_detector_uids(h5file: str | Path, *, lh5_table: str = "stp") -> dict:
     """Get mapping of detector names to UIDs from a remage output file.
 
     The remage LH5 output files contain a link structure that lets the user
