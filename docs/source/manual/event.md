@@ -19,9 +19,9 @@ are {class}`lgdo.VectorOfVectors`:
 - row_in_table: which row of the file contains this hit
 - table_key: which channel was the hit in.
 
-The mapping from table keys to detector names is contained in the
-"tables" attribute of the TCM. This can be converted to a python
-dictionary with the function {func}`reboost.utils.get_table_names`.
+The mapping from table keys to detector names is contained in the links
+of the `lh5` file. This can be converted to a python
+dictionary with the function {func}`reboost.utils.get_remage_detector_uids`.
 
 Since version 0.12.0 _remage_ can compute the TCM directly and
 store it in the output file. However, in case a custom TCM is desired
