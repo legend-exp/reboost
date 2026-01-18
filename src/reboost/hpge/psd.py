@@ -454,33 +454,7 @@ def _get_waveform_value_surface(
     start: float,
     dt: float,
 ) -> tuple[float, float]:
-    """Get the value of the waveform at a certain index.
-
-    Parameters
-    ----------
-    idx
-        the index of the time array to find the waveform at.
-    edep
-        Array of energies for each step
-    drift_time
-        Array of drift times for each step
-    template
-        array of the template for the current waveforms
-    templates_surface
-        The current templates from the surface.
-    activeness_surface
-        The total collected charge for each surface point.
-    dist_step_in_um
-        The binning in distance for the surface pulse library.
-    start
-        first time value of the template
-    dt
-        timestep (in ns) for the template.
-
-    Returns
-    -------
-    Value of the current waveform and the energy.
-    """
+    """Get the value of the waveform at a certain index."""
     n = len(bulk_template)
     out = 0
     etmp = 0
@@ -526,27 +500,7 @@ def _get_waveform_value(
     start: float,
     dt: float,
 ) -> float:
-    """Get the value of the waveform at a certain index.
-
-    Parameters
-    ----------
-    idx
-        the index of the time array to find the waveform at.
-    edep
-        Array of energies for each step
-    drift_time
-        Array of drift times for each step
-    template
-        array of the template for the current waveforms
-    start
-        first time value of the template
-    dt
-        timestep (in ns) for the template.
-
-    Returns
-    -------
-    Value of the current waveform
-    """
+    """Get the value of the waveform at a certain index."""
     out = 0
     time = start + dt * idx
 
@@ -572,27 +526,7 @@ def _get_waveform_value_pulse_shape_library(
     start: float,
     dt: float,
 ) -> float:
-    """Get the value of the waveform at a certain index.
-
-    Parameters
-    ----------
-    idx
-        the index of the time array to find the waveform at.
-    edep
-        Array of energies for each step
-    drift_time
-        Array of drift times for each step
-    template
-        array of the template for the current waveforms
-    start
-        first time value of the template
-    dt
-        timestep (in ns) for the template.
-
-    Returns
-    -------
-    Value of the current waveform
-    """
+    """Get the value of the waveform at a certain index, using the pulse shape library."""
     out = 0
     time = start + dt * idx
 
@@ -755,20 +689,6 @@ def _estimate_current_impl(
     """Estimate the maximum current that would be measured in the HPGe detector.
 
     This is based on extracting a waveform with :func:`get_current_waveform` and finding the maxima of it.
-
-    Parameters
-    ----------
-    edep
-        Array of energies for each step.
-    dt
-        Array of drift times for each step.
-    dist_to_nplus
-        Array of distance to nplus contact for each step (can be `None`, in which case no surface effects are included.)
-    template
-        array of the bulk pulse template, in the case of a full pulse shape library, 3 arrays can be passed corresponding to the
-        "r" and "z" coordinates of the library and the waveforms for each point.
-    times
-        time-stamps for the bulk pulse template
     """
     A = np.zeros(len(dt))
     maximum_t = np.zeros(len(dt))
@@ -927,12 +847,14 @@ def maximum_current(
         array of the bulk pulse template, can also be a :class:`HPGePulseShapeLibrary`.
     times
         time-stamps for the bulk pulse template
-    fccd
+    fccd_in_um
         Value of the full-charge-collection depth, if `None` no surface corrections are performed.
-    surface_library
+    templates_surface
         2D array (distance, time) of the rate of charge arriving at the p-n junction. Each row
         should be an array of length 10000 giving the charge arriving at the p-n junction for each timestep
         (in ns). This is produced by :func:`.hpge.surface.get_surface_response` or other libraries.
+    activeness_surface
+        An array of the activeness at each surface point.
     surface_step_in_um
         Distance step for the surface library.
     return_mode
