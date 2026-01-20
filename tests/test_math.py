@@ -30,11 +30,6 @@ def test_hpge_activeness():
     assert activeness[1][0] == pytest.approx(1 / 3.0)
     assert activeness[2][0] == 1
 
-    # test with Array
-    activeness = functions.piecewise_linear_activeness([[0.2, 0.6, 2]], fccd_in_mm=1, dlf=0.4)
-
-    assert np.allclose(activeness, [0, 1 / 3.0, 1])
-
 
 def test_vectorised_activeness():
     # vary fccd

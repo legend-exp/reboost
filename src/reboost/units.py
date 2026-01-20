@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import awkward as ak
+import numpy as np
 import pint
 import pyg4ometry as pg4
 from lgdo import LGDO
@@ -68,7 +69,7 @@ def attach_units(data: ak.Array | LGDO, unit: str | None) -> ak.Array | LGDO:
     return data
 
 
-def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> ak.Array:
+def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> Any | ak.Array:
     """Calculate numeric conversion factor to reach `target_units`, and apply to data converted to ak.
 
     Parameters
@@ -85,7 +86,13 @@ def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) ->
         return ak.without_parameters(data.view_as("ak") * fact)
     if isinstance(data, ak.Array) and fact != 1:
         return ak.without_parameters(data * fact)
-    return data.view_as("ak") if isinstance(data, LGDO) else ak.Array(data)
+
+    # try to return ak.Array if possible
+    if isinstance(data, LGDO):
+        return data.view_as("ak")
+    if isinstance(data, np.ndarray):
+        return ak.Array(data)
+    return data
 
 
 def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, pint.Unit | None]:
