@@ -153,7 +153,7 @@ def group_by_time(
     data
         :class:`lgdo.Table` or `ak.Array` which must contain the time_name and evtid_name fields
     window
-        time window in us used to search for coincident hits
+        time window in us used to search for coincident hits.
     time_name
         name of the timing field
     evtid_name
@@ -172,15 +172,19 @@ def group_by_time(
     obj = data.view_as("ak", with_units=True) if isinstance(data, Table) else data
     units_dict = {field: units.get_unit_str(obj[field]) for field in obj.fields}
 
+    window = window * 1000.0  # convert to ns
     obj = _sort_data(obj, time_name=time_name, evtid_name=evtid_name)
 
-    # get difference
+    # convert to ns
+    obj[time_name] = units.units_conv_ak(obj[time_name], "ns")
+    units_dict[time_name] = "ns"
 
+    # get difference
     time_diffs = np.diff(obj[time_name])
     index_diffs = np.diff(obj[evtid_name])
 
     # index of the last element in each run
-    time_change = (time_diffs > window * 1000) & (index_diffs == 0)
+    time_change = (time_diffs > window) & (index_diffs == 0)
     index_change = index_diffs > 0
 
     # cumulative length is just the index of changes plus 1
