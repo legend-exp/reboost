@@ -75,10 +75,10 @@ def test_units(test_data_configs):
 
     pos = ak.Array(
         {
-            "xloc": units.attach_units([[0, 100, 200], [100], [700, 500, 200]], "mm"),
-            "yloc": units.attach_units([[100, 0, 0], [200], [100, 300, 200]], "mm"),
-            "zloc": units.attach_units([[700, 10, 20], [100], [300, 100, 0]], "mm"),
-            "distance_to_surface": units.attach_units([[1, 1, 1], [10], [1, 1, 1]], "m"),
+            "xloc": units.attach_units(ak.Array([[0, 100, 200], [100], [700, 500, 200]]), "mm"),
+            "yloc": units.attach_units(ak.Array([[100, 0, 0], [200], [100, 300, 200]]), "mm"),
+            "zloc": units.attach_units(ak.Array([[700, 10, 20], [100], [300, 100, 0]]), "mm"),
+            "distance_to_surface": units.attach_units(ak.Array([[1, 1, 1], [10], [1, 1, 1]]), "m"),
         }
     )
 
@@ -90,10 +90,16 @@ def test_units(test_data_configs):
 
     pos_m = ak.Array(
         {
-            "xloc": units.attach_units([[0, 0.100, 0.200], [0.100], [0.700, 0.500, 0.200]], "m"),
-            "yloc": units.attach_units([[0.100, 0, 0], [0.200], [0.100, 0.300, 0.200]], "m"),
-            "zloc": units.attach_units([[0.700, 0.01, 0.02], [0.100], [0.300, 0.100, 0]], "m"),
-            "distance_to_surface": units.attach_units([[1, 1, 1], [10], [1, 1, 1]], "m"),
+            "xloc": units.attach_units(
+                ak.Array([[0, 0.100, 0.200], [0.100], [0.700, 0.500, 0.200]]), "m"
+            ),
+            "yloc": units.attach_units(
+                ak.Array([[0.100, 0, 0], [0.200], [0.100, 0.300, 0.200]]), "m"
+            ),
+            "zloc": units.attach_units(
+                ak.Array([[0.700, 0.01, 0.02], [0.100], [0.300, 0.100, 0]]), "m"
+            ),
+            "distance_to_surface": units.attach_units(ak.Array([[1, 1, 1], [10], [1, 1, 1]]), "m"),
         }
     )
     dist_m = distance_to_surface(

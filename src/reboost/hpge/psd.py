@@ -160,7 +160,6 @@ def drift_time_heuristic(
     edep, e_units = units.unwrap_lgdo(edep)
 
     # we want to attach the right units to the dt heuristic, if possible
-    unit = None
     if t_units is not None and e_units is not None:
         unit = units.unit_to_lh5_attr(t_units / e_units)
         return units.attach_units(ak.Array(_drift_time_heuristic_impl(drift_time, edep)), unit)

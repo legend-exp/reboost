@@ -50,8 +50,6 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     a :class:`VectorOfVectors` or :class:`Array` of the activeness
     """
     # convert to ak
-    distances = ak.Array(distances)
-
     distances_ak = units.units_conv_ak(distances, "mm")
 
     dl = fccd_in_mm * dlf

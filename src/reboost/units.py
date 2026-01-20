@@ -45,8 +45,8 @@ def units_convfact(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -
     return 1
 
 
-def attach_units(data: ak.Array, unit: str | None) -> ak.Array:
-    """Convenience function to attach units to `ak.Array`.
+def attach_units(data: ak.Array | LGDO, unit: str | None) -> ak.Array | LGDO:
+    """Convenience function to attach units to `ak.Array` or LGDO.
 
     Parameters
     ----------
@@ -55,24 +55,16 @@ def attach_units(data: ak.Array, unit: str | None) -> ak.Array:
     unit
         the unit
     """
-    if unit is not None:
-        return ak.with_parameter(data, parameter="units", value=unit)
+    if isinstance(data, ak.Array):
+        if unit is not None:
+            return ak.with_parameter(data, parameter="units", value=unit)
+    elif isinstance(data, LGDO):
+        if unit is not None:
+            data.attrs["units"] = unit
+    else:
+        msg = f"to attach units data must be an ak.Array or LGDO not {type(data)}"
+        raise TypeError(msg)
 
-    return data
-
-
-def attach_units_lgdo(data: LGDO, unit: str | None) -> LGDO:
-    """Convenience function to attach units to LGDO.
-
-    Parameters
-    ----------
-    data
-        the array to add units to
-    unit
-        the unit
-    """
-    if unit is not None:
-        data.attrs["units"] = unit
     return data
 
 
@@ -93,7 +85,7 @@ def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) ->
         return ak.without_parameters(data.view_as("ak") * fact)
     if isinstance(data, ak.Array) and fact != 1:
         return ak.without_parameters(data * fact)
-    return data.view_as("ak") if isinstance(data, LGDO) else data
+    return data.view_as("ak") if isinstance(data, LGDO) else ak.Array(data)
 
 
 def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, pint.Unit | None]:

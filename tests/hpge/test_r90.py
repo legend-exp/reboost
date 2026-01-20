@@ -141,10 +141,10 @@ def test_r90():
 def test_units():
     data = ak.Array(
         {
-            "edep": units.attach_units([[100, 200, 300]], "keV"),
-            "xloc": units.attach_units([[10, 20, 300]], "mm"),
-            "yloc": units.attach_units([[2, 40, 40]], "mm"),
-            "zloc": units.attach_units([[1, 12, 0]], "mm"),
+            "edep": units.attach_units(ak.Array([[100, 200, 300]]), "keV"),
+            "xloc": units.attach_units(ak.Array([[10, 20, 300]]), "mm"),
+            "yloc": units.attach_units(ak.Array([[2, 40, 40]]), "mm"),
+            "zloc": units.attach_units(ak.Array([[1, 12, 0]]), "mm"),
         }
     )
     r90_mm = r90(data.edep, data.xloc, data.yloc, data.zloc)
@@ -152,10 +152,10 @@ def test_units():
 
     data = ak.Array(
         {
-            "edep": units.attach_units([[100, 200, 300]], "keV"),
-            "xloc": units.attach_units([[10 / 1000.0, 20 / 1000.0, 300 / 1000.0]], "m"),
-            "yloc": units.attach_units([[2 / 1000.0, 40 / 1000.0, 40 / 1000.0]], "m"),
-            "zloc": units.attach_units([[1 / 1000.0, 12 / 1000.0, 0]], "m"),
+            "edep": units.attach_units(ak.Array([[100, 200, 300]]), "keV"),
+            "xloc": units.attach_units(ak.Array([[10 / 1000.0, 20 / 1000.0, 300 / 1000.0]]), "m"),
+            "yloc": units.attach_units(ak.Array([[2 / 1000.0, 40 / 1000.0, 40 / 1000.0]]), "m"),
+            "zloc": units.attach_units(ak.Array([[1 / 1000.0, 12 / 1000.0, 0]]), "m"),
         }
     )
     # now run with m
