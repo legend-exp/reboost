@@ -121,7 +121,7 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
     for f in obj_ak.fields:
         out_tbl.add_field(
             f,
-            units.attach_units_lgdo(
+            units.attach_units(
                 VectorOfVectors(
                     cumulative_length=cumulative_length, flattened_data=obj_ak[f].to_numpy()
                 ),
@@ -204,7 +204,7 @@ def group_by_time(
     for f in fields:
         out_tbl.add_field(
             f,
-            units.attach_units_lgdo(
+            units.attach_units(
                 VectorOfVectors(
                     cumulative_length=cumulative_length, flattened_data=obj[f].to_numpy()
                 ),

@@ -45,7 +45,7 @@ def test_time_group():
     in_arr_evtid = Table(
         {
             "evtid": Array([1, 1, 1, 2, 2, 2, 2, 2, 11, 12, 12, 12, 15, 15, 15, 15, 15]),
-            "time": units.attach_units_lgdo(
+            "time": units.attach_units(
                 Array(
                     [
                         0,
@@ -103,7 +103,7 @@ def test_time_group():
     assert units.get_unit_str(out_ak.time) == "ns"
 
     # result should be the same with us
-    in_arr_evtid["time"] = units.attach_units_lgdo(
+    in_arr_evtid["time"] = units.attach_units(
         Array(in_arr_evtid.view_as("ak")["time"] / 1000.0), "us"
     )
 

@@ -79,3 +79,16 @@ def test_unit_to_lh5_attr():
     assert units.unit_to_lh5_attr(u.m / u.s) == "m/s"
     assert units.unit_to_lh5_attr(u.m**2) == "m**2"
     assert units.unit_to_lh5_attr(u.micrometer) == "µm"
+
+
+def test_attach_units():
+    data_units = units.attach_units(ak.Array([1, 2]), "mm")
+
+    assert units.get_unit_str(data_units) == "mm"
+
+    with pytest.raises(TypeError):
+        units.attach_units([1, 2], "mm")
+
+    data_units = units.attach_units(Array([1, 2, 3]), "mm")
+
+    assert units.get_unit_str(data_units) == "mm"
