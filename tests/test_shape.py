@@ -49,12 +49,12 @@ def test_time_group():
                 Array(
                     [
                         0,
-                        -2000,
-                        3000,
-                        0,
-                        100,
-                        1200,
-                        17000,
+                        -2000.0,
+                        3000.0,
+                        0.0,
+                        100.0,
+                        1200.0,
+                        17000.0,
                         17010,
                         0,
                         0,
@@ -85,14 +85,14 @@ def test_time_group():
     assert ak.all(
         out_ak.time
         == [
-            [-2000],
-            [0],
-            [3000],
-            [0, 100],
-            [1200],
-            [17000, 17010],
-            [0],
-            [-5000],
+            [-2000.0],
+            [0.0],
+            [3000.0],
+            [0.0, 100.0],
+            [1200.0],
+            [17000.0, 17010.0],
+            [0.0],
+            [-5000.0],
             [0, 0],
             [150, 151, 152],
             [3000, 3100],
@@ -101,6 +101,20 @@ def test_time_group():
 
     # test units
     assert units.get_unit_str(out_ak.time) == "ns"
+
+    # result should be the same with us
+    in_arr_evtid["time"] = units.attach_units_lgdo(
+        Array(in_arr_evtid.view_as("ak")["time"] / 1000.0), "us"
+    )
+
+    out_us = group.group_by_time(Table(in_arr_evtid), window=1)
+    out_us = out_us.view_as("ak", with_units=True)
+
+    # should still return ns
+    assert units.get_unit_str(out_us.time) == "ns"
+
+    assert ak.all(ak.num(out_ak.time) == ak.num(out_us.time))
+    assert np.all(np.isclose(ak.flatten(out_ak.time), ak.flatten(out_us.time)))
 
 
 def test_isin_group():
