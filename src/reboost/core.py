@@ -18,9 +18,18 @@ log = logging.getLogger(__name__)
 
 
 def read_data_at_channel_as_ak(
-    channels: ak.Array, rows: ak.Array, file: str, field: str, group: str, tab_map: dict[int, str]
+    channels: ak.Array,
+    rows: ak.Array,
+    file: str,
+    field: str,
+    group: str,
+    tab_map: dict[int, str],
+    with_units: bool = False,
 ) -> ak.Array:
-    r"""Read the data from a particular field to an awkward array. This replaces the TCM like object defined by the channels and rows with the corresponding data field.
+    r"""Read the data from a particular field to an Awkward array.
+
+    This replaces the TCM like object defined by the channels and rows with the
+    corresponding data field.
 
     Parameters
     ----------
@@ -68,7 +77,9 @@ def read_data_at_channel_as_ak(
         tcm_rows = np.where(ak.flatten(channels == key))[0]
 
         # read the data with sorted idx
-        data_ch = lh5.read(f"{group}/{tab_name}/{field}", file, idx=idx[arg_idx]).view_as("ak")
+        data_ch = lh5.read(f"{group}/{tab_name}/{field}", file, idx=idx[arg_idx])
+        units = data_ch.attrs.get("units", None)
+        data_ch = data_ch.view_as("ak")
 
         # sort back to order for tcm
         data_ch = data_ch[np.argsort(arg_idx)]
@@ -85,8 +96,12 @@ def read_data_at_channel_as_ak(
 
     # sort the final data
     data_flat = data_flat[np.argsort(tcm_rows_full)]
+    data_unflat = ak.unflatten(data_flat, reorder)
 
-    return ak.unflatten(data_flat, reorder)
+    if with_units and units is not None:
+        return ak.with_parameter(data_unflat, "units", units)
+
+    return data_unflat
 
 
 def evaluate_output_column(
