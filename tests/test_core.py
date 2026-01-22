@@ -59,13 +59,13 @@ def hitfiles(tmptestdir):
     # make some hit tier files
     channel1 = Table(
         {
-            "energy": Array([100, 200, 400, 300]),
+            "energy": Array([100, 200, 400, 300], attrs={"units": "keV"}),
             "times": VectorOfVectors([[0.1], [0.2, 0.3], [0.4, 98], [2]]),
         }
     )
     channel2 = Table(
         {
-            "energy": Array([10, 70, 0, 56, 400, 400]),
+            "energy": Array([10, 70, 0, 56, 400, 400], attrs={"units": "keV"}),
             "times": VectorOfVectors([[12], [], [-0.4, 0.4], [89], [1], [2]]),
         }
     )
@@ -83,12 +83,13 @@ def hitfiles(tmptestdir):
 
 def test_read_data_at_channel(hitfiles):
     # make a TCM
-    tcm_channels = ak.Array([[0], [0], [0, 1], [1], [1], [0, 1], [1], [1]])
-    tcm_rows = ak.Array([[0], [1], [2, 0], [1], [2], [3, 3], [4], [5]])
+    tcm_channels = ak.Array([[0], [0], [0, 1], [1], [1], [0, 1], [1], [], [1]])
+    tcm_rows = ak.Array([[0], [1], [2, 0], [1], [2], [3, 3], [4], [], [5]])
 
     energy = reboost.core.read_data_at_channel_as_ak(
         tcm_channels, tcm_rows, hitfiles[2], "energy", "hit", {"det001": 0, "det002": 1}
     )
+    assert "units" not in ak.parameters(energy)
 
     # check the same
     assert len(energy) == len(tcm_channels)
@@ -104,6 +105,18 @@ def test_read_data_at_channel(hitfiles):
         tcm_channels, tcm_rows, hitfiles[2], "times", "hit", {"det001": 0, "det002": 1}
     )
     assert len(times) == len(tcm_channels)
+
+    energy = reboost.core.read_data_at_channel_as_ak(
+        tcm_channels,
+        tcm_rows,
+        hitfiles[2],
+        "energy",
+        "hit",
+        {"det001": 0, "det002": 1},
+        with_units=True,
+    )
+    assert "units" in ak.parameters(energy)
+    assert ak.parameters(energy)["units"] == "keV"
 
 
 def test_get_objects(test_data_configs, make_gdml):
