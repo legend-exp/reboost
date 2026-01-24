@@ -13,7 +13,6 @@ from reboost.optmap.create import (
     merge_optical_maps,
     rebin_optical_maps,
 )
-from reboost.optmap.evt import build_optmap_evt
 from reboost.optmap.optmap import OpticalMap
 
 
@@ -51,16 +50,6 @@ def tbl_hits(tmptestdir):
     lh5.write(tbl_vertices, name="vtx", lh5_file=hit_file, wo_mode="overwrite_file")
     lh5.write(tbl_optical, name="stp/optical", lh5_file=hit_file, wo_mode="overwrite")
     return (str(hit_file),)
-
-
-def test_optmap_evt(tbl_hits, tmptestdir):
-    evt_out_file = tmptestdir / "evt-out.lh5"
-    build_optmap_evt(
-        tbl_hits[0],
-        str(evt_out_file),
-        detectors=("1", "002", "003"),
-        buffer_len=20,  # note: shorter window sizes (e.g. 10) do not work.
-    )
 
 
 @pytest.fixture
