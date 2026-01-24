@@ -51,14 +51,15 @@ A :func:`build_hit` to parse the following configuration file:
 
             t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
 
-            evtid: ak.fill_none(ak.firsts(HITS.__evtid, axis=-1), np.nan)
+            evtid: ak.fill_none(ak.firsts(HITS.evtid, axis=-1), np.nan)
 
             # distance to the nplus surface in mm
             distance_to_nplus_surface_mm: reboost.hpge.distance_to_surface(
-                HITS.__xloc, HITS.__yloc, HITS.__zloc,
+                HITS.xloc, HITS.yloc, HITS.zloc,
                 DETECTOR_OBJECTS.pyobj,
                 DETECTOR_OBJECTS.phyvol.position.eval(),
-                surface_type='nplus')
+                surface_type='nplus',
+                unit='m')
 
             # activness based on FCCD (no TL)
             activeness: ak.where(
@@ -75,7 +76,7 @@ A :func:`build_hit` to parse the following configuration file:
                 )
 
             # summed energy of the hit accounting for activeness
-            energy_raw: ak.sum(HITS.__edep * HITS.activeness, axis=-1)
+            energy_raw: ak.sum(HITS.edep * HITS.activeness, axis=-1)
 
             # energy with smearing
             energy: reboost.math.sample_convolve(
@@ -92,7 +93,7 @@ A :func:`build_hit` to parse the following configuration file:
                 )
 
             # example of low level reduction on clusters
-            energy_clustered: ak.sum(ak.unflatten(HITS.__edep, HITS.clusters_lengths), axis=-1)
+            energy_clustered: ak.sum(ak.unflatten(HITS.edep, HITS.clusters_lengths), axis=-1)
 
             # example of using a reboost helper
             steps_clustered: reboost.shape.reduction.energy_weighted_average(HITS, HITS.clusters_lengths)
@@ -115,7 +116,7 @@ A :func:`build_hit` to parse the following configuration file:
             - num_scint_ph_lar
 
           operations:
-            tot_edep_wlsr: ak.sum(HITS.edep[np.abs(HITS.zloc) < 3000], axis=-1)
+            tot_edep_wlsr: ak.sum(HITS.edep[np.abs(HITS.zloc) < 3], axis=-1)
 
         - name: spms
 

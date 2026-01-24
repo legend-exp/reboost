@@ -116,7 +116,7 @@ data, ideal for working with data with a "jagged" structure, i.e. many vectors
 of different lengths.
 
 ```python
-stp = lh5.read_as("stp/det001", "stp_out.lh5", "ak")
+stp = lh5.read_as("stp/det001", "stp_out.lh5", "ak", with_units=True)
 ```
 
 ## Processors
@@ -133,13 +133,12 @@ row of the output table).
 
 The only requirements are:
 
-- the function should return an `LGDO.VectorOfVectors`, `LGDO.Array` or
-  `LGDO.ArrayOfEqualSizedArrays`
-  [documentation](https://legend-pydataobj.readthedocs.io/en/latest/api/lgdo.types.html)
-  object, or something able to be converted to this (awkward arrays for example),
+- the function should return an {class}`awkward.Array` object,
 - the returned object should have the same length as the original stp table,
   i.e. the processors act on every row but they cannot add, remove or merge
   rows.
+
+{ref}`More details (how to deal with physical units etc.) <processors-contract>` can be found in the manual.
 
 ### Active energy
 
@@ -157,11 +156,11 @@ of the HPGe detector
 [documentation](https://reboost.readthedocs.io/en/stable/api/reboost.hpge.html#reboost-hpge-surface-module).
 
 ```python
-dist_all = reboost.hpge.surface.distance_to_surface(
+dist_all_in_mm = reboost.hpge.surface.distance_to_surface(
     stp.xloc * 1000, stp.yloc * 1000, stp.zloc * 1000, hpge_pyobj, position
 ).view_as("ak")
 
-dist_nplus = reboost.hpge.surface.distance_to_surface(
+dist_nplus_in_mm = reboost.hpge.surface.distance_to_surface(
     stp.xloc * 1000,
     stp.yloc * 1000,
     stp.zloc * 1000,
@@ -186,11 +185,11 @@ r = rng.choice([-1, 1], p=[0.5, 0.5], size=len(r)) * r
 fig, ax = plt.subplots(figsize=(8, 4))
 pygeomhpges.draw.plot_profile(hpge_pyobj, axes=ax, split_by_type=True)
 
-cut = ak.flatten(dist_nplus) < 2
+cut = ak.flatten(dist_nplus_in_mm) < 2
 s = ax.scatter(
     r[cut],
     z[cut],
-    c=ak.flatten(dist_nplus)[cut],
+    c=ak.flatten(dist_nplus_in_mm)[cut],
     marker=".",
     cmap="BuPu",
 )
@@ -229,7 +228,7 @@ fig, ax = plt.subplots(figsize=(8, 4))
 ax.plot(
     np.linspace(0, 2, 1000),
     reboost.math.functions.piecewise_linear_activeness(
-        np.linspace(0, 2, 1000), fccd=1, dlf=0.2
+        np.linspace(0, 2, 1000), fccd_in_mm=1, dlf=0.2
     ),
 )
 ax.set_xlabel("Distance to n-plus surface [mm]")
@@ -249,7 +248,7 @@ We then plot the energy spectra:
 
 ```python
 activeness = reboost.math.functions.piecewise_linear_activeness(
-    dist_all, fccd=1, dlf=0.4
+    dist_all_in_mm, fccd_in_mm=1, dlf=0.4
 )
 
 # compute the energy

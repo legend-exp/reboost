@@ -40,6 +40,8 @@ hits_by_evtid = group_by_evtid(data)
 hits_by_time = group_by_time(data, window=10)  # unit is us
 ```
 
+(processors-contract)=
+
 ## Other processors
 
 Additional _reboost_ processors compute further quantities of interest. This
