@@ -3,10 +3,8 @@ from __future__ import annotations
 import logging
 from collections import OrderedDict
 from collections.abc import Generator, Iterable
-from pathlib import Path
 
 import numpy as np
-from lgdo import lh5
 from lgdo.lh5 import LH5Iterator
 from lgdo.types import Table
 
@@ -103,27 +101,6 @@ def generate_optmap_evt(
     yield from _store_vert_df(last_chunk=True)  # store the last chunk.
 
     assert had_last_chunk, "did not reach last chunk in optmap-evt building"
-
-
-def build_optmap_evt(
-    lh5_in_file: str, lh5_out_file: str, detectors: Iterable[str | int], buffer_len: int = int(5e6)
-) -> None:
-    """Create a faster map for lookup of the hits in each detector, for each primary event."""
-    lh5_out_file = Path(lh5_out_file)
-    lh5_out_file_tmp = lh5_out_file.with_stem(".evt-tmp." + lh5_out_file.stem)
-    if lh5_out_file_tmp.exists():
-        msg = f"temporary output file {lh5_out_file_tmp} already exists"
-        raise RuntimeError(msg)
-
-    for vert_it_count, chunk in enumerate(generate_optmap_evt(lh5_in_file, detectors, buffer_len)):
-        log.info("store evt file %s (%d)", lh5_out_file_tmp, vert_it_count - 1)
-        lh5.write(Table(chunk), name=EVT_TABLE_NAME, lh5_file=lh5_out_file_tmp, wo_mode="append")
-
-    # after finishing the output file, rename to the actual output file name.
-    if lh5_out_file.exists():
-        msg = f"output file {lh5_out_file_tmp} already exists after writing tmp output file"
-        raise RuntimeError(msg)
-    lh5_out_file_tmp.rename(lh5_out_file)
 
 
 def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:
