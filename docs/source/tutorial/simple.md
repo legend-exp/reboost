@@ -3,10 +3,10 @@
 Simple post-processing of _remage_ simulations can be done in a python script
 or notebook. This has some limitations but is very useful for simple tasks.
 For more complicated tasks we have created a config file interface (see the
-next tutorial). This tutorial builds on the [_remage_
-tutorial](https://remage.readthedocs.io/en/stable/tutorial.html) of two
-germanium detectors in a liquid-argon (LAr) orb with a source. It describes how to run
-a simple post-processing with reboost tools, and explains the usual steps.
+next tutorial). This tutorial builds on the
+[_remage_ tutorial](inv:remage#basic-tutorial) of two germanium detectors in
+a liquid-argon (LAr) orb with a source. It describes how to run a simple
+post-processing with reboost tools, and explains the usual steps.
 
 For this example we simulate $^{228}$Th in the source. We use the following
 macro file (saved as `th228.mac`):
@@ -34,9 +34,8 @@ macro file (saved as `th228.mac`):
 /run/beamOn 1000000
 ```
 
-And run the _remage_ (from inside the remage container / after installation
-[instructions](https://remage.readthedocs.io/en/stable/manual/install.html)
-simulation with:
+And run the _remage_ (from inside the remage container / after installation —
+{ref}`see instructions <remage:manual-install>`) simulation with:
 
 ```console
 $ remage --threads 1 --gdml-files geometry.gdml --output-file stp_out.lh5 -- th228.mac
@@ -76,21 +75,21 @@ plt.rcParams.update({"font.size": 12})
 Additional information is needed (for example details of the detector geometry)
 to perform our post-processing. Fortunately for us integration with the
 detector geometry GDML file makes this easy! Similarly to how
-[pyg4ometry](https://pyg4ometry.readthedocs.io) was used to write the detector
+[pyg4ometry](inv:pyg4ometry#index) was used to write the detector
 geometry GDML file it can also be used to read this back into python. This GDML
 file can also contain additional metadata useful for us, which can be extracted
-using the [legend-pygeom-tools](https://legend-pygeom-tools.readthedocs.io) package.
+using the [legend-pygeom-tools](inv:pygeomtools#index) package.
 
 This metadata can be used to create a python object describing the HPGe
-detectors using the
-[legend-pygeom-hpges](https://legend-pygeom-hpges.readthedocs.io) package.
+detectors using the [legend-pygeom-hpges](inv:pygeomhpges#index) package.
 Among other things, the HPGe object from this package has methods to compute
 detector properties (mass, surface area etc.) and to compute the distance of
 points from the detector surface.
 
-In this example we extract the _pyg4ometry.geant4.Registry_ object describing the geometry (see the [pyg4ometry documentation](https://pyg4ometry.readthedocs.io/en/stable/autoapi/pyg4ometry/geant4/Registry/index.html#pyg4ometry.geant4.Registry.Registry)),
-the _legend-pygeom-hpges_ HPGe python object (see the [legend-pygeom-hpges documentation](https://legend-pygeom-hpges.readthedocs.io/en/stable/api/pygeomhpges.html#pygeomhpges.base.HPGe)),
-and finally we extract the position of the BEGe detector (which we focus on for this analysis).
+In this example we extract the {class}`pyg4ometry.geant4.Registry` object
+describing the geometry, the _legend-pygeom-hpges_
+{class}`pygeomhpges.base.HPGe` python object and finally we extract the
+position of the BEGe detector (which we focus on for this analysis).
 
 ```python
 reg = pyg4ometry.gdml.Reader("geometry.gdml").getRegistry()
@@ -100,8 +99,7 @@ position = reg.physicalVolumeDict["BEGe"].position.eval()
 
 ## Read the data
 
-Next we can read the data using the
-[lgdo](https://legend-pydataobj.readthedocs.io/en/stable/) package.
+Next we can read the data using the [lgdo](inv:lgdo#index) package.
 
 :::{warning}
 
@@ -111,7 +109,7 @@ GLMIterator (see the next tutorial).
 
 :::
 
-We use the [awkward](https://awkward-array.org/doc/main/) package to view the
+We use the [awkward](inv:awkward#index) package to view the
 data, ideal for working with data with a "jagged" structure, i.e. many vectors
 of different lengths.
 
@@ -151,8 +149,8 @@ an "activeness" function. One complication of this approach is that the
 various surfaces (electrodes) of a Germanium detector do not have the same
 thickness of inactive (commonly called "dead" layer).
 
-_reboost_ contains {py:func}`a function to compute the distance of points to the surface <reboost.hpge.surface.distance_to_surface>`
-of the HPGe detector.
+_reboost_ contains a function to compute the distance of points to the surface
+({func}` reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
 
 ```python
 dist_all_in_m = reboost.hpge.surface.distance_to_surface(
@@ -208,11 +206,9 @@ c = plt.colorbar(s)
 # configure the plot
 ax.axis("equal")
 c.set_label("Distance [mm]")
-ax.set_xlabel("radius [mm]")
-ax.set_ylabel("height [mm]")
+_ = ax.set_xlabel("radius [mm]")
+_ = ax.set_ylabel("height [mm]")
 ```
-
-    Text(0, 0.5, 'height [mm]')
 
 ![png](simple_files/simple_16_1.png)
 
@@ -243,11 +239,9 @@ ax.plot(
 )
 ax.set_xlabel("Distance to n-plus surface [mm]")
 ax.set_ylabel("Charge collection efficiency ")
-ax.set_xlim(0, 2)
-ax.set_ylim(0, 1.1)
+_ = ax.set_xlim(0, 2)
+_ = ax.set_ylim(0, 1.1)
 ```
-
-    (0.0, 1.1)
 
 ![png](simple_files/simple_18_1.png)
 
@@ -299,7 +293,8 @@ energy (due to interactions in the dead-layer).
 ### Energy resolution smearing
 
 The remage simulations do not include the effect of the energy resolution. To
-do this there is a reboost processor {py:func}`to sample from a Gaussian distribution <reboost.math.stats.gaussian_sample>`.
+do this there is the reboost processor {func}`.math.stats.gaussian_sample`
+to sample from a Gaussian distribution.
 
 We demonstrate this with a sigma of 0.5 keV.
 
@@ -350,11 +345,9 @@ _, _, _, im = ax.hist2d(
     norm=mcolors.LogNorm(),
 )
 cbar = plt.colorbar(im, label="Counts")
-ax.set_xlabel("energy [keV]")
-ax.set_ylabel("r90 [mm]")
+_ = ax.set_xlabel("energy [keV]")
+_ = ax.set_ylabel("r90 [mm]")
 ```
-
-    Text(0, 0.5, 'r90 [mm]')
 
 ![png](simple_files/simple_27_1.png)
 
