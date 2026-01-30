@@ -151,24 +151,34 @@ an "activeness" function. One complication of this approach is that the
 various surfaces (electrodes) of a Germanium detector do not have the same
 thickness of inactive (commonly called "dead" layer).
 
-_reboost_ contains a function to compute the distance of points to the surface
-of the HPGe detector
-[documentation](https://reboost.readthedocs.io/en/stable/api/reboost.hpge.html#reboost-hpge-surface-module).
+_reboost_ contains {py:func}`a function to compute the distance of points to the surface <reboost.hpge.surface.distance_to_surface>`
+of the HPGe detector.
 
 ```python
-dist_all_in_mm = reboost.hpge.surface.distance_to_surface(
-    stp.xloc * 1000, stp.yloc * 1000, stp.zloc * 1000, hpge_pyobj, position
+dist_all_in_m = reboost.hpge.surface.distance_to_surface(
+    stp.xloc, stp.yloc, stp.zloc, hpge_pyobj, position
 ).view_as("ak")
+dist_all_in_mm = ak.with_parameter(dist_all_in_m * 1000, "units", "mm")
 
 dist_nplus_in_mm = reboost.hpge.surface.distance_to_surface(
-    stp.xloc * 1000,
-    stp.yloc * 1000,
-    stp.zloc * 1000,
+    stp.xloc,
+    stp.yloc,
+    stp.zloc,
     hpge_pyobj,
     position,
     surface_type="nplus",
 ).view_as("ak")
 ```
+
+:::{tip}
+
+This code block demonstrates the **unit handling in _remage_**. The fields of
+the `stp` table carry their units along with them as an awkward-array parameter;
+`xloc`/`yloc`/`zloc` have units of meter. `distance_to_surface` handles the
+units transparently and converts to mm internally. For the manual calculation,
+we also need to track the units along our mathematical expressions.
+
+:::
 
 We make a plot of the distance of the steps to the n+ electrode compared to the `r,z` coordinates.
 
@@ -289,8 +299,7 @@ energy (due to interactions in the dead-layer).
 ### Energy resolution smearing
 
 The remage simulations do not include the effect of the energy resolution. To
-do this there is a reboost processor to sample from a Gaussian distribution
-[documentation](https://reboost.readthedocs.io/en/stable/api/reboost.math.html#module-reboost.math.stats).
+do this there is a reboost processor {py:func}`to sample from a Gaussian distribution <reboost.math.stats.gaussian_sample>`.
 
 We demonstrate this with a sigma of 0.5 keV.
 
