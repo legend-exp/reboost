@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import sys
 
 import awkward as ak
 import numpy as np
@@ -9,6 +11,122 @@ from lgdo import Array, VectorOfVectors
 from .. import units
 
 log = logging.getLogger(__name__)
+
+
+def _get_transition_point(
+    fccd_in_mm: float, alpha_in_mm: float, beta_in_mm: float, n: int = 200
+) -> float:
+    """Get the transition point for the exlint model."""
+
+    def f(dist):
+        return (
+            alpha_in_mm + dist - fccd_in_mm + beta_in_mm * math.exp(-dist / beta_in_mm) - beta_in_mm
+        )
+
+    lo = fccd_in_mm - alpha_in_mm
+    hi = fccd_in_mm
+
+    for _ in range(n):
+        mid = 0.5 * (lo + hi)
+        if f(lo) * f(mid) <= 0:
+            hi = mid
+        else:
+            lo = mid
+
+    return 0.5 * (lo + hi)
+
+
+def ex_lint_activeness(
+    distances: ak.Array, fccd_in_mm: float, alpha_in_mm: float, beta_in_mm: float
+) -> ak.Array:
+    r"""Exponentially modified linear (exlint) HPGe activeness model.
+
+    The model consists of a exponential component (with exponent distance/beta) near the surface,
+    transitioning to a linear component (with slope alpha) closer to the FCCD.
+
+    .. math::
+
+        f(d) =
+        \begin{cases}
+        B\times e^{d/\beta} & \text{if } d < T, \\
+        \frac{d+\alpha - f}{\alpha} & \text{if } d<f, \\
+        1 & \text{otherwise.}
+        \end{cases}
+
+    - `d`: Distance to surface,
+    - `T`: transition from exponential to linear activeness.
+    - `beta`: exponential rise parameter.
+    - `alpha`: linear rise parameter.
+    - `f`: Full charge collection depth (FCCD).
+    - `B`: normalisation of the exponential component.
+
+    Parameters
+    ----------
+    distances
+        the distance from each step to the detector surface. The computation
+        is performed for each element and the shape preserved in the output.
+    fccd_in_mm
+        the value of the FCCD
+    alpha_in_mm
+        the alpha parameter of the TL model.
+    beta_in_mm
+        the beta parameter of the TL model.
+    """
+    distances_ak = units.units_conv_ak(ak.Array(distances), "mm")
+
+    # Bounds checks
+    if fccd_in_mm < 0.0:
+        msg = "FCCD must be positive"
+        raise ValueError(msg)
+
+    if (alpha_in_mm < 0.0) or alpha_in_mm > fccd_in_mm:
+        msg = "Alpha must be positive and less than FCCD"
+        raise ValueError(msg)
+
+    if (beta_in_mm < 0.0) or (
+        (beta_in_mm > 0) and (beta_in_mm * (1 - math.exp(-fccd_in_mm / beta_in_mm)) > alpha_in_mm)
+    ):
+        msg = "Beta must be positive and satisfy beta*(1-exp(-FCCD/beta)) < alpha"
+        raise ValueError(msg)
+
+    # Defaults
+    if fccd_in_mm == 0:
+        trans_pt = 0.0
+        B = 0.0
+    elif (beta_in_mm == 0) or (fccd_in_mm / beta_in_mm > math.log(sys.float_info.max)):
+        trans_pt = fccd_in_mm - alpha_in_mm
+        B = 0.0
+    else:
+        trans_pt = _get_transition_point(fccd_in_mm, alpha_in_mm, beta_in_mm)
+        B = beta_in_mm / alpha_in_mm * math.exp(-trans_pt / beta_in_mm)
+
+    # now run the computation
+    distances_flat = (
+        ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
+    )
+
+    # compute the activeness
+    results = np.full_like(distances_flat, np.nan, dtype=np.float64)
+    lengths = ak.num(distances_ak) if distances_ak.ndim > 1 else len(distances_ak)
+
+    mask1 = (distances_flat > fccd_in_mm) | np.isnan(distances_flat)
+    mask2 = (distances_flat >= trans_pt) & (~mask1)
+    mask3 = (distances_flat < trans_pt) & (beta_in_mm == 0)
+    mask4 = ~(mask1 | mask2 | mask3)
+
+    # assign the values
+    results[mask1] = 1
+    results[mask2] = 1.0 + (distances_flat[mask2] - fccd_in_mm) / (
+        alpha_in_mm + sys.float_info.epsilon
+    )
+    results[mask3] = 0.0
+    results[mask4] = B * (
+        -1.0 + np.exp(distances_flat[mask4] / (beta_in_mm + sys.float_info.epsilon))
+    )
+
+    # reshape
+    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
+    return ak.Array(results)
 
 
 def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: float) -> ak.Array:
@@ -50,7 +168,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     a :class:`VectorOfVectors` or :class:`Array` of the activeness
     """
     # convert to ak
-    distances_ak = units.units_conv_ak(distances, "mm")
+    distances_ak = units.units_conv_ak(ak.Array(distances), "mm")
 
     dl = fccd_in_mm * dlf
     distances_flat = (
@@ -73,9 +191,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     # reshape
     results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
 
-    results = ak.Array(results)
-
-    return units.attach_units(results, "mm")
+    return ak.Array(results)
 
 
 def vectorised_active_energy(
