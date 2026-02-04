@@ -6,11 +6,16 @@ processing_groups:
 
     outputs:
       - t0
+      - t0_u
       - evtid
       - energy
+      - xloc
 
     operations:
       t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
+      t0_u:
+        expression: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
+        units: ns
       energy: ak.sum(HITS.edep, axis=-1)
 
 forward:

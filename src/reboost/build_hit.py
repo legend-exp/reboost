@@ -452,6 +452,8 @@ def _evaluate_operation(
         time_dict=time_dict,
         name=field,
     )
+    if not isinstance(info, str) and "units" in info:
+        col = units.attach_units(col, info["units"])
     units.move_units_to_flattened_data(col)
 
     core.add_field_with_nesting(hit_table, field, col)
