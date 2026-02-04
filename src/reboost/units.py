@@ -69,7 +69,7 @@ def attach_units(data: ak.Array | LGDO, unit: str | None) -> ak.Array | LGDO:
     return data
 
 
-def move_units_to_flattened_data(data: VectorOfVectors) -> None:
+def move_units_to_flattened_data(data: LGDO) -> None:
     """If `data` is a VectorOfVectors move units from attrs to flattened data attrs.
 
     Parameters
