@@ -4,7 +4,7 @@ import awkward as ak
 import pint
 import pyg4ometry as pg4
 import pytest
-from lgdo.types import Array
+from lgdo.types import Array, VectorOfVectors
 
 from reboost import units
 from reboost.units import ureg as u
@@ -92,3 +92,11 @@ def test_attach_units():
     data_units = units.attach_units(Array([1, 2, 3]), "mm")
 
     assert units.get_unit_str(data_units) == "mm"
+
+
+def test_move_units_to_flattened_data():
+    data = VectorOfVectors([[1, 2, 3]], attrs={"units": "mm"})
+    units.move_units_to_flattened_data(data)
+
+    assert data.attrs.get("units") is None
+    assert data.flattened_data.attrs.get("units") == "mm"

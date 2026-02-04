@@ -9,9 +9,9 @@ import awkward as ak
 import numpy as np
 from dbetto import AttrsDict
 from lgdo import lh5
-from lgdo.types import LGDO, Table
+from lgdo.types import LGDO, Table, VectorOfVectors
 
-from . import utils
+from . import units, utils
 from .profile import ProfileDict
 
 log = logging.getLogger(__name__)
@@ -455,6 +455,11 @@ def evaluate_hit_table_layout(
     log.debug(msg)
 
     res = eval(group_func, globs, locs)
+
+    if isinstance(res, Table):
+        for data in res.values():
+            if isinstance(data, VectorOfVectors):
+                units.move_units_to_flattened_data(data)
 
     if time_dict is not None:
         time_dict.update_field(name="hit_layout", time_start=time_start)

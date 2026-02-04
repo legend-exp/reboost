@@ -11,6 +11,7 @@ import pytest
 from lgdo import Array, Struct, Table, VectorOfVectors, lh5
 
 import reboost
+from reboost import units
 
 
 @pytest.fixture(scope="module")
@@ -136,11 +137,23 @@ def test_reshape(test_gen_lh5_flat, tmptestdir):
     )  # m
     tab = Table(data)
 
+    for field in data.values():
+        units.move_units_to_flattened_data(field)
+
     output = lh5.read("stp/det1", outfile)
 
     # check the outputs
     assert output == tab
     assert lh5.read("vtx", outfile) == Table({"evtid": Array([0, 1])})
+
+    # test units
+    for field, unit in zip(
+        ["edep", "time", "xloc", "yloc", "zloc", "dist_to_surf"],
+        ["keV", "ns", "m", "m", "m", "m"],
+        strict=True,
+    ):
+        assert "units" not in output[field].attrs
+        assert output[field].flattened_data.attrs["units"] == unit
 
 
 def test_only_forward(test_gen_lh5_flat, tmptestdir):

@@ -181,6 +181,8 @@ from dbetto import AttrsDict
 from lgdo import lh5
 from lgdo.lh5.exceptions import LH5EncodeError
 
+from reboost import units
+
 from . import core, utils
 from .iterator import GLMIterator
 from .profile import ProfileDict
@@ -335,6 +337,7 @@ def build_hit(
                             expression=proc_group["hit_table_layout"],
                             time_dict=time_dict[proc_name],
                         )
+
                     else:
                         hit_table_layouted = copy.deepcopy(stps)
 
@@ -449,5 +452,6 @@ def _evaluate_operation(
         time_dict=time_dict,
         name=field,
     )
+    units.move_units_to_flattened_data(col)
 
     core.add_field_with_nesting(hit_table, field, col)
