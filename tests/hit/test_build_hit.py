@@ -194,14 +194,19 @@ def test_basic(test_gen_lh5, tmptestdir):
             == b"Zstandard compression: http://www.zstd.net"
         )
 
-    hits = lh5.read("hit/det1", outfile).view_as("ak")
+    hits = lh5.read("hit/det1", outfile).view_as("ak", with_units=True)
 
     assert ak.all(hits.energy == [300, 330])
     assert ak.all(hits.t0 == [0, 0.1])
+
     assert hits.evtid[0] == 0
     assert hits.evtid[1] == 1
 
     assert len(hits) == 2
+
+    assert ak.parameters(hits.t0) == {}
+    assert ak.parameters(hits.t0_u)["units"] == "ns"
+    assert ak.parameters(hits.xloc)["units"] == "m"
 
     # test in memory
 
@@ -226,7 +231,7 @@ def test_basic(test_gen_lh5, tmptestdir):
         "expressions",
     }
     assert set(time_dict["geds"]["read"].keys()) == {"stp"}
-    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "energy"}
+    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "t0_u", "energy"}
 
 
 def test_file_merging(test_gen_lh5, tmptestdir):
