@@ -49,7 +49,7 @@ def ex_lint_activeness(
         f(d) =
         \begin{cases}
         B\left(e^{d/\beta} - 1\right) & \text{if } d < T, \\
-        1 + \frac{d - f}{\alpha} & \text{if } d<f, \\
+        1 + \frac{d - f}{\alpha} & \text{if } T \leq d \leq f, \\
         1 & \text{otherwise.}
         \end{cases}
 
