@@ -223,6 +223,10 @@ def test_basic(test_gen_lh5, tmptestdir):
     assert ak.all(hits["det1"].evtid[0] == [0, 0])
     assert ak.all(hits["det1"].evtid[1] == [1, 1, 1])
 
+    assert ak.parameters(hits["det1"].t0) == {}
+    assert ak.parameters(hits["det1"].t0_u)["units"] == "ns"
+    assert ak.parameters(hits["det1"].xloc)["units"] == "m"
+
     assert set(time_dict.keys()) == {"global_objects", "geds"}
     assert set(time_dict["geds"].keys()) == {
         "detector_objects",

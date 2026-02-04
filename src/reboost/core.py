@@ -538,8 +538,5 @@ def remove_columns(tab: Table, outputs: list) -> Table:
 
 def merge(hit_table: Table, output_table: ak.Array | None):
     """Merge the table with the array."""
-    return (
-        hit_table.view_as("ak")
-        if output_table is None
-        else ak.concatenate((output_table, hit_table.view_as("ak")))
-    )
+    hit_table = hit_table.view_as("ak", with_units=True)
+    return hit_table if output_table is None else ak.concatenate((output_table, hit_table))
