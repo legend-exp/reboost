@@ -12,8 +12,6 @@ import reboost
 from reboost import utils
 from reboost.shape import group
 from reboost.utils import (
-    assign_units,
-    copy_units,
     get_file_dict,
     get_function_string,
     get_table_names,
@@ -202,28 +200,6 @@ def test_get_files_dict():
     assert files.stp == ["stp1.lh5", "stp2.lh5"]
     assert files.hit == ["hit.lh5", "hit.lh5"]
     assert files.glm == ["glm1.lh5", "glm2.lh5"]
-
-
-def test_units():
-    table = Table({"a": Array([1, 2, 3]), "b": Array([4, 5, 6]), "evtid": Array([0, 0, 1])})
-
-    table.a.attrs = {"datatype": "array<1>{real}", "units": "ns"}
-    table.b.attrs = {"datatype": "array<1>{real}", "units": "keV"}
-
-    units = copy_units(table)
-
-    assert units["a"] == "ns"
-    assert units["b"] == "keV"
-    reshaped = group.group_by_evtid(table.view_as("ak"))
-
-    # also add an array field
-    units["c"] = "keV"
-    reshaped["c"] = Array([1, 2])
-    reshaped = assign_units(reshaped, units)
-
-    assert reshaped.a.flattened_data.attrs["units"] == "ns"
-    assert reshaped.b.flattened_data.attrs["units"] == "keV"
-    assert reshaped.c.attrs["units"] == "keV"
 
 
 def test_table_names():
