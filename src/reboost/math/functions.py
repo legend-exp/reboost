@@ -86,7 +86,10 @@ def ex_lint_activeness(
     if (beta_in_mm < 0.0) or (
         (beta_in_mm > 0) and (beta_in_mm * (1 - math.exp(-fccd_in_mm / beta_in_mm)) > alpha_in_mm)
     ):
-        msg = "Beta must be positive and satisfy beta*(1-exp(-FCCD/beta)) < alpha"
+        msg = (
+            "Beta must be non-negative and, if positive, satisfy "
+            "beta*(1-exp(-FCCD/beta)) < alpha"
+        )
         raise ValueError(msg)
 
     # Defaults
