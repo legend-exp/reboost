@@ -8,6 +8,7 @@ import numpy as np
 import pint
 import pyg4ometry as pg4
 from lgdo import LGDO
+from numpy.typing import ArrayLike
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ def attach_units(data: ak.Array | LGDO, unit: str | None) -> ak.Array | LGDO:
     return data
 
 
-def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> Any | ak.Array:
+def units_conv_ak(data: ArrayLike, target_units: pint.Unit | str) -> ak.Array | Any:
     """Calculate numeric conversion factor to reach `target_units`, and apply to data converted to ak.
 
     Parameters
@@ -91,6 +92,8 @@ def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) ->
     if isinstance(data, LGDO):
         return data.view_as("ak")
     if isinstance(data, np.ndarray):
+        return ak.Array(data)
+    if data is not None:
         return ak.Array(data)
     return data
 

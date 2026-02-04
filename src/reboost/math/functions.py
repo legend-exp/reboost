@@ -72,7 +72,7 @@ def ex_lint_activeness(
     beta_in_mm
         the beta parameter of the TL model.
     """
-    distances_ak = units.units_conv_ak(ak.Array(distances), "mm")
+    distances_ak = units.units_conv_ak(distances, "mm")
 
     # Bounds checks
     if fccd_in_mm < 0.0:
@@ -168,7 +168,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     a :class:`VectorOfVectors` or :class:`Array` of the activeness
     """
     # convert to ak
-    distances_ak = units.units_conv_ak(ak.Array(distances), "mm")
+    distances_ak = units.units_conv_ak(distances, "mm")
 
     dl = fccd_in_mm * dlf
     distances_flat = (
