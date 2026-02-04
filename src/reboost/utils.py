@@ -5,7 +5,7 @@ import itertools
 import logging
 import re
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
 

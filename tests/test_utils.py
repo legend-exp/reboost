@@ -6,11 +6,10 @@ from pathlib import Path
 
 import pytest
 import yaml
-from lgdo.types import Array, Table, VectorOfVectors
+from lgdo.types import VectorOfVectors
 
 import reboost
 from reboost import utils
-from reboost.shape import group
 from reboost.utils import (
     assign_units,
     copy_units,
