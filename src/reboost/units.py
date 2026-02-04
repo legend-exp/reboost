@@ -78,8 +78,7 @@ def move_units_to_flattened_data(data: VectorOfVectors) -> None:
         the nested data structure
     """
     if isinstance(data, VectorOfVectors) and ("units" in data.attrs):
-        unit = data.attrs["units"]
-        data.attrs.pop("units")
+        unit = data.attrs.pop("units")
         if isinstance(data.flattened_data, VectorOfVectors):
             data.flattened_data.attrs |= {"units": unit}
             move_units_to_flattened_data(data.flattened_data)
