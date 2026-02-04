@@ -55,7 +55,7 @@ def ex_lint_activeness(
 
     - `d`: Distance to surface,
     - `T`: transition from exponential to linear activeness.
-    - `beta`: exponential rise parameter.
+    - `beta`: exponential rise scale.
     - `alpha`: linear rise scale (the linear component has slope `1/\alpha`).
     - `f`: Full charge collection depth (FCCD).
     - `B`: normalisation of the exponential component.
