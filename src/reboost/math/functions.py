@@ -41,22 +41,22 @@ def ex_lint_activeness(
 ) -> ak.Array:
     r"""Exponentially modified linear (exlint) HPGe activeness model.
 
-    The model consists of a exponential component (with exponent distance/beta) near the surface,
-    transitioning to a linear component (with slope alpha) closer to the FCCD.
+    The model consists of an exponential component near the surface,
+    transitioning to a linear component closer to the FCCD.
 
     .. math::
 
         f(d) =
         \begin{cases}
-        B\times e^{d/\beta} & \text{if } d < T, \\
-        \frac{d+\alpha - f}{\alpha} & \text{if } d<f, \\
+        B\left(e^{d/\beta} - 1\right) & \text{if } d < T, \\
+        1 + \frac{d - f}{\alpha} & \text{if } d<f, \\
         1 & \text{otherwise.}
         \end{cases}
 
     - `d`: Distance to surface,
     - `T`: transition from exponential to linear activeness.
     - `beta`: exponential rise parameter.
-    - `alpha`: linear rise parameter.
+    - `alpha`: linear rise scale (the linear component has slope `1/\alpha`).
     - `f`: Full charge collection depth (FCCD).
     - `B`: normalisation of the exponential component.
 
@@ -86,10 +86,7 @@ def ex_lint_activeness(
     if (beta_in_mm < 0.0) or (
         (beta_in_mm > 0) and (beta_in_mm * (1 - math.exp(-fccd_in_mm / beta_in_mm)) > alpha_in_mm)
     ):
-        msg = (
-            "Beta must be non-negative and, if positive, satisfy "
-            "beta*(1-exp(-FCCD/beta)) < alpha"
-        )
+        msg = "Beta must be non-negative and, if positive, satisfy beta*(1-exp(-FCCD/beta)) < alpha"
         raise ValueError(msg)
 
     # Defaults
