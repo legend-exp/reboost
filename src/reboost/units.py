@@ -7,7 +7,7 @@ import awkward as ak
 import numpy as np
 import pint
 import pyg4ometry as pg4
-from lgdo import LGDO
+from lgdo import LGDO, VectorOfVectors
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +67,23 @@ def attach_units(data: ak.Array | LGDO, unit: str | None) -> ak.Array | LGDO:
         raise TypeError(msg)
 
     return data
+
+
+def move_units_to_flattened_data(data: LGDO) -> None:
+    """If `data` is a VectorOfVectors move units from attrs to flattened data attrs.
+
+    Parameters
+    ----------
+    data
+        the nested data structure
+    """
+    if isinstance(data, VectorOfVectors) and ("units" in data.attrs):
+        unit = data.attrs.pop("units")
+        if isinstance(data.flattened_data, VectorOfVectors):
+            data.flattened_data.attrs |= {"units": unit}
+            move_units_to_flattened_data(data.flattened_data)
+        else:
+            data.flattened_data.attrs |= {"units": unit}
 
 
 def units_conv_ak(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> Any | ak.Array:
