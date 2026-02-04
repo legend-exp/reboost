@@ -182,52 +182,6 @@ def get_file_list(path: str | None, threads: int | None = None) -> list[str]:
     return [f"{(Path(path).with_suffix(''))}_t{idx}.lh5" for idx in range(threads)]
 
 
-def copy_units(tab: Table) -> dict:
-    """Extract a dictionary of attributes (i.e. units).
-
-    Parameters
-    ----------
-    tab
-        Table to get the units from.
-
-    Returns
-    -------
-    a dictionary with the units for each field
-    in the table.
-    """
-    units = {}
-
-    for field in tab:
-        if "units" in tab[field].attrs:
-            units[field] = tab[field].attrs["units"]
-
-    return units
-
-
-def assign_units(tab: Table, units: Mapping) -> Table:
-    """Copy the attributes from the map of attributes to the table.
-
-    Parameters
-    ----------
-    tab
-        Table to add attributes to.
-    units
-        mapping (dictionary like) of units of each field
-
-    Returns
-    -------
-    an updated table with LGDO attributes.
-    """
-    for field in tab:
-        if field in units:
-            if not isinstance(tab[field], VectorOfVectors):
-                tab[field].attrs["units"] = units[field]
-            else:
-                tab[field].flattened_data.attrs["units"] = units[field]
-
-    return tab
-
-
 def _search_string(string: str):
     """Capture the characters matching the pattern for a function call."""
     pattern = r"\b([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\("
