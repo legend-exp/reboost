@@ -9,7 +9,7 @@ import awkward as ak
 import numpy as np
 from dbetto import AttrsDict
 from lgdo import lh5
-from lgdo.types import LGDO, Table, VectorOfVectors
+from lgdo.types import LGDO, Table
 
 from . import units, utils
 from .profile import ProfileDict
