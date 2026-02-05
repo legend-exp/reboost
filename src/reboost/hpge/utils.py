@@ -67,15 +67,23 @@ def get_hpge_pulse_shape_library(
         msg = f"{obj} in {filename} is not an LGDO Struct"
         raise ValueError(msg)
 
-    t0 = data["t0"].value
+    if "t0" in data:
+        t0 = data["t0"].value
+        t0_u = data["t0"].attrs["units"]
+    else:
+        t0 = 0
+        t0_u = "ns"
+
     dt = data["dt"].value
 
-    t0_u = data["t0"].attrs["units"]
     dt_u = data["dt"].attrs["units"]
 
     if t0_u != dt_u:
         msg = "t0 and dt must have the same units"
         raise ValueError(msg)
+
+    if "units" not in data[field].attrs:
+        data[field].attrs["units"] = ""
 
     tu = t0_u
 

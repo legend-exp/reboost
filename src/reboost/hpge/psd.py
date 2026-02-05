@@ -761,6 +761,31 @@ def _estimate_current_impl(
     return A, maximum_t, energy
 
 
+@numba.njit(cache=True)
+def _get_psl_waveforms_impl(
+    r: ak.Array,
+    z: ak.Array,
+    edep: ak.Array,
+    pulse_shape_library: np.ndarray,
+    r_grid: np.ndarray,
+    z_grid: np.ndarray,
+) -> ak.Array:
+    """Get the waveforms for each hit based on the pulse shape library."""
+    waveforms = np.zeros((len(edep), pulse_shape_library.shape[2]))
+
+    for i in range(len(edep)):
+        rt = np.asarray(r[i])
+        zt = np.asarray(z[i])
+        et = np.asarray(edep[i])
+
+        for j in range(len(et)):
+            r_idx, z_idx = _get_template_idx(rt[j], zt[j], r_grid, z_grid)
+
+            waveforms[i] += et[j] * pulse_shape_library[r_idx, z_idx]
+
+    return waveforms
+
+
 def prepare_surface_inputs(
     dist_to_nplus: ak.Array,
     edep: ak.Array,
@@ -910,3 +935,56 @@ def maximum_current(
 
     msg = f"Return mode {return_mode} is not implemented."
     raise ValueError(msg)
+
+
+def waveform_from_pulse_shape_library(
+    edep: ak.Array,
+    r: ak.Array,
+    z: ak.Array,
+    pulse_shape_library: HPGePulseShapeLibrary,
+) -> ak.Array:
+    r"""Get the current waveform for each hit based on the pulse shape library.
+
+    This is based on modelling the waveform as a sum over the pulse shape library templates
+    .. math::
+        A(t) = \sum_i E_i \times f(t, r_i, z_i)
+
+    where :math:`f(t, r, z)` is the pulse shape library template for a given (r,z) point and :math:`E_i` is the energy of each step.
+
+    The output waveforms have the same sampling and t0 as the pulse shape library.
+
+    Notes
+    -----
+    - This function is a slower way to get the psd parameters than :func:`maximum_current`, as it extracts the full waveform for each hit and then finds the maximum, rather than just finding the maximum directly.
+    - The memory usage of this function can be high, as it extracts the full waveform for each hit.
+
+    Parameters
+    ----------
+    edep
+        Array of energies for each step
+    r
+        Radial coordinate for each step
+    z
+        z coordinate for each step
+    pulse_shape_library
+        The pulse shape library to use, this should be an instance of :class:`HPGePulseShapeLibrary`.
+    """
+    # convert to target units
+    edep = units.units_conv_ak(edep, "keV")
+    r = units.units_conv_ak(r, pulse_shape_library.r_units)
+    z = units.units_conv_ak(z, pulse_shape_library.z_units)
+
+    # prepare the library
+    library = pulse_shape_library.waveforms
+
+    # get the waveforms
+    waveforms = _get_psl_waveforms_impl(
+        r,
+        z,
+        edep,
+        pulse_shape_library=library,
+        r_grid=pulse_shape_library.r,
+        z_grid=pulse_shape_library.z,
+    )
+
+    return ak.Array(waveforms)
