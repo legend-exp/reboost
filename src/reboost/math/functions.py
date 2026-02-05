@@ -5,10 +5,9 @@ import logging
 import awkward as ak
 import numpy as np
 from lgdo import Array, VectorOfVectors
-from lgdo.types import LGDO
-from scipy.optimize import brentq
 
 from .. import units
+from scipy.optimize import brentq
 
 log = logging.getLogger(__name__)
 
@@ -165,47 +164,50 @@ def vectorised_active_energy(
 
     return units.attach_units(energy, "keV")
 
-
 def ExLinT(distances: ak.Array, fccd: float, alpha: float, beta: float):
-    r"""MGTDExLinT HPGe activeness model (Exponential + Linear) Here is how the function works.
-
+    
+    r"""MGTDExLinT HPGe activeness model (Exponential + Linear)
+    Here is how the function works
+    
     - If d<=0: 0
     - If 0< d < D: B * [exp(d/beta) -1]
     - If D <= d < FCCD: 1+ (d - FCCD) / alpha
     - If d >= FCCD: 1
     - if d is Nan: 1
-
+    
     where D is the transition between switching from exponential model to the linear model. Yout get this point by solving this equation
          alpha + D - FCCD + beta * exp(-D/beta) - beta = 0
     You get this equation by imposing the continuity and differentiability at the transition point D
-
+     
     Then, you also solve for B, which is given as:
          B = (beta/alpha) * exp(-D/beta)
-
+         
     Notes: np.nan is assigned with the activeness = 1, matching the reboost convention
-
+    
     Parameters to be fed in the function:
-    distances: distance from the step to the surface
+    distances: distance from the step to the surface 
     fccd: full charge collection depth
     alpha: parameter for the linear model. 1 / alpha is the slope
     beta: parameter for the exponential model. Used in the exponent
-
-    Returns
-    -------
-    activeness: :class::`VectorOfVectors` or :class:`Array` of the activeness
-    """
-    # Convert to ak
-    if isinstance(distances, LGDO):
+    
+    Returns:
+    activeness: :class::`VectorOfVectors` or :class:`Array` of the activeness"""
+    #Convert to ak
+    '''if isinstance(distances, LGDO):
         distances_ak = distances.view_as("ak")
     elif not isinstance(distances, ak.Array):
-        distances_ak = ak.Array(distances)
+        distances_ak =ak.Array(distances)
     else:
-        distances_ak = distances
+        distances_ak = distances'''
+    
+    #Covert to ak
+    distances_ak = units.units_conv_ak(distances, "mm")
 
-    # Flatten the distance to 1D
-    distances_flat = (
-        ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
-    )
+    #Flatten the distance to 1D
+    distances_flat = (ak.flatten(distances_ak).to_numpy() 
+                      if distances_ak.ndim > 1
+                      else distances_ak.to_numpy()
+                     )
     lengths = ak.num(distances_ak) if distances_ak.ndim > 1 else len(distances_ak)
     # --- parameter checks ----
     if fccd < 0:
@@ -215,32 +217,32 @@ def ExLinT(distances: ak.Array, fccd: float, alpha: float, beta: float):
     if beta < 0:
         raise ValueError("beta must be >=0.")
     if beta * (1.0 - np.exp(-fccd / beta)) > alpha + 1e-15:
-        raise ValueError(
-            " Unphysical parameters: beta * (1-exp(-FCCD/beta)) must be <= alpha. This condition is needed to ensure the smooth transition from exp to linear fccd model transition."
-        )
+        raise ValueError(" Unphysical parameters: beta * (1-exp(-FCCD/beta)) must be <= alpha. This condition is needed to ensure the smooth transition from exp to linear fccd model transition.")
 
     if fccd == 0:
         results = np.full_like(distances_flat, np.nan, dtype=np.float64)
         mask_full = (distances_flat > 0) | np.isnan(distances_flat)
         results[mask_full] = 1.0
         results[~mask_full] = 0.0
-        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
-
-        return VectorOfVectors(results) if results.ndim > 1 else Array(results)
-
+        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim >1 else results
+        results = ak.Array(results) 
+        #return VectorOfVectors(results) if results.ndim > 1 else Array(results)
+        return units.attach_units(results, "mm")
+        
     if alpha == 0:
         results = np.full_like(distances_flat, np.nan, dtype=np.float64)
         mask_full = (distances_flat > fccd) | np.isnan(distances_flat)
         results[mask_full] = 1.0
         results[~mask_full] = 0.0
-        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
-
-        return VectorOfVectors(results) if results.ndim > 1 else Array(results)
+        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim >1 else results 
+        results = ak.Array(results) 
+        
+        return units.attach_units(results, "mm")
 
     if beta == 0:
         results = np.full_like(distances_flat, np.nan, dtype=np.float64)
-        mask_nan = np.isnan(distances_flat)
-        mask_full = (distances_flat >= fccd) & (~mask_nan)
+        mask_nan = np.isnan(distances_flat) 
+        mask_full = (distances_flat >=fccd) & (~mask_nan)
         mask_zero = (distances_flat <= 0.0) & (~mask_nan)
         mask_lin = ~(mask_nan | mask_full | mask_zero)
 
@@ -248,28 +250,28 @@ def ExLinT(distances: ak.Array, fccd: float, alpha: float, beta: float):
         results[mask_full] = 1.0
         results[mask_zero] = 0.0
         results[mask_lin] = distances_flat[mask_lin] / fccd
-        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
-
-        return VectorOfVectors(results) if results.ndim > 1 else Array(results)
+        results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim >1 else results
+        results = ak.Array(results) 
+        return units.attach_units(results, "mm")
 
     def f(D):
         return alpha + D - fccd + beta * np.exp(-D / beta) - beta
-
-    lo = max(0.0, fccd - alpha)
+        
+    lo = max(0.0, fccd- alpha)
     hi = fccd
 
-    # using brentq solver. #Matching this solver with the one used by the Majorana
+    #using brentq solver. #Matching this solver with the one used by the Majorana
     D = brentq(f, lo, hi)
 
-    # Compute B
-    B = (beta / alpha) * np.exp(-D / beta)
+    #Compute B
+    B = (beta / alpha) * np.exp(-D/beta)
 
     results = np.full_like(distances_flat, np.nan, dtype=np.float64)
 
     mask_nan = np.isnan(distances_flat)
     mask_full = (distances_flat >= fccd) & (~mask_nan)
-    mask_zero = (distances_flat <= 0) & (~mask_nan)
-    mask_lin = (distances_flat >= D) & (distances_flat < fccd) & (~mask_nan)
+    mask_zero = (distances_flat <=0) & (~mask_nan)
+    mask_lin = (distances_flat >=D) & (distances_flat < fccd) & (~mask_nan)
     mask_exp = (distances_flat > 0.0) & (distances_flat < D) & (~mask_nan)
 
     results[mask_nan] = 1.0
@@ -278,6 +280,7 @@ def ExLinT(distances: ak.Array, fccd: float, alpha: float, beta: float):
     results[mask_lin] = 1.0 + (distances_flat[mask_lin] - fccd) / alpha
     results[mask_exp] = B * (-1.0 + np.exp(distances_flat[mask_exp] / beta))
 
-    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
+    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim >1 else results
+    results = ak.Array(results)
 
-    return VectorOfVectors(results) if results.ndim > 1 else Array(results)
+    return units.attach_units(results, "mm")
