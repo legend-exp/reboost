@@ -37,7 +37,7 @@ def test_units_convfact():
 
 
 def test_units_conv_ak():
-    assert units.units_conv_ak(1, "m") == 1
+    assert units.units_conv_ak([1], "m") == [1]
 
     arr = Array([1, 2, 3], attrs={"units": "m"})
     assert ak.all(units.units_conv_ak(arr, "mm") == ak.Array([1000, 2000, 3000]))
