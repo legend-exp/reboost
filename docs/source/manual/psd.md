@@ -27,7 +27,7 @@ From this the drift time for each interaction in the HPGe detector can be extrac
 
 ## A/E estimation
 
-Additionally _rebost_ contains experimental methods to estimate the A/E parameter used for PSD in point-contact HPGe detectors.
+Additionally _reboost_ contains experimental methods to estimate the A/E parameter used for PSD in point-contact HPGe detectors.
 
 These models are based on combining the "impulse response" (waveform) of each step in the Geant4 event with time-shifts given by the drift time maps. This can either be based on a simple constant current waveform model (described in {func}`reboost.hpge.psd.get_current_template`) or a library of simulated pulse shapes ({func}`reboost.hpge.utils.get_hpge_pulse_shape_library`).
 
