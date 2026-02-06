@@ -75,10 +75,9 @@ def get_hpge_pulse_shape_library(
         t0_u = "ns"
 
     dt = data["dt"].value
-
     dt_u = data["dt"].attrs["units"]
 
-    if t0_u != dt_u:
+    if (t0_u != dt_u) and (t0 != 0):
         msg = "t0 and dt must have the same units"
         raise ValueError(msg)
 
