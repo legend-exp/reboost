@@ -57,7 +57,7 @@ a_max = reboost.hpge.psd.maximum_current(
 aoe = a_max / ak.sum(edep, axis=-1)
 ```
 
-This function is highly optimised by only extracting the waveform value close to the maximum. This combined with the fact the computionally intensive charge drift simulation is done in advance means this is orders of magnitude faster than a full charge drift simulation.
+This function is highly optimised by only extracting the waveform value close to the maximum. This combined with the fact the computationally intensive charge drift simulation is done in advance means this is orders of magnitude faster than a full charge drift simulation.
 
 ## n+ surface effects
 
