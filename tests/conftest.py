@@ -112,13 +112,13 @@ def test_pulse_shape_library_with_phi(tmptestdir):
 
     # Create smaller arrays for testing
     r = z = np.linspace(0, 100, 20)
-    waveforms_0deg = np.zeros((20, 20, 100))
-    waveforms_45deg = np.zeros((20, 20, 100))
+    waveforms_000_deg = np.zeros((20, 20, 100))
+    waveforms_045_deg = np.zeros((20, 20, 100))
 
     for i in range(20):
         for j in range(20):
-            waveforms_0deg[i, j] = model[:100] * 1.0  # Use first 100 samples
-            waveforms_45deg[i, j] = model[:100] * 2.0  # Different values for testing
+            waveforms_000_deg[i, j] = model[:100] * 1.0  # Use first 100 samples
+            waveforms_045_deg[i, j] = model[:100] * 2.0  # Different values for testing
 
     t0 = -1000
     dt = 1
@@ -127,8 +127,8 @@ def test_pulse_shape_library_with_phi(tmptestdir):
         {
             "r": Array(r, attrs={"units": "mm"}),
             "z": Array(z, attrs={"units": "mm"}),
-            "waveforms_0deg": Array(waveforms_0deg, attrs={"units": ""}),
-            "waveforms_45deg": Array(waveforms_45deg, attrs={"units": ""}),
+            "waveforms_000_deg": Array(waveforms_000_deg, attrs={"units": ""}),
+            "waveforms_045_deg": Array(waveforms_045_deg, attrs={"units": ""}),
             "dt": Scalar(dt, attrs={"units": "ns"}),
             "t0": Scalar(t0, attrs={"units": "ns"}),
         }
