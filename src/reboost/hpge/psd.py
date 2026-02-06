@@ -972,6 +972,13 @@ def waveform_from_pulse_shape_library(
         z coordinate for each step
     pulse_shape_library
         The pulse shape library to use, this should be an instance of :class:`HPGePulseShapeLibrary`.
+
+    Returns
+    -------
+    waveforms : awkward.Array
+        Awkward array of waveforms with shape ``(n_events, n_time_samples)``.
+        Each waveform has the same sampling and units as specified by the
+        pulse shape library.
     """
     # convert to target units
     edep = units.units_conv_ak(edep, "keV")
