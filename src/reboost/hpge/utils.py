@@ -15,7 +15,7 @@ class HPGePulseShapeLibrary(NamedTuple):
     """A set of templates defined in the cylindrical-like (r, z) HPGe plane."""
 
     waveforms: np.array
-    "Field, function of the coordinates (r, z)."
+    "Field, function of the coordinates (r, z) or (r, z, phi)."
     r_units: pint.Unit
     "Physical units of the coordinate `r`."
     z_units: pint.Unit
@@ -28,6 +28,8 @@ class HPGePulseShapeLibrary(NamedTuple):
     "One dimensional arrays specifying the z coordinates"
     t: np.array
     "Times used to define the waveforms"
+    phi: np.array | None = None
+    "One dimensional array specifying the phi angles in degrees (optional)"
 
 
 def get_hpge_pulse_shape_library(
@@ -41,13 +43,15 @@ def get_hpge_pulse_shape_library(
         └── OBJ · struct{r,z,dt,t0,FIELD}
             ├── r · array<1>{real} ── {'units': 'UNITS'}
             ├── z · array<1>{real} ── {'units': 'UNITS'}
+            ├── phi · array<1>{real} ── {'units': 'deg'} (optional)
             ├── dt · real ── {'units': 'UNITS'}
             ├── t0 · real ── {'units': 'UNITS'}
-            └── FIELD · array<3>{real} ── {'units': 'UNITS'}
+            └── FIELD · array<3 or 4>{real} ── {'units': 'UNITS'}
 
     The conventions follow those used for :func:`get_hpge_rz_field`.
     For the FIELD the first and second dimensions are `r` and `z`, respectively, with the last
-    dimension representing the waveform. dt and t0 define the timestamps for the waveforms.
+    dimension representing the waveform. If phi is present, the third dimension is phi and the
+    fourth is the waveform. dt and t0 define the timestamps for the waveforms.
 
 
     Parameters
@@ -86,16 +90,28 @@ def get_hpge_pulse_shape_library(
 
     tu = t0_u
 
+    # Check if phi is present
+    has_phi = "phi" in data
+    keys_to_read = ["r", "z", field]
+    if has_phi:
+        keys_to_read.append("phi")
+
     data = AttrsDict(
         {
             k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
-            for k in ("r", "z", field)
+            for k in keys_to_read
         }
     )
 
-    times = t0 + np.arange(np.shape(data[field].m)[2]) * dt
+    # Extract time dimension based on whether phi is present
+    time_dim_idx = 3 if has_phi else 2
+    times = t0 + np.arange(np.shape(data[field].m)[time_dim_idx]) * dt
 
-    return HPGePulseShapeLibrary(data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+    phi_array = data.phi.m if has_phi else None
+
+    return HPGePulseShapeLibrary(
+        data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times, phi_array
+    )
 
 
 class HPGeRZField(NamedTuple):

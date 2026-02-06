@@ -104,6 +104,26 @@ waveforms = reboost.hpge.psd.waveform_from_pulse_shape_library(
 # now plot etc
 ```
 
+### Phi-angle dependence
+
+Pulse shape libraries can optionally include phi-dependent templates to account for azimuthal variations in detector response. When the pulse shape library contains phi-dependent waveforms (stored at different phi angles), you can provide the phi angle for each hit:
+
+```python
+# compute phi angle
+phi = np.arctan2(steps.yloc - y0, steps.xloc - x0) * 180 / np.pi
+
+# compute waveforms with phi-dependent templates
+waveforms = reboost.hpge.psd.waveform_from_pulse_shape_library(
+    steps.edep, r, (steps.zloc - z0), library, phi=phi
+)
+```
+
+The function automatically selects the closest template based on 45-degree repeating symmetry. This means that pulse shape libraries typically store templates at 0° and 45° angles, which are sufficient to cover the full 360° range due to the symmetry. For example:
+
+- Phi values in [0°, 22.5°) and [67.5°, 90°) use the 0° template
+- Phi values in [22.5°, 67.5°) use the 45° template
+- This pattern repeats every 90° around the detector
+
 :::{warning}
 
 This is many times slower than the {func}`reboost.hpge.psd.maximum_current` since the value of the waveform at every sample is calculated. The large size of the output waveforms means the function can also use a significant amount of memory.
