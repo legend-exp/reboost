@@ -893,6 +893,11 @@ def maximum_current(
     r = units.units_conv_ak(r, "mm")
     z = units.units_conv_ak(z, "mm")
 
+    for arr in [drift_time, dist_to_nplus, r, z]:
+        if arr is not None and not ak.all(ak.num(arr) == ak.num(edep)):
+            msg = "All input arrays should have the same number of steps."
+            raise ValueError(msg)
+
     # prepare inputs for surface sims
     include_surface_effects, dist_to_nplus, templates_surface, activeness_surface = (
         prepare_surface_inputs(dist_to_nplus, edep, templates_surface, activeness_surface, template)
@@ -973,6 +978,12 @@ def waveform_from_pulse_shape_library(
     r = units.units_conv_ak(r, pulse_shape_library.r_units)
     z = units.units_conv_ak(z, pulse_shape_library.z_units)
 
+    # validate inputs to prevent numba errors
+    for arr in [r, z]:
+        if not ak.all(ak.num(arr) == ak.num(edep)):
+            msg = "r, z and edep should have the same number of steps."
+            raise ValueError(msg)
+
     # prepare the library
     library = pulse_shape_library.waveforms
 
@@ -986,4 +997,4 @@ def waveform_from_pulse_shape_library(
         z_grid=pulse_shape_library.z,
     )
 
-    return ak.Array(waveforms)
+    return units.attach_units(ak.Array(waveforms), "keV")

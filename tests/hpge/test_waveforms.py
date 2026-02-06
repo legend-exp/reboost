@@ -27,3 +27,9 @@ def test_get_waveforms(pulse_shape_library):
     assert waveforms.to_numpy().shape == (2, 100)
     assert np.all(waveforms[0].to_numpy() == 300)
     assert np.all(waveforms[1].to_numpy() == 600)
+
+    waveforms = waveform_from_pulse_shape_library(
+        ak.Array([[]]), ak.Array([[]]), ak.Array([[]]), pulse_shape_library
+    )
+
+    assert waveforms.to_numpy().shape == (1, 100)
