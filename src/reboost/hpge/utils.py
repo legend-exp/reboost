@@ -54,7 +54,7 @@ def get_hpge_pulse_shape_library(
     dimension representing the waveform. dt and t0 define the timestamps for the waveforms.
 
     For phi-dependent pulse shape libraries, multiple fields can be provided with suffixes
-    indicating the phi angle (e.g., ``waveforms_0deg``, ``waveforms_45deg``). These will be
+    indicating the phi angle (e.g., ``waveforms_000_deg``, ``waveforms_045_deg``). These will be
     automatically detected and stacked into a 4D array internally.
 
 
@@ -66,7 +66,7 @@ def get_hpge_pulse_shape_library(
         name of the HDF5 dataset where the data is saved.
     field
         name of the HDF5 dataset holding the waveforms. If phi-dependent fields exist,
-        they should be named as ``{field}_{phi}deg`` (e.g., ``waveforms_0deg``, ``waveforms_45deg``).
+        they should be named as ``{field}_{phi:03d}_deg`` (e.g., ``waveforms_000_deg``, ``waveforms_045_deg``).
     out_of_bounds_val
         value to use to replace NaNs in the field values.
     """
@@ -90,14 +90,14 @@ def get_hpge_pulse_shape_library(
         msg = "t0 and dt must have the same units"
         raise ValueError(msg)
 
-    # Check for phi-dependent fields (e.g., waveforms_0deg, waveforms_45deg)
+    # Check for phi-dependent fields (e.g., waveforms_000_deg, waveforms_045_deg)
     phi_fields = []
     phi_angles = []
     for key in data.keys():
-        if key.startswith(f"{field}_") and key.endswith("deg"):
+        if key.startswith(f"{field}_") and key.endswith("_deg"):
             # Extract phi angle from field name
             try:
-                phi_str = key[len(field) + 1 : -3]  # Remove prefix and "deg" suffix
+                phi_str = key[len(field) + 1 : -4]  # Remove prefix and "_deg" suffix
                 phi_val = float(phi_str)
                 phi_fields.append(key)
                 phi_angles.append(phi_val)
