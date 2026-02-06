@@ -592,7 +592,7 @@ def _get_phi_idx(phi: float, phi_grid: np.array) -> int:
     phi_in_quadrant = phi_normalized % 90.0
 
     # Find the closest angle in phi_grid, considering wrap-around
-    min_dist = 1e10
+    min_dist = np.inf
     best_idx = 0
     for i in range(len(phi_grid)):
         # Calculate angular distance considering periodicity
@@ -847,7 +847,7 @@ def _get_psl_waveforms_impl(
         zt = np.asarray(z[i])
         et = np.asarray(edep[i])
 
-        phi_t = np.asarray(phi[i]) if has_phi and phi is not None else None
+        phi_t = np.asarray(phi[i]) if phi is not None else None
 
         for j in range(len(et)):
             r_idx, z_idx = _get_template_idx(rt[j], zt[j], r_grid, z_grid)

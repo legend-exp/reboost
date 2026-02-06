@@ -96,12 +96,15 @@ def test_get_waveforms_with_phi(pulse_shape_library_with_phi):
 
 
 def test_get_waveforms_without_phi_on_phi_library(pulse_shape_library_with_phi):
-    """Test that calling without phi on phi-enabled library works (uses first phi)."""
+    """Test that calling without phi on phi-enabled library works.
+
+    When phi is not provided for a phi-enabled library, the function uses the first phi
+    angle in the library (index 0).
+    """
     r = units.attach_units(ak.Array([[10, 30]]), "mm")
     z = units.attach_units(ak.Array([[50, 40]]), "mm")
     edep = units.attach_units(ak.Array([[100, 200]]), "keV")
 
-    # Should work but may use arbitrary phi value
     waveforms = waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library_with_phi)
 
     assert waveforms.to_numpy().shape == (1, 100)
