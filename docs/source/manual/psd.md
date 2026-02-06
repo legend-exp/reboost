@@ -80,7 +80,7 @@ energy.
 
 :::{warning}
 
-The pulse shape library should consistient of waveforms aligned by t0 for waveform simulation.
+The pulse shape library should consist of waveforms aligned by t0 for waveform simulation.
 
 :::
 
