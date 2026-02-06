@@ -40,18 +40,22 @@ def get_hpge_pulse_shape_library(
     Reads from disk the following data structure: ::
 
         FILENAME/
-        └── OBJ · struct{r,z,dt,t0,FIELD}
+        └── OBJ · struct{r,z,dt,t0,FIELD[,FIELD_phi1,FIELD_phi2,...]}
             ├── r · array<1>{real} ── {'units': 'UNITS'}
             ├── z · array<1>{real} ── {'units': 'UNITS'}
-            ├── phi · array<1>{real} ── {'units': 'deg'} (optional)
             ├── dt · real ── {'units': 'UNITS'}
             ├── t0 · real ── {'units': 'UNITS'}
-            └── FIELD · array<3 or 4>{real} ── {'units': 'UNITS'}
+            ├── FIELD · array<3>{real} ── {'units': 'UNITS'}
+            ├── FIELD_phi1 · array<3>{real} ── {'units': 'UNITS'} (optional)
+            └── FIELD_phi2 · array<3>{real} ── {'units': 'UNITS'} (optional)
 
     The conventions follow those used for :func:`get_hpge_rz_field`.
     For the FIELD the first and second dimensions are `r` and `z`, respectively, with the last
-    dimension representing the waveform. If phi is present, the third dimension is phi and the
-    fourth is the waveform. dt and t0 define the timestamps for the waveforms.
+    dimension representing the waveform. dt and t0 define the timestamps for the waveforms.
+
+    For phi-dependent pulse shape libraries, multiple fields can be provided with suffixes
+    indicating the phi angle (e.g., ``waveforms_0deg``, ``waveforms_45deg``). These will be
+    automatically detected and stacked into a 4D array internally.
 
 
     Parameters
@@ -61,7 +65,8 @@ def get_hpge_pulse_shape_library(
     obj
         name of the HDF5 dataset where the data is saved.
     field
-        name of the HDF5 dataset holding the waveforms.
+        name of the HDF5 dataset holding the waveforms. If phi-dependent fields exist,
+        they should be named as ``{field}_{phi}deg`` (e.g., ``waveforms_0deg``, ``waveforms_45deg``).
     out_of_bounds_val
         value to use to replace NaNs in the field values.
     """
@@ -85,32 +90,61 @@ def get_hpge_pulse_shape_library(
         msg = "t0 and dt must have the same units"
         raise ValueError(msg)
 
-    if "units" not in data[field].attrs:
-        data[field].attrs["units"] = ""
+    # Check for phi-dependent fields (e.g., waveforms_0deg, waveforms_45deg)
+    phi_fields = []
+    phi_angles = []
+    for key in data.keys():
+        if key.startswith(f"{field}_") and key.endswith("deg"):
+            # Extract phi angle from field name
+            try:
+                phi_str = key[len(field) + 1 : -3]  # Remove prefix and "deg" suffix
+                phi_val = float(phi_str)
+                phi_fields.append(key)
+                phi_angles.append(phi_val)
+            except ValueError:
+                continue
+
+    # Sort by phi angle
+    if phi_fields:
+        sorted_indices = np.argsort(phi_angles)
+        phi_fields = [phi_fields[i] for i in sorted_indices]
+        phi_angles = [phi_angles[i] for i in sorted_indices]
 
     tu = t0_u
 
-    # Check if phi is present
-    has_phi = "phi" in data
-    keys_to_read = ["r", "z", field]
-    if has_phi:
-        keys_to_read.append("phi")
+    # Read the base field or phi-dependent fields
+    if phi_fields:
+        # Read phi-dependent fields and stack them
+        waveform_list = []
+        for phi_field in phi_fields:
+            if "units" not in data[phi_field].attrs:
+                data[phi_field].attrs["units"] = ""
+            wf = np.nan_to_num(
+                data[phi_field].view_as("np", with_units=True), nan=out_of_bounds_val
+            )
+            waveform_list.append(wf.m)
 
-    data = AttrsDict(
-        {
-            k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
-            for k in keys_to_read
-        }
-    )
+        # Stack into 4D array (r, z, phi, time)
+        waveforms_4d = np.stack(waveform_list, axis=2)
+        phi_array = np.array(phi_angles)
+    else:
+        # No phi-dependent fields, use the base field
+        if "units" not in data[field].attrs:
+            data[field].attrs["units"] = ""
+        wf = np.nan_to_num(data[field].view_as("np", with_units=True), nan=out_of_bounds_val)
+        waveforms_4d = wf.m
+        phi_array = None
+
+    # Read r and z grids
+    r_data = np.nan_to_num(data["r"].view_as("np", with_units=True), nan=out_of_bounds_val)
+    z_data = np.nan_to_num(data["z"].view_as("np", with_units=True), nan=out_of_bounds_val)
 
     # Extract time dimension based on whether phi is present
-    time_dim_idx = 3 if has_phi else 2
-    times = t0 + np.arange(np.shape(data[field].m)[time_dim_idx]) * dt
-
-    phi_array = data.phi.m if has_phi else None
+    time_dim_idx = 3 if phi_array is not None else 2
+    times = t0 + np.arange(np.shape(waveforms_4d)[time_dim_idx]) * dt
 
     return HPGePulseShapeLibrary(
-        data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times, phi_array
+        waveforms_4d, r_data.u, z_data.u, tu, r_data.m, z_data.m, times, phi_array
     )
 
 
