@@ -42,3 +42,22 @@ def test_read_pulse_shape_library(test_pulse_shape_library):
     assert isinstance(lib, HPGePulseShapeLibrary)
 
     assert np.shape(lib.waveforms) == (200, 200, 4001)
+
+
+def test_read_pulse_shape_library_with_phi(test_pulse_shape_library_with_phi):
+    """Test reading pulse shape library with phi-dependent fields."""
+    lib = get_hpge_pulse_shape_library(test_pulse_shape_library_with_phi, "V01", "waveforms")
+    assert isinstance(lib, HPGePulseShapeLibrary)
+
+    # Should have 4D array (r, z, phi, time)
+    assert np.shape(lib.waveforms) == (20, 20, 2, 100)
+
+    # Check phi angles are correctly extracted
+    assert lib.phi is not None
+    assert len(lib.phi) == 2
+    assert lib.phi[0] == 0.0
+    assert lib.phi[1] == 45.0
+
+    # Check that different phi have different values (should differ by factor of 2)
+    ratio = lib.waveforms[:, :, 1, :] / lib.waveforms[:, :, 0, :]
+    assert np.allclose(ratio, 2.0)
