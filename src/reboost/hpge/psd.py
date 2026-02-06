@@ -946,7 +946,7 @@ def waveform_from_pulse_shape_library(
     r"""Get the current waveform for each hit based on the pulse shape library.
 
     This is based on modelling the waveform as a sum over the pulse shape library templates:
-    
+
     .. math::
         A(t) = \sum_i E_i \times f(t, r_i, z_i)
 
