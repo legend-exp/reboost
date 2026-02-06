@@ -21,7 +21,6 @@ _reboost_ defines a common input format for these mappings as described in {func
 Alternatively for a more complete description of the PSD parameters a library of simulated waveforms can be used, again _reboost_
 defines a common input format (see {func}`reboost.hpge.utils.get_hpge_pulse_shape_library`).
 
-
 ## Drift time heuristic
 
 From this the drift time for each interaction in the HPGe detector can be extracted with {func}`reboost.hpge.psd.drift_time`. Based on this it is possible to compute the "drift time heuristic" (see {func}`reboost.hpge.psd.drift_time_heuristic`). This is an arbitrary value describing the likelihood of an event to fail a PSD cut. When compared to calibration data this can be used to emulate the effect of PSD cuts.
@@ -68,31 +67,31 @@ Currently n+ effects can only be included with the fixed template option of {fun
 
 :::
 
-
 ## Waveform simulation
 
-The library of simulated pulse shapes can also be used to extract a simulated waveform per event (see {func}`reboost.hpge.psd.waveform_pulse_shape_library`). This is simply performed by summing the waveforms in the pulse shape library weighted by their 
+The library of simulated pulse shapes can also be used to extract a simulated waveform per event (see {func}`reboost.hpge.psd.waveform_pulse_shape_library`). This is simply performed by summing the waveforms in the pulse shape library weighted by their
 energy.
 
 The following lines of code allow to extract a waveform per event:
 
 ```python
-
 # create the library
 library = reboost.hpge.utils.get_hpge_pulse_shape_library(...)
 
-#read the remage file
-steps = lh5.read("stp",...).view_as("ak",with_units = True)
+# read the remage file
+steps = lh5.read("stp", ...).view_as("ak", with_units=True)
 
 # compute r, here x0, y0, z0 are the detector origin
-r = np.sqrt((steps.xloc-x0)**2+(steps.yloc-y0)**2)
+r = np.sqrt((steps.xloc - x0) ** 2 + (steps.yloc - y0) ** 2)
 
 # now compute waveforms
-waveforms = reboost.hpge.psd.waveform_from_pulse_shape_library(steps.edep,r,(steps.zloc-z0),library)
+waveforms = reboost.hpge.psd.waveform_from_pulse_shape_library(
+    steps.edep, r, (steps.zloc - z0), library
+)
 
 # now plot etc
-
 ```
+
 :::{warning}
 
 This is many times slower than the {func}`reboost.hpge.psd.maximum_current` since the value of the waveform at every sample is calculated. The large size of the output waveforms means the function can also use a significant amount of memory.
