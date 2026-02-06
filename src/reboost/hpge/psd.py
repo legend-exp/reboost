@@ -260,15 +260,7 @@ def _current_pulse_model(
 ) -> NDArray:
     r"""Analytic model for the current pulse in a Germanium detector.
 
-    Consists of a Gaussian, a high side exponential tail and a low side tail:
-
-    .. math::
-
-      \begin{align}
-      A(t) = \; &A_\text{max} \times (1-p-p_h) \times \text{Gauss}(t;\mu,\sigma) \\
-        &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
-        &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{1}{2}e^{-t/\tau}
-      \end{align}
+    Consists of a Gaussian, a high side exponential tail and a low side tail.
 
     Parameters
     ----------
@@ -856,6 +848,11 @@ def maximum_current(
 ) -> ak.Array:
     """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
 
+    Warnings
+    --------
+    - If a pulse shape library is used it should consist of current waveforms normalised by their maximum.
+    - The templates will be shifted according to the drift time, thus it is important to ensure the waveforms are long enough (typically the time axis should extend beyond the range of drift times).
+
     Parameters
     ----------
     edep
@@ -956,6 +953,7 @@ def waveform_from_pulse_shape_library(
 
     Notes
     -----
+    - The pulse shape library should consist of waveforms aligned by t0.
     - This function is a slower way to get the psd parameters than :func:`maximum_current`, as it extracts the full waveform for each hit and then finds the maximum, rather than just finding the maximum directly.
     - The memory usage of this function can be high, as it extracts the full waveform for each hit.
 

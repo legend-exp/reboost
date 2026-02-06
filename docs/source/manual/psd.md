@@ -16,7 +16,7 @@ Charge drift software such as [SolidStateDetectors.jl](https://juliaphysics.gith
 can be used to compute the "drift time", or the time for charges to drift until reaching the contact, for each point in the
 HPGe detector. See [link](https://github.com/legend-exp/legend-simflow/blob/main/workflow/src/legendsimflow/scripts/make_hpge_drift_time_maps.jl) for example.
 
-_reboost_ defines a common input format for these mappings as described in {func}`reboost.hpge.utils.get_rz_field`.
+_reboost_ defines a common input format for these mappings as described in {func}`reboost.hpge.utils.get_hpge_rz_field`.
 
 Alternatively for a more complete description of the PSD parameters a library of simulated waveforms can be used, again _reboost_
 defines a common input format (see {func}`reboost.hpge.utils.get_hpge_pulse_shape_library`).
@@ -29,7 +29,13 @@ From this the drift time for each interaction in the HPGe detector can be extrac
 
 Additionally _rebost_ contains experimental methods to estimate the A/E parameter used for PSD in point-contact HPGe detectors.
 
-These models are based on combining the "impulse response" (waveform) of each step in the Geant4 event with time-shifts given by the drift time maps. This can either be based on a simple constant current waveform model (described in {func}`reboost.hpge.psd._current_pulse_model`) or a library of simulated pulse shapes ({func}`reboost.hpge.utils.get_hpge_pulse_shape_library`).
+These models are based on combining the "impulse response" (waveform) of each step in the Geant4 event with time-shifts given by the drift time maps. This can either be based on a simple constant current waveform model (described in {func}`reboost.hpge.psd.get_current_template`) or a library of simulated pulse shapes ({func}`reboost.hpge.utils.get_hpge_pulse_shape_library`).
+
+:::{note}
+
+The pulse shape library should consist of current waveforms aligned by the time of their maximum for A/E estimation.
+
+:::
 
 In both cases the maximum current ("A" from A/E) can be estimated by {func}`reboost.hpge.psd.maximum_current`.
 
@@ -37,7 +43,7 @@ The following lines of code allow to extract the drift time for each simulated h
 
 ```python
 # extract the necessary inputs
-template, times = reboost.hpge.psd.get_current_waveforms(...)
+template, times = reboost.hpge.psd.get_current_template(...)
 drift_time_map = reboost.hpge.utils.get_rz_field(...)
 
 # extract drift time
@@ -69,8 +75,14 @@ Currently n+ effects can only be included with the fixed template option of {fun
 
 ## Waveform simulation
 
-The library of simulated pulse shapes can also be used to extract a simulated waveform per event (see {func}`reboost.hpge.psd.waveform_pulse_shape_library`). This is simply performed by summing the waveforms in the pulse shape library weighted by their
+The library of simulated pulse shapes can also be used to extract a simulated waveform per event (see {func}`reboost.hpge.psd.waveform_from_pulse_shape_library`). This is simply performed by summing the waveforms in the pulse shape library weighted by their
 energy.
+
+:::{warning}
+
+The pulse shape library should consistient of waveforms aligned by t0 for waveform simulation.
+
+:::
 
 The following lines of code allow to extract a waveform per event:
 
