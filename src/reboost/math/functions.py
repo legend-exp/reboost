@@ -7,9 +7,9 @@ import sys
 import awkward as ak
 import numpy as np
 from lgdo import Array, VectorOfVectors
+from scipy.optimize import brentq
 
 from .. import units
-from scipy.optimize import brentq
 
 log = logging.getLogger(__name__)
 
@@ -166,11 +166,10 @@ def vectorised_active_energy(
 
     return units.attach_units(energy, "keV")
 
+
 def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: float):
-    
-    r"""MGTDExLinT HPGe activeness model (Exponential + Linear)
-    Here is how the function works
-    
+    r"""MGTDExLinT HPGe activeness model (Exponential + Linear) Here is how the function works.
+
     .. math::
 
     \[f(d) =
@@ -181,30 +180,30 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
         1 & \text{if } d > f
         \end{cases}
         \]
-    
+
     where,
     - `d`: Distance to surface,
     - `f`: Full charge collection depth (FCCD).
     - `alpha`: the slope of the linear part of the function, which controls how quickly the activeness increases in the linear region. A smaller alpha results in a steeper increase, while a larger alpha results in a more gradual increase.
     - `beta`: the characteristic length scale of the exponential part of the function, which controls how quickly the activeness increases in the exponential region. A smaller beta results in a steeper increase, while a larger beta results in a more gradual increase.
     - `trans_pt`: the transition point between the exponential and linear parts of the function, which is determined by the parameters fccd, alpha, and beta. It is calculated by matching the functions and the derivatives at the transition point, which ensures a smooth transition between the two regions. The transition point is found by solving the equation:
-         alpha + trans_pt - fccd + beta * exp(-trans_pt / beta) - beta = 0  
+         alpha + trans_pt - fccd + beta * exp(-trans_pt / beta) - beta = 0
     - `exp_norm`: the normalization factor for the exponential part of the function, which is determined by the parameters alpha and beta. It is calculated by ensuring that the exponential part of the function matches the linear part at the transition point, which ensures a smooth transition between the two regions.
-            exp_norm = (beta / alpha) * exp(-trans_pt/beta)  
-         
-    Notes: np.nan is assigned with the activeness = 1, matching the reboost convention.
-    
-    Returns:
-    activeness: :class::`VectorOfVectors` or :class:`Array` of the activeness"""
+            exp_norm = (beta / alpha) * exp(-trans_pt/beta)
 
-    #Covert to ak
+    Notes: np.nan is assigned with the activeness = 1, matching the reboost convention.
+
+    Returns
+    -------
+    activeness: :class::`VectorOfVectors` or :class:`Array` of the activeness
+    """
+    # Covert to ak
     distances_ak = units.units_conv_ak(distances, "mm")
 
-    #Flatten the distance to 1D
-    distances_flat = (ak.flatten(distances_ak).to_numpy() 
-                      if distances_ak.ndim > 1
-                      else distances_ak.to_numpy()
-                     )
+    # Flatten the distance to 1D
+    distances_flat = (
+        ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
+    )
     lengths = ak.num(distances_ak) if distances_ak.ndim > 1 else len(distances_ak)
     # --- parameter checks ----
     if fccd < 0:
@@ -213,20 +212,19 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
         raise ValueError("alpha must satisfy 0<= alpha <= FCCD.")
     if beta < 0:
         raise ValueError("beta must be >=0.")
-    if beta > 0 :
-        cond_check= beta * (1.0 - np.exp(-fccd / (beta + sys.float_info.epsilon))) #Adding epsilon to avoid numerical issues when alpha = 0.
+    if beta > 0:
+        cond_check = beta * (
+            1.0 - np.exp(-fccd / (beta + sys.float_info.epsilon))
+        )  # Adding epsilon to avoid numerical issues when alpha = 0.
     else:
         cond_check = 0.0
     if cond_check > alpha:
-        raise ValueError(" Unphysical parameters: beta * (1-exp(-FCCD/beta)) must be <= alpha. This condition is needed to ensure the smooth transition from exp to linear fccd model transition.")
-    
+        raise ValueError(
+            " Unphysical parameters: beta * (1-exp(-FCCD/beta)) must be <= alpha. This condition is needed to ensure the smooth transition from exp to linear fccd model transition."
+        )
 
-    #Constructing an excellent model.
-    if fccd == 0:
-        trans_pt = 0.0
-        exp_norm = 0.0
-        
-    elif alpha == 0:
+    # Constructing an excellent model.
+    if fccd == 0 or alpha == 0:
         trans_pt = 0.0
         exp_norm = 0.0
 
@@ -235,32 +233,40 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
         exp_norm = 0.0
     else:
         f = lambda trans_pt: alpha + trans_pt - fccd + beta * np.exp(-trans_pt / beta) - beta
-        #using brentq solver. #Matching this solver with the one used by the Majorana
-        #The transition point is between 0 and FCCD, but it must be greater than fccd - alpha to ensure the continuity and differentiability of the function. This is because the linear part starts at fccd - alpha, so the transition point must be greater than this value to ensure a smooth transition between the exponential and linear parts.
-        trans_pt = brentq(f, max(0.0, fccd- alpha), fccd) 
+        # using brentq solver. #Matching this solver with the one used by the Majorana
+        # The transition point is between 0 and FCCD, but it must be greater than fccd - alpha to ensure the continuity and differentiability of the function. This is because the linear part starts at fccd - alpha, so the transition point must be greater than this value to ensure a smooth transition between the exponential and linear parts.
+        trans_pt = brentq(f, max(0.0, fccd - alpha), fccd)
 
-        #Compute normalization factor for the exponential part of the function
-        exp_norm = (beta / alpha) * np.exp(-trans_pt/beta)
+        # Compute normalization factor for the exponential part of the function
+        exp_norm = (beta / alpha) * np.exp(-trans_pt / beta)
 
         activate = 1.0
 
     results = np.full_like(distances_flat, np.nan, dtype=np.float64)
 
-
-    mask_full = (distances_flat >= fccd) | np.isnan(distances_flat) #Assigning np.nan with activeness = 1, matching the reboost convention.
-    mask_alpha_zero = (distances_flat >= trans_pt) & (alpha == 0.0) & (~mask_full) #If alpha is zero, the function becomes a step function, so any distance greater than or equal to the transition point is fully active, and any distance less than the transition point is inactive.
-    mask_lin = (distances_flat >=trans_pt) & (alpha !=0) & (~mask_full)
-    mask_exp_zero = (distances_flat < trans_pt) & (beta == 0.0) 
-    mask_exp = ~(mask_full | mask_alpha_zero | mask_lin | mask_exp_zero) #Safe, avoids recomputing anything expensive
-
+    mask_full = (distances_flat >= fccd) | np.isnan(
+        distances_flat
+    )  # Assigning np.nan with activeness = 1, matching the reboost convention.
+    mask_alpha_zero = (
+        (distances_flat >= trans_pt) & (alpha == 0.0) & (~mask_full)
+    )  # If alpha is zero, the function becomes a step function, so any distance greater than or equal to the transition point is fully active, and any distance less than the transition point is inactive.
+    mask_lin = (distances_flat >= trans_pt) & (alpha != 0) & (~mask_full)
+    mask_exp_zero = (distances_flat < trans_pt) & (beta == 0.0)
+    mask_exp = ~(
+        mask_full | mask_alpha_zero | mask_lin | mask_exp_zero
+    )  # Safe, avoids recomputing anything expensive
 
     results[mask_full] = 1.0
     results[mask_alpha_zero] = 0.0
     results[mask_exp_zero] = 0.0
-    results[mask_lin] = 1.0 + (distances_flat[mask_lin] - fccd) / (alpha +  sys.float_info.epsilon) #Adding epsilon to avoid numerical issues when alpha = 0.
-    results[mask_exp] = exp_norm * (-1.0 + np.exp(distances_flat[mask_exp] / (beta +  sys.float_info.epsilon))) #Adding epsilon to avoid numerical issues when beta = 0.
+    results[mask_lin] = 1.0 + (distances_flat[mask_lin] - fccd) / (
+        alpha + sys.float_info.epsilon
+    )  # Adding epsilon to avoid numerical issues when alpha = 0.
+    results[mask_exp] = exp_norm * (
+        -1.0 + np.exp(distances_flat[mask_exp] / (beta + sys.float_info.epsilon))
+    )  # Adding epsilon to avoid numerical issues when beta = 0.
 
-    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim >1 else results
+    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
     results = ak.Array(results)
     print("Done")
     return units.attach_units(results, "mm")
