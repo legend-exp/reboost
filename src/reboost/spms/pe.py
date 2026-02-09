@@ -4,10 +4,9 @@ import logging
 
 import awkward as ak
 import numpy as np
-from lgdo import VectorOfVectors
 
 from ..optmap import convolve
-from ..units import units_conv_ak
+from ..units import attach_units, units_conv_ak
 
 log = logging.getLogger(__name__)
 
@@ -108,7 +107,7 @@ def detected_photoelectrons(
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
-) -> VectorOfVectors:
+) -> ak.Array:
     """Derive the number and arrival times of detected photoelectrons (p.e.) from scintillator hits using an optical map.
 
     .. deprecated :: 0.8.5
@@ -159,12 +158,10 @@ def detected_photoelectrons(
         hits, optmap, scint_mat_params, spm_detector, map_scaling, map_scaling_sigma
     )
 
-    return VectorOfVectors(pe, attrs={"units": "ns"})
+    return attach_units(pe, "ns")
 
 
-def emitted_scintillation_photons(
-    edep: ak.Array, particle: ak.Array, material: str
-) -> VectorOfVectors:
+def emitted_scintillation_photons(edep: ak.Array, particle: ak.Array, material: str) -> ak.Array:
     """Derive the number of emitted scintillation photons from scintillator hits.
 
     Parameters
@@ -184,8 +181,7 @@ def emitted_scintillation_photons(
     )
 
     scint_mat_params = convolve._get_scint_params(material)
-    ph = convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
-    return VectorOfVectors(ph)
+    return convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
 
 
 def number_of_detected_photoelectrons(
@@ -197,7 +193,7 @@ def number_of_detected_photoelectrons(
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
-) -> VectorOfVectors:
+) -> ak.Array:
     """Derive the number of detected photoelectrons (p.e.) from scintillator hits using an optical map.
 
     Parameters
@@ -222,10 +218,9 @@ def number_of_detected_photoelectrons(
         }
     )
 
-    ph = convolve.iterate_stepwise_depositions_numdet(
+    return convolve.iterate_stepwise_depositions_numdet(
         hits, optmap, spm_detector, map_scaling, map_scaling_sigma
     )
-    return VectorOfVectors(ph)
 
 
 def photoelectron_times(
@@ -233,7 +228,7 @@ def photoelectron_times(
     particle: ak.Array,
     time: ak.Array,
     material: str,
-) -> VectorOfVectors:
+) -> ak.Array:
     """Derive the arrival times of scintillation photons.
 
     Parameters
@@ -259,4 +254,4 @@ def photoelectron_times(
     scint_mat_params = convolve._get_scint_params(material)
     pe = convolve.iterate_stepwise_depositions_times(hits, scint_mat_params)
 
-    return VectorOfVectors(pe, attrs={"units": "ns"})
+    return attach_units(pe, "ns")
