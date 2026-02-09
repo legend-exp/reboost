@@ -242,6 +242,10 @@ def photoelectron_times(
         array of timestamps of scintillation events.
     material
         scintillating material name.
+
+    Notes
+    -----
+    The resulting times are unsorted along the innermost axis.
     """
     hits = ak.Array(
         {
