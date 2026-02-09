@@ -167,8 +167,7 @@ def vectorised_active_energy(
 
 
 def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: float):
-    r"""
-    MGTDExLinT HPGe activeness model (Exponential + Linear).
+    r"""MGTDExLinT HPGe activeness model (Exponential + Linear).
 
     .. math::
 
@@ -180,7 +179,7 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
         \end{cases}
 
     Where:
-    
+
     - `d`: Distance to surface,
     - `f`: Full charge collection depth (FCCD).
     - `alpha`: the slope of the linear part of the function, which controls how quickly the activeness increases in the linear region. A smaller alpha results in a steeper increase, while a larger alpha results in a more gradual increase.
