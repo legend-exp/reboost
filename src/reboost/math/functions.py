@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import logging
+import math
+import sys
 
 import awkward as ak
 import numpy as np
 from lgdo import Array, VectorOfVectors
+from scipy.optimize import brentq
 
 from .. import units
 
@@ -31,8 +34,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     - `l`: Dead layer fraction, the fraction of the FCCD which is fully inactive
     - `f`: Full charge collection depth (FCCD).
 
-    In addition, any distance of `np.nan` (for example if the calculation
-    was not performed for some steps) is assigned an activeness of one.
+
 
     Parameters
     ----------
@@ -162,3 +164,125 @@ def vectorised_active_energy(
     energy = ak.sum(ak.unflatten(results * edep_flat, runs), axis=-2)
 
     return units.attach_units(energy, "keV")
+
+
+def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: float):
+    r"""Exponentially modified linear HPGe activeness model.
+
+    This is based on a charge collection efficiency of:
+
+    .. math::
+
+        f(d) =
+        \begin{cases}
+        \mathrm{exp\_norm} * \left(e^{d/\beta} - 1\right) & \text{if } 0 \leq d < \mathrm{trans\_pt}, \\
+        1 + \frac{d - f}{\alpha} & \text{if } \mathrm{trans\_pt} \leq d \leq f, \\
+        1 & \text{if } d > f
+        \end{cases}
+
+    Where:
+
+    - `d`: Distance to surface,
+    - `f`: Full charge collection depth (FCCD).
+    - `alpha`: the slope of the linear part of the function, which controls how quickly the activeness increases in the linear region. A smaller alpha results in a steeper increase, while a larger alpha results in a more gradual increase.
+    - `beta`: the characteristic length scale of the exponential part of the function, which controls how quickly the activeness increases in the exponential region. A smaller beta results in a steeper increase, while a larger beta results in a more gradual increase.
+    - `trans_pt`: the transition point between the exponential and linear parts of the function, which is determined by the parameters fccd, alpha, and beta. It is calculated by matching the functions and the derivatives at the transition point, which ensures a smooth transition between the two regions. The transition point is found by solving the equation:
+
+      .. math::
+
+         \alpha + \mathrm{trans\_pt} -f + \beta e^{-\mathrm{trans\_pt}/\beta} - \beta = 0
+
+    - `exp_norm`: the normalization factor for the exponential part of the function, which is determined by the parameters alpha and beta. It is calculated by ensuring that the exponential part of the function matches the linear part at the transition point, which ensures a smooth transition between the two regions.
+
+        .. math::
+
+           \mathrm{exp\_norm} = \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
+
+    Parameters
+    ----------
+    distances
+        the distance from each step to the detector surface. The computation
+        is performed for each element and the shape preserved in the output.
+
+    fccd_in_mm
+        the value of the FCCD
+    alpha
+        the slope parameter for the linear part of the function, which controls how quickly the activeness increases in the linear region. 1 / alpha is the slope of the linear part of the function.
+    beta
+        the characteristic length scale for the exponential part of the function, which controls how quickly the activeness increases in the exponential region.
+
+    Returns
+    -------
+    activeness: :class::`ak.Array` of the activeness per step
+    """
+    # Convert to ak
+    distances_ak = units.units_conv_ak(distances, "mm")
+
+    # Flatten the distance to 1D
+    distances_flat = (
+        ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
+    )
+    lengths = ak.num(distances_ak) if distances_ak.ndim > 1 else len(distances_ak)
+    # --- parameter checks ----
+    if fccd < 0:
+        msg = "FCCD must be >=0."
+        raise ValueError(msg)
+    if alpha < 0 or alpha > fccd:
+        msg = "alpha must satisfy 0<= alpha <= FCCD."
+        raise ValueError(msg)
+    if beta < 0:
+        msg = "beta must be >=0."
+        raise ValueError(msg)
+
+    cond_check = beta * (1.0 - np.exp(-fccd / (beta + sys.float_info.epsilon))) if beta > 0 else 0.0
+    if cond_check > alpha:
+        msg = " Unphysical parameters: beta * (1-exp(-FCCD/beta)) must be <= alpha. This condition is needed to ensure the smooth transition from exp to linear fccd model transition."
+        raise ValueError(msg)
+
+    # Constructing an excellent model.
+    if fccd == 0 or alpha == 0:
+        trans_pt = 0.0
+        exp_norm = 0.0
+
+    elif (beta == 0) or (fccd / beta > math.log(sys.float_info.max)):
+        trans_pt = fccd - alpha
+        exp_norm = 0.0
+    else:
+
+        def f(trans_pt: float) -> float:
+            return alpha + trans_pt - fccd + beta * np.exp(-trans_pt / beta) - beta
+
+        # using brentq solver. #Matching this solver with the one used by the Majorana
+        # The transition point is between 0 and FCCD, but it must be greater than fccd - alpha to ensure the continuity and differentiability of the function. This is because the linear part starts at fccd - alpha, so the transition point must be greater than this value to ensure a smooth transition between the exponential and linear parts.
+        trans_pt = brentq(f, max(0.0, fccd - alpha), fccd)
+
+        # Compute normalization factor for the exponential part of the function
+        exp_norm = (beta / alpha) * np.exp(-trans_pt / beta)
+
+    results = np.full_like(distances_flat, np.nan, dtype=np.float64)
+
+    mask_full = (distances_flat >= fccd) | np.isnan(
+        distances_flat
+    )  # Assigning np.nan with activeness = 1, matching the reboost convention.
+    mask_alpha_zero = (
+        (distances_flat >= trans_pt) & (alpha == 0.0) & (~mask_full)
+    )  # If alpha is zero, the function becomes a step function, so any distance greater than or equal to the transition point is fully active, and any distance less than the transition point is inactive.
+    mask_lin = (distances_flat >= trans_pt) & (alpha != 0) & (~mask_full)
+    mask_exp_zero = (distances_flat < trans_pt) & (beta == 0.0)
+    mask_exp = ~(
+        mask_full | mask_alpha_zero | mask_lin | mask_exp_zero
+    )  # Safe, avoids recomputing anything expensive
+
+    results[mask_full] = 1.0
+    results[mask_alpha_zero] = 0.0
+    results[mask_exp_zero] = 0.0
+    results[mask_lin] = 1.0 + (distances_flat[mask_lin] - fccd) / (
+        alpha + sys.float_info.epsilon
+    )  # Adding epsilon to avoid numerical issues when alpha = 0.
+    results[mask_exp] = exp_norm * (
+        -1.0 + np.exp(distances_flat[mask_exp] / (beta + sys.float_info.epsilon))
+    )  # Adding epsilon to avoid numerical issues when beta = 0.
+
+    results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
+
+    return ak.Array(results)
