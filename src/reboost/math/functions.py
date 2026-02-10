@@ -167,7 +167,9 @@ def vectorised_active_energy(
 
 
 def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: float):
-    r"""MGTDExLinT HPGe activeness model (Exponential + Linear).
+    r"""Exponentially modified linear HPGe activeness model.
+
+    This is based on a charge collection efficiency of:
 
     .. math::
 
@@ -185,9 +187,16 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
     - `alpha`: the slope of the linear part of the function, which controls how quickly the activeness increases in the linear region. A smaller alpha results in a steeper increase, while a larger alpha results in a more gradual increase.
     - `beta`: the characteristic length scale of the exponential part of the function, which controls how quickly the activeness increases in the exponential region. A smaller beta results in a steeper increase, while a larger beta results in a more gradual increase.
     - `trans_pt`: the transition point between the exponential and linear parts of the function, which is determined by the parameters fccd, alpha, and beta. It is calculated by matching the functions and the derivatives at the transition point, which ensures a smooth transition between the two regions. The transition point is found by solving the equation:
-         alpha + trans_pt - fccd + beta * exp(-trans_pt / beta) - beta = 0
+
+      .. math::
+
+         \alpha + \mathrm{trans\_pt} -f + \beta e^{-\mathrm{trans\_pt}/\beta} - \beta = 0
+
     - `exp_norm`: the normalization factor for the exponential part of the function, which is determined by the parameters alpha and beta. It is calculated by ensuring that the exponential part of the function matches the linear part at the transition point, which ensures a smooth transition between the two regions.
-            exp_norm = (beta / alpha) * exp(-trans_pt/beta)
+
+        .. math::
+
+           \mathrm{exp\_norm} = \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
 
     Parameters
     ----------
