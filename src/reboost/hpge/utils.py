@@ -93,7 +93,7 @@ def get_hpge_pulse_shape_library(
     # Check for phi-dependent fields (e.g., waveforms_000_deg, waveforms_045_deg)
     phi_fields = []
     phi_angles = []
-    for key in data.keys():
+    for key in data:
         if key.startswith(f"{field}_") and key.endswith("_deg"):
             # Extract phi angle from field name
             try:
