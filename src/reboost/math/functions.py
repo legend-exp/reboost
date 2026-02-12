@@ -75,9 +75,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     # reshape
     results = ak.unflatten(ak.Array(results), lengths) if distances_ak.ndim > 1 else results
 
-    results = ak.Array(results)
-
-    return units.attach_units(results, "mm")
+    return ak.Array(results)
 
 
 def vectorised_active_energy(
