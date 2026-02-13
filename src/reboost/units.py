@@ -115,12 +115,9 @@ def units_conv_ak(
     # return ak.Array
     if isinstance(data, LGDO):
         return data.view_as("ak")
-
-    if isinstance(data, np.ndarray):
-        return ak.Array(data)
-    if data is not None:
-        return ak.Array(data)
-    return data
+    if isinstance(data, ak.Array):
+        return data
+    return ak.Array(data)
 
 
 def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, pint.Unit | None]:
