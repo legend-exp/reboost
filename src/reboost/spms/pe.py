@@ -221,6 +221,7 @@ def number_of_detected_photoelectrons(
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
+    photon_threshold_per_hit: int = -1,
 ) -> ak.Array:
     """Derive the number of detected photoelectrons.
 
@@ -255,7 +256,7 @@ def number_of_detected_photoelectrons(
     )
 
     return convolve.iterate_stepwise_depositions_numdet(
-        hits, optmap, spm_detector, map_scaling, map_scaling_sigma
+        hits, optmap, spm_detector, map_scaling, map_scaling_sigma, photon_threshold_per_hit
     )
 
 
