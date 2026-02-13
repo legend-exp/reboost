@@ -4,7 +4,6 @@ import logging
 from typing import Any
 
 import awkward as ak
-import numpy as np
 import pint
 import pyg4ometry as pg4
 from lgdo import LGDO
