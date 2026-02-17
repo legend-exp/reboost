@@ -56,7 +56,7 @@ def test_number_of_detected_photoelectrons(mock_optmap_for_convolve):
     zloc = ak.Array([[0.1, 0.2], [0.3]])
     num_scint_ph = ak.Array([[10, 20], [30]])
 
-    out, is_max = number_of_detected_photoelectrons(
+    out = number_of_detected_photoelectrons(
         xloc,
         yloc,
         zloc,
@@ -65,7 +65,6 @@ def test_number_of_detected_photoelectrons(mock_optmap_for_convolve):
         "all",
     )
 
-    assert is_max.tolist() == [False, False]
     assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)

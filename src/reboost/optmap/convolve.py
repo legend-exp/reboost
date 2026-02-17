@@ -172,7 +172,7 @@ def iterate_stepwise_depositions_numdet(
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
     rng: np.random.Generator | None = None,
-):
+) -> ak.Array | tuple[ak.Array, NDArray]:
     if edep_hits.xloc.ndim == 1:
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
@@ -203,7 +203,9 @@ def iterate_stepwise_depositions_numdet(
             (res["oob"] / (res["ib"] + res["oob"])) * 100,
         )
 
-    return ak.unflatten(output_array, counts), max_ph_reached
+    if max_pes_per_hit > 0:
+        return ak.unflatten(output_array, counts), max_ph_reached
+    return ak.unflatten(output_array, counts)
 
 
 def iterate_stepwise_depositions_times(
@@ -425,6 +427,7 @@ def _iterate_stepwise_depositions_numdet(
             output_index += 1
 
     assert output_index == output_length
+
     return (
         output,
         has_max_ph_hit,

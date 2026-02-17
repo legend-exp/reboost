@@ -4,6 +4,7 @@ import logging
 
 import awkward as ak
 import numpy as np
+from numpy.typing import NDArray
 
 from ..optmap import convolve
 from ..units import attach_units, units_conv_ak
@@ -222,7 +223,7 @@ def number_of_detected_photoelectrons(
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
-) -> ak.Array:
+) -> ak.Array | tuple[ak.Array, NDArray]:
     """Derive the number of detected photoelectrons.
 
     This processor uses the provided optical map to convert emitted
@@ -244,10 +245,17 @@ def number_of_detected_photoelectrons(
         Maximum number of photoelectrons to generate for a single scintillation
         hit. Use ``-1`` to disable this limit.
 
+    Warning
+    -------
+    The `max_pes_per_hit` argument cannot be used in a ``build_hit()`` config
+    file, since a tuple is returned in this case.
+
     Returns
     -------
     Awkward array of integer p.e. counts with the same nested list structure
-    (shape) as the input `num_scint_ph` array.
+    (shape) as the input `num_scint_ph` array. If `max_pes_per_hit` is greater
+    than zero, returns a tuple of the p.e. counts and a 1D boolean array that
+    tells whether the maximum number of p.e.s was reached for the hit.
     """
     hits = ak.Array(
         {
