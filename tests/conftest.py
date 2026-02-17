@@ -58,7 +58,7 @@ def patch_numba_for_tests():
 def mock_optmap_for_convolve():
     edges_1d = np.linspace(0.0, 1.0, 11)
     edges = (edges_1d, edges_1d, edges_1d)
-    weights = np.zeros((1, 10, 10, 10), dtype=np.float64)
+    weights = np.full((1, 10, 10, 10), 0.1, dtype=np.float64)
     return OptmapForConvolve(np.array(["all"]), np.array([0]), edges, weights)
 
 
