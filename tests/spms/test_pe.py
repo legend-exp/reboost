@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import awkward as ak
 
-from reboost.spms.pe import corrected_photoelectrons
+from reboost.spms.pe import corrected_photoelectrons, emitted_scintillation_photons
 
 
 def test_forced_trigger_correction():
@@ -32,3 +32,12 @@ def test_forced_trigger_correction():
     )
     assert ak.all(pe == [[3, 1], [4, 1], [5, 4]])
     assert ak.all(uid == [[0, 1], [0, 1], [0, 1]])
+
+
+def test_emitted_scintillation_photons_shape():
+    edep = ak.Array([[1.0, 2.0], [3.0]])
+    particle = ak.Array([[22, 22], [22]])
+
+    out = emitted_scintillation_photons(edep, particle, "lar")
+
+    assert ak.num(out).tolist() == ak.num(edep).tolist()
