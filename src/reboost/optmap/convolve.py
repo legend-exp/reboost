@@ -127,12 +127,13 @@ def iterate_stepwise_depositions_pois(
 
     if res["det_no_stats"] > 0:
         log.warning(
-            "had edep out in voxels without stats: %d",
+            "steps in optmap voxels without stats: %d (%.2f%%)",
             res["det_no_stats"],
+            (res["det_no_stats"] / (res["ib"] + res["oob"])) * 100,
         )
     if res["oob"] > 0:
         log.warning(
-            "had edep out of map bounds: %d (%.2f%%)",
+            "steps outside optmap domain: %d (%.2f%%)",
             res["oob"],
             (res["oob"] / (res["ib"] + res["oob"])) * 100,
         )
@@ -193,12 +194,13 @@ def iterate_stepwise_depositions_numdet(
 
     if res["det_no_stats"] > 0:
         log.warning(
-            "had edep out in voxels without stats: %d",
+            "steps in optmap voxels without stats: %d (%.2f%%)",
             res["det_no_stats"],
+            (res["det_no_stats"] / (res["ib"] + res["oob"])) * 100,
         )
     if res["oob"] > 0:
         log.warning(
-            "had edep out of map bounds: %d (%.2f%%)",
+            "steps outside optmap domain: %d (%.2f%%)",
             res["oob"],
             (res["oob"] / (res["ib"] + res["oob"])) * 100,
         )
