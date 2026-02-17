@@ -6,6 +6,7 @@ from reboost.spms.pe import (
     corrected_photoelectrons,
     emitted_scintillation_photons,
     number_of_detected_photoelectrons,
+    photoelectron_times,
 )
 
 
@@ -67,3 +68,14 @@ def test_number_of_detected_photoelectrons_shape(mock_optmap_for_convolve):
     assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)
+
+
+def test_photoelectron_times_shape():
+    num_det_ph = ak.Array([[0, 2], [1]])
+    particle = ak.Array([[22, 22], [22]])
+    time = ak.Array([[0.0, 1.0], [2.0]])
+
+    out = photoelectron_times(num_det_ph, particle, time, "lar")
+
+    assert ak.num(out).tolist() == ak.sum(num_det_ph, axis=1).tolist()
+    assert ak.all(out >= 0)
