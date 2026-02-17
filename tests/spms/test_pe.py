@@ -84,7 +84,7 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve):
         num_scint_ph,
         mock_optmap_for_convolve,
         "all",
-        photon_threshold_per_hit=5,
+        max_pes_per_hit=5,
     )
 
     assert is_max.tolist() == [False, True]
@@ -101,7 +101,7 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve):
         num_scint_ph,
         mock_optmap_for_convolve,
         "all",
-        photon_threshold_per_hit=5,
+        max_pes_per_hit=5,
     )
 
     assert is_max.tolist() == [True, False]

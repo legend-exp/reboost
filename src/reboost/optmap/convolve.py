@@ -170,7 +170,7 @@ def iterate_stepwise_depositions_numdet(
     det: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
-    photon_threshold_per_hit: int = -1,
+    max_pes_per_hit: int = -1,
     rng: np.random.Generator | None = None,
 ):
     if edep_hits.xloc.ndim == 1:
@@ -188,7 +188,7 @@ def iterate_stepwise_depositions_numdet(
         optmap.edges,
         optmap.weights,
         ak.sum(counts),
-        photon_threshold_per_hit,
+        max_pes_per_hit,
     )
 
     if res["det_no_stats"] > 0:
@@ -369,7 +369,7 @@ def _iterate_stepwise_depositions_numdet(
     optmap_edges,
     optmap_weights,
     output_length: int,
-    photon_threshold_per_hit: int = -1,
+    max_pes_per_hit: int = -1,
 ):
     oob = ib = det_no_stats = skipped = 0
     output = np.empty(shape=output_length, dtype=np.int64)
@@ -386,7 +386,7 @@ def _iterate_stepwise_depositions_numdet(
         # iterate steps inside the hit
         photons_in_hit = 0
         for si in range(len(hit.xloc)):
-            if photon_threshold_per_hit > 0 and photons_in_hit >= photon_threshold_per_hit:
+            if max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit:
                 output[output_index] = 0
                 output_index += 1
                 skipped += 1
@@ -418,8 +418,8 @@ def _iterate_stepwise_depositions_numdet(
 
             pois_cnt = 0 if detp <= 0.0 else rng.poisson(lam=hit.num_scint_ph[si] * detp)
             photons_in_hit += pois_cnt
-            if photon_threshold_per_hit > 0 and photons_in_hit >= photon_threshold_per_hit:
-                pois_cnt -= photons_in_hit - photon_threshold_per_hit
+            if max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit:
+                pois_cnt -= photons_in_hit - max_pes_per_hit
                 has_max_ph_hit[rowid] = True
             output[output_index] = pois_cnt
             output_index += 1
