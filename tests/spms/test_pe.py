@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import awkward as ak
 
-from reboost.spms.pe import corrected_photoelectrons, emitted_scintillation_photons
+from reboost.spms.pe import (
+    corrected_photoelectrons,
+    emitted_scintillation_photons,
+    number_of_detected_photoelectrons,
+)
 
 
 def test_forced_trigger_correction():
@@ -41,5 +45,30 @@ def test_emitted_scintillation_photons_shape():
     out = emitted_scintillation_photons(edep, particle, "lar")
 
     assert ak.num(out).tolist() == ak.num(edep).tolist()
+    assert ak.all(out >= 0)
+    assert ak.all(ak.values_astype(out, int) == out)
+
+
+def test_number_of_detected_photoelectrons_shape():
+    xloc = ak.Array([[0.1, 0.2], [0.3]])
+    yloc = ak.Array([[0.1, 0.2], [0.3]])
+    zloc = ak.Array([[0.1, 0.2], [0.3]])
+    num_scint_ph = ak.Array([[10, 20], [30]])
+
+    class _DummyOptmap:
+        pass
+
+    optmap = _DummyOptmap()
+
+    out = number_of_detected_photoelectrons(
+        xloc,
+        yloc,
+        zloc,
+        num_scint_ph,
+        optmap,  # type: ignore[arg-type]
+        "all",
+    )
+
+    assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)
