@@ -41,3 +41,5 @@ def test_emitted_scintillation_photons_shape():
     out = emitted_scintillation_photons(edep, particle, "lar")
 
     assert ak.num(out).tolist() == ak.num(edep).tolist()
+    assert ak.all(out >= 0)
+    assert ak.all(ak.values_astype(out, int) == out)
