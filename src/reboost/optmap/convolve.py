@@ -89,6 +89,39 @@ def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
     return OptmapForConvolve(np.array([spm_det]), np.array([0]), optmap_edges, ow)
 
 
+def _warn_deposition_stats(res: dict) -> None:
+    looped_steps = res["ib"] + res["oob"]
+    if res["det_no_stats"] > 0:
+        log.warning(
+            "steps in optmap voxels without stats: %d (%.2f%%)",
+            res["det_no_stats"],
+            (res["det_no_stats"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
+        )
+    if res["oob"] > 0:
+        log.warning(
+            "steps outside optmap domain: %d (%.2f%%)",
+            res["oob"],
+            (res["oob"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
+        )
+
+    if res["vuv_primary_oob"] > 0:
+        log.warning(
+            "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
+            res["vuv_primary_oob"],
+            (res["vuv_primary_oob"] / res["vuv_primary_looped"]) * 100
+            if res["vuv_primary_looped"] > 0
+            else 0.0,
+        )
+    if res["vuv_primary_no_stats"] > 0:
+        log.warning(
+            "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
+            res["vuv_primary_no_stats"],
+            (res["vuv_primary_no_stats"] / res["vuv_primary_looped"]) * 100
+            if res["vuv_primary_looped"] > 0
+            else 0.0,
+        )
+
+
 def iterate_stepwise_depositions_pois(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
@@ -125,36 +158,7 @@ def iterate_stepwise_depositions_pois(
             for a in r:
                 builder.extend(a)
 
-    looped_steps = res["ib"] + res["oob"]
-    if res["det_no_stats"] > 0:
-        log.warning(
-            "steps in optmap voxels without stats: %d (%.2f%%)",
-            res["det_no_stats"],
-            (res["det_no_stats"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
-    if res["oob"] > 0:
-        log.warning(
-            "steps outside optmap domain: %d (%.2f%%)",
-            res["oob"],
-            (res["oob"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
-
-    if res["vuv_primary_oob"] > 0:
-        log.warning(
-            "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
-            res["vuv_primary_oob"],
-            (res["vuv_primary_oob"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
-    if res["vuv_primary_no_stats"] > 0:
-        log.warning(
-            "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
-            res["vuv_primary_no_stats"],
-            (res["vuv_primary_no_stats"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
+    _warn_deposition_stats(res)
 
     log.debug(
         "VUV_primary %d ->hits %d (%.2f %% primaries detected in this channel)",
@@ -211,36 +215,7 @@ def iterate_stepwise_depositions_numdet(
         max_pes_per_hit,
     )
 
-    looped_steps = res["ib"] + res["oob"]
-    if res["det_no_stats"] > 0:
-        log.warning(
-            "steps in optmap voxels without stats: %d (%.2f%%)",
-            res["det_no_stats"],
-            (res["det_no_stats"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
-    if res["oob"] > 0:
-        log.warning(
-            "steps outside optmap domain: %d (%.2f%%)",
-            res["oob"],
-            (res["oob"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
-
-    if res["vuv_primary_oob"] > 0:
-        log.warning(
-            "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
-            res["vuv_primary_oob"],
-            (res["vuv_primary_oob"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
-    if res["vuv_primary_no_stats"] > 0:
-        log.warning(
-            "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
-            res["vuv_primary_no_stats"],
-            (res["vuv_primary_no_stats"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
+    _warn_deposition_stats(res)
 
     if max_pes_per_hit > 0:
         return ak.unflatten(output_array, counts), max_ph_reached
