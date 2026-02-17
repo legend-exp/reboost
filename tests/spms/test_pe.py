@@ -49,23 +49,18 @@ def test_emitted_scintillation_photons_shape():
     assert ak.all(ak.values_astype(out, int) == out)
 
 
-def test_number_of_detected_photoelectrons_shape():
+def test_number_of_detected_photoelectrons_shape(mock_optmap_for_convolve):
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
     num_scint_ph = ak.Array([[10, 20], [30]])
-
-    class _DummyOptmap:
-        pass
-
-    optmap = _DummyOptmap()
 
     out = number_of_detected_photoelectrons(
         xloc,
         yloc,
         zloc,
         num_scint_ph,
-        optmap,  # type: ignore[arg-type]
+        mock_optmap_for_convolve,
         "all",
     )
 
