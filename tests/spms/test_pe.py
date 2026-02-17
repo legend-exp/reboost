@@ -39,7 +39,7 @@ def test_forced_trigger_correction():
     assert ak.all(uid == [[0, 1], [0, 1], [0, 1]])
 
 
-def test_emitted_scintillation_photons_shape():
+def test_emitted_scintillation_photons():
     edep = ak.Array([[1.0, 2.0], [3.0]])
     particle = ak.Array([[22, 22], [22]])
 
@@ -50,13 +50,13 @@ def test_emitted_scintillation_photons_shape():
     assert ak.all(ak.values_astype(out, int) == out)
 
 
-def test_number_of_detected_photoelectrons_shape(mock_optmap_for_convolve):
+def test_number_of_detected_photoelectrons(mock_optmap_for_convolve):
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
     num_scint_ph = ak.Array([[10, 20], [30]])
 
-    out = number_of_detected_photoelectrons(
+    out, is_max = number_of_detected_photoelectrons(
         xloc,
         yloc,
         zloc,
@@ -65,12 +65,49 @@ def test_number_of_detected_photoelectrons_shape(mock_optmap_for_convolve):
         "all",
     )
 
+    assert is_max.tolist() == [False, False]
     assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)
 
 
-def test_photoelectron_times_shape():
+def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve):
+    xloc = ak.Array([[0.1, 0.2], [0.3]])
+    yloc = ak.Array([[0.1, 0.2], [0.3]])
+    zloc = ak.Array([[0.1, 0.2], [0.3]])
+    num_scint_ph = ak.Array([[1, 1], [3000]])
+
+    out, is_max = number_of_detected_photoelectrons(
+        xloc,
+        yloc,
+        zloc,
+        num_scint_ph,
+        mock_optmap_for_convolve,
+        "all",
+        photon_threshold_per_hit=5,
+    )
+
+    assert is_max.tolist() == [False, True]
+    assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
+    assert ak.all(out >= 0)
+    assert ak.all(ak.values_astype(out, int) == out)
+
+    num_scint_ph = ak.Array([[1, 10000], [1]])
+
+    out, is_max = number_of_detected_photoelectrons(
+        xloc,
+        yloc,
+        zloc,
+        num_scint_ph,
+        mock_optmap_for_convolve,
+        "all",
+        photon_threshold_per_hit=5,
+    )
+
+    assert is_max.tolist() == [True, False]
+
+
+def test_photoelectron_times():
     num_det_ph = ak.Array([[0, 2], [1]])
     particle = ak.Array([[22, 22], [22]])
     time = ak.Array([[0.0, 1.0], [2.0]])

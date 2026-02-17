@@ -179,7 +179,7 @@ def iterate_stepwise_depositions_numdet(
 
     rng = np.random.default_rng() if rng is None else rng
     counts = ak.num(edep_hits.num_scint_ph)
-    output_array, res = _iterate_stepwise_depositions_numdet(
+    output_array, max_ph_reached, res = _iterate_stepwise_depositions_numdet(
         edep_hits,
         rng,
         np.where(optmap.dets == det)[0][0],
@@ -203,7 +203,7 @@ def iterate_stepwise_depositions_numdet(
             (res["oob"] / (res["ib"] + res["oob"])) * 100,
         )
 
-    return ak.unflatten(output_array, counts)
+    return ak.unflatten(output_array, counts), max_ph_reached
 
 
 def iterate_stepwise_depositions_times(
@@ -373,6 +373,7 @@ def _iterate_stepwise_depositions_numdet(
 ):
     oob = ib = det_no_stats = skipped = 0
     output = np.empty(shape=output_length, dtype=np.int64)
+    has_max_ph_hit = np.full(shape=len(edep_hits), fill_value=False, dtype=np.bool)
 
     output_index = 0
     for rowid in range(len(edep_hits)):  # iterate hits
@@ -389,6 +390,7 @@ def _iterate_stepwise_depositions_numdet(
                 output[output_index] = 0
                 output_index += 1
                 skipped += 1
+                has_max_ph_hit[rowid] = True
                 continue
 
             loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]], dtype=np.float64)
@@ -418,10 +420,16 @@ def _iterate_stepwise_depositions_numdet(
             photons_in_hit += pois_cnt
             if photon_threshold_per_hit > 0 and photons_in_hit >= photon_threshold_per_hit:
                 pois_cnt -= photons_in_hit - photon_threshold_per_hit
+                has_max_ph_hit[rowid] = True
             output[output_index] = pois_cnt
             output_index += 1
+
     assert output_index == output_length
-    return output, {"oob": oob, "ib": ib, "det_no_stats": det_no_stats, "skipped": skipped}
+    return (
+        output,
+        has_max_ph_hit,
+        {"oob": oob, "ib": ib, "det_no_stats": det_no_stats, "skipped": skipped},
+    )
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
