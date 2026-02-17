@@ -13,6 +13,7 @@ from legendtestdata import LegendTestData
 from lgdo import Array, Scalar, Struct, lh5
 
 from reboost.hpge import psd
+from reboost.optmap.convolve import OptmapForConvolve
 
 _tmptestdir = Path(gettempdir()) / f"reboost-tests-{getuser()}-{uuid.uuid4()!s}"
 
@@ -51,6 +52,14 @@ def patch_numba_for_tests():
         return njit_old(*args, **kwargs)
 
     numba.njit = njit_patched
+
+
+@pytest.fixture(scope="module")
+def mock_optmap_for_convolve():
+    edges_1d = np.linspace(0.0, 1.0, 11)
+    edges = (edges_1d, edges_1d, edges_1d)
+    weights = np.full((1, 10, 10, 10), 0.1, dtype=np.float64)
+    return OptmapForConvolve(np.array(["all"]), np.array([0]), edges, weights)
 
 
 @pytest.fixture(scope="module")
