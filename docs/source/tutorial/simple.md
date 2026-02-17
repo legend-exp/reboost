@@ -155,8 +155,7 @@ _reboost_ contains a function to compute the distance of points to the surface
 ```python
 dist_all_in_m = reboost.hpge.surface.distance_to_surface(
     stp.xloc, stp.yloc, stp.zloc, hpge_pyobj, position
-).view_as("ak")
-dist_all_in_mm = ak.with_parameter(dist_all_in_m * 1000, "units", "mm")
+)
 
 dist_nplus_in_mm = reboost.hpge.surface.distance_to_surface(
     stp.xloc,
@@ -165,7 +164,7 @@ dist_nplus_in_mm = reboost.hpge.surface.distance_to_surface(
     hpge_pyobj,
     position,
     surface_type="nplus",
-).view_as("ak")
+)
 ```
 
 :::{tip}
@@ -330,9 +329,7 @@ event energy weighted center of mass), containing at-least 90% of the energy.
 This can be computed with a simple `reboost` processor: {func}`.hpge.psd.r90`.
 
 ```python
-r90 = reboost.hpge.psd.r90(
-    stp.edep, stp.xloc * 1000, stp.yloc * 1000, stp.zloc * 1000
-).view_as("ak")
+r90 = reboost.hpge.psd.r90(stp.edep, stp.xloc * 1000, stp.yloc * 1000, stp.zloc * 1000)
 
 # make a plot
 fig, ax = plt.subplots(figsize=(8, 4))
