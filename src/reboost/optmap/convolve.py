@@ -393,7 +393,7 @@ def _iterate_stepwise_depositions_numdet(
     output_length: int,
     max_pes_per_hit: int = -1,
 ):
-    oob = ib = det_no_stats = skipped = 0
+    oob = ib = det_no_stats = 0
     vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
     has_max_ph_hit = np.full(shape=len(edep_hits), fill_value=False, dtype=np.bool)
@@ -412,7 +412,6 @@ def _iterate_stepwise_depositions_numdet(
             if max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit:
                 output[output_index] = 0
                 output_index += 1
-                skipped += 1
                 has_max_ph_hit[rowid] = True
                 continue
 
@@ -462,7 +461,6 @@ def _iterate_stepwise_depositions_numdet(
             "oob": oob,
             "ib": ib,
             "det_no_stats": det_no_stats,
-            "skipped": skipped,
             "vuv_primary_looped": vuv_primary_inb + vuv_primary_oob + vuv_primary_no_stats,
             "vuv_primary_oob": vuv_primary_oob,
             "vuv_primary_no_stats": vuv_primary_no_stats,
