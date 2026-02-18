@@ -31,6 +31,23 @@ def test_hpge_activeness():
     assert activeness[2][0] == 1
 
 
+def test_exlin():
+    # test first with beta = 0
+    activeness = functions.ex_lin_activeness([0.4, 1.0, 1.5], 1.0, 0.5, 0.0)
+    activeness_linear = functions.piecewise_linear_activeness(
+        [0.4, 1.0, 1.5], fccd_in_mm=1, dlf=0.5
+    )
+
+    assert ak.all(ak.isclose(activeness, activeness_linear))
+
+    # now test with beta > 0
+    activeness = functions.ex_lin_activeness([0.4, 0.6, 1.1], 1.0, 0.5, 0.05)
+
+    assert activeness[0] < 1.0
+    assert activeness[0] < activeness[1]
+    assert activeness[2] == 1.0
+
+
 def test_vectorised_activeness():
     # vary fccd
     distances = ak.Array([[0.2, 5], [0.6], [2], [5]])

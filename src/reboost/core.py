@@ -11,7 +11,7 @@ from dbetto import AttrsDict
 from lgdo import lh5
 from lgdo.types import LGDO, Table
 
-from . import utils
+from . import units, utils
 from .profile import ProfileDict
 
 log = logging.getLogger(__name__)
@@ -456,6 +456,10 @@ def evaluate_hit_table_layout(
 
     res = eval(group_func, globs, locs)
 
+    if isinstance(res, Table):
+        for data in res.values():
+            units.move_units_to_flattened_data(data)
+
     if time_dict is not None:
         time_dict.update_field(name="hit_layout", time_start=time_start)
 
@@ -534,8 +538,5 @@ def remove_columns(tab: Table, outputs: list) -> Table:
 
 def merge(hit_table: Table, output_table: ak.Array | None):
     """Merge the table with the array."""
-    return (
-        hit_table.view_as("ak")
-        if output_table is None
-        else ak.concatenate((output_table, hit_table.view_as("ak")))
-    )
+    hit_table = hit_table.view_as("ak", with_units=True)
+    return hit_table if output_table is None else ak.concatenate((output_table, hit_table))

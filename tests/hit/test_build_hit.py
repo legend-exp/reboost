@@ -11,6 +11,7 @@ import pytest
 from lgdo import Array, Struct, Table, VectorOfVectors, lh5
 
 import reboost
+from reboost import units
 
 
 @pytest.fixture(scope="module")
@@ -136,11 +137,23 @@ def test_reshape(test_gen_lh5_flat, tmptestdir):
     )  # m
     tab = Table(data)
 
+    for field in data.values():
+        units.move_units_to_flattened_data(field)
+
     output = lh5.read("stp/det1", outfile)
 
     # check the outputs
     assert output == tab
     assert lh5.read("vtx", outfile) == Table({"evtid": Array([0, 1])})
+
+    # test units
+    for field, unit in zip(
+        ["edep", "time", "xloc", "yloc", "zloc", "dist_to_surf"],
+        ["keV", "ns", "m", "m", "m", "m"],
+        strict=True,
+    ):
+        assert "units" not in output[field].attrs
+        assert output[field].flattened_data.attrs["units"] == unit
 
 
 def test_only_forward(test_gen_lh5_flat, tmptestdir):
@@ -181,14 +194,19 @@ def test_basic(test_gen_lh5, tmptestdir):
             == b"Zstandard compression: http://www.zstd.net"
         )
 
-    hits = lh5.read("hit/det1", outfile).view_as("ak")
+    hits = lh5.read("hit/det1", outfile).view_as("ak", with_units=True)
 
     assert ak.all(hits.energy == [300, 330])
     assert ak.all(hits.t0 == [0, 0.1])
+
     assert hits.evtid[0] == 0
     assert hits.evtid[1] == 1
 
     assert len(hits) == 2
+
+    assert ak.parameters(hits.t0) == {}
+    assert ak.parameters(hits.t0_u)["units"] == "ns"
+    assert ak.parameters(hits.xloc)["units"] == "m"
 
     # test in memory
 
@@ -205,6 +223,10 @@ def test_basic(test_gen_lh5, tmptestdir):
     assert ak.all(hits["det1"].evtid[0] == [0, 0])
     assert ak.all(hits["det1"].evtid[1] == [1, 1, 1])
 
+    assert ak.parameters(hits["det1"].t0) == {}
+    assert ak.parameters(hits["det1"].t0_u)["units"] == "ns"
+    assert ak.parameters(hits["det1"].xloc)["units"] == "m"
+
     assert set(time_dict.keys()) == {"global_objects", "geds"}
     assert set(time_dict["geds"].keys()) == {
         "detector_objects",
@@ -213,7 +235,7 @@ def test_basic(test_gen_lh5, tmptestdir):
         "expressions",
     }
     assert set(time_dict["geds"]["read"].keys()) == {"stp"}
-    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "energy"}
+    assert set(time_dict["geds"]["expressions"].keys()) == {"t0", "t0_u", "energy"}
 
 
 def test_file_merging(test_gen_lh5, tmptestdir):

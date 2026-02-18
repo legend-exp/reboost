@@ -4,22 +4,37 @@ import logging
 
 import awkward as ak
 import numpy as np
-from lgdo import VectorOfVectors
 
 from ..optmap import convolve
-from ..units import units_conv_ak
+from ..units import attach_units, units_conv_ak
 
 log = logging.getLogger(__name__)
 
 
 def load_optmap_all(map_file: str) -> convolve.OptmapForConvolve:
-    """Load an optical map file for later use with :py:func:`detected_photoelectrons`."""
+    """Load an optical map file for later use with :func:`number_of_detected_photoelectrons`.
+
+    Parameters
+    ----------
+    map_file
+        file path to the map file.
+    """
     return convolve.open_optmap(map_file)
 
 
-def load_optmap(map_file: str, spm_det_uid: int) -> convolve.OptmapForConvolve:
-    """Load an optical map file for later use with :py:func:`detected_photoelectrons`."""
-    return convolve.open_optmap_single(map_file, spm_det_uid)
+def load_optmap(map_file: str, spm_det: str) -> convolve.OptmapForConvolve:
+    """Load an optical map file for later use with :func:`number_of_detected_photoelectrons`.
+
+    Parameters
+    ----------
+    map_file
+        file path to the map file.
+    spm_det
+        detector name or the string ``"all"``. In the case of a detector name,
+        it will load the optical map ``"/channels/{spm_det}"`` from the
+        provided map file.
+    """
+    return convolve.open_optmap_single(map_file, spm_det)
 
 
 def _nested_unflatten(data: ak.Array, lengths: ak.Array):
@@ -34,21 +49,22 @@ def corrected_photoelectrons(
     *,
     seed: int | None = None,
 ) -> tuple[ak.Array, ak.Array]:
-    r"""Add a correction to the observed number of photoelectrons (p.e.) using forced trigger data.
+    r"""Correct the number of photoelectrons using forced trigger data.
 
-    For every simulated event a corresponding forced trigger event in data is chosen
-    and the resulting number of p.e. for each channel (i) is:
+    For every simulated event a corresponding forced trigger event in data is
+    chosen and the resulting number of p.e. for each channel (i) is:
 
      .. math::
 
         n_i = n_{\text{sim},i} + n_{\text{data},i}
 
     .. warning::
+
        The number of supplied forced trigger events in data should ideally be
-       more than that in the simulations. If this is not the case and "allow_data_reuse"
-       is True then some data events will be used multiple times. This introduces
-       a small amount of correlation between the simulated events, but is probably acceptable
-       in most circumstances.
+       more than that in the simulations. If this is not the case and
+       "allow_data_reuse" is True then some data events will be used multiple
+       times. This introduces a small amount of correlation between the
+       simulated events, but is probably acceptable in most circumstances.
 
     Parameters
     ----------
@@ -61,7 +77,7 @@ def corrected_photoelectrons(
     data_uids
         The uids for each forced trigger event.
     seed
-        Seed for random number generator
+        Seed for random number generator.
 
     Returns
     -------
@@ -108,10 +124,13 @@ def detected_photoelectrons(
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
-) -> VectorOfVectors:
-    """Derive the number and arrival times of detected photoelectrons (p.e.) from scintillator hits using an optical map.
+) -> ak.Array:
+    """Derive the number and arrival times of detected photoelectrons.
+
+    From scintillator hits using an optical map.
 
     .. deprecated :: 0.8.5
+
         Use the other, more fine-granular and split processors
         :func:`number_of_detected_photoelectrons` and :func:`photoelectron_times` to
         replace this legacy processor.
@@ -159,13 +178,14 @@ def detected_photoelectrons(
         hits, optmap, scint_mat_params, spm_detector, map_scaling, map_scaling_sigma
     )
 
-    return VectorOfVectors(pe, attrs={"units": "ns"})
+    return attach_units(pe, "ns")
 
 
-def emitted_scintillation_photons(
-    edep: ak.Array, particle: ak.Array, material: str
-) -> VectorOfVectors:
+def emitted_scintillation_photons(edep: ak.Array, particle: ak.Array, material: str) -> ak.Array:
     """Derive the number of emitted scintillation photons from scintillator hits.
+
+    This processor converts energy depositions into a number of emitted
+    scintillation photons.
 
     Parameters
     ----------
@@ -175,6 +195,11 @@ def emitted_scintillation_photons(
         array of particle PDG IDs of scintillation events.
     material
         scintillating material name.
+
+    Returns
+    -------
+    Awkward array of integer photon counts with the same nested list structure
+    (shape) as the input `edep` array.
     """
     hits = ak.Array(
         {
@@ -184,8 +209,7 @@ def emitted_scintillation_photons(
     )
 
     scint_mat_params = convolve._get_scint_params(material)
-    ph = convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
-    return VectorOfVectors(ph)
+    return convolve.iterate_stepwise_depositions_scintillate(hits, scint_mat_params)
 
 
 def number_of_detected_photoelectrons(
@@ -197,8 +221,12 @@ def number_of_detected_photoelectrons(
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
-) -> VectorOfVectors:
-    """Derive the number of detected photoelectrons (p.e.) from scintillator hits using an optical map.
+) -> ak.Array:
+    """Derive the number of detected photoelectrons.
+
+    This processor uses the provided optical map to convert emitted
+    scintillation photons into detected photoelectrons for a single
+    detector/channel.
 
     Parameters
     ----------
@@ -211,7 +239,11 @@ def number_of_detected_photoelectrons(
     num_scint_ph
         array of emitted scintillation photons, as generated by
         :func:`emitted_scintillation_photons`.
-    detp
+
+    Returns
+    -------
+    Awkward array of integer p.e. counts with the same nested list structure
+    (shape) as the input `num_scint_ph` array.
     """
     hits = ak.Array(
         {
@@ -222,10 +254,9 @@ def number_of_detected_photoelectrons(
         }
     )
 
-    ph = convolve.iterate_stepwise_depositions_numdet(
+    return convolve.iterate_stepwise_depositions_numdet(
         hits, optmap, spm_detector, map_scaling, map_scaling_sigma
     )
-    return VectorOfVectors(ph)
 
 
 def photoelectron_times(
@@ -233,8 +264,11 @@ def photoelectron_times(
     particle: ak.Array,
     time: ak.Array,
     material: str,
-) -> VectorOfVectors:
+) -> ak.Array:
     """Derive the arrival times of scintillation photons.
+
+    This processor samples an arrival time for each detected photon, given the
+    particle type, material scintillation model, and emission time.
 
     Parameters
     ----------
@@ -247,6 +281,16 @@ def photoelectron_times(
         array of timestamps of scintillation events.
     material
         scintillating material name.
+
+    Returns
+    -------
+    Awkward array where each event contains a list of arrival times; the
+    per-event list length is the sum of `num_det_ph` for that event (i.e.
+    ``ak.sum(num_det_ph, axis=1)``).
+
+    Notes
+    -----
+    The resulting times are unsorted along the innermost axis.
     """
     hits = ak.Array(
         {
@@ -259,4 +303,4 @@ def photoelectron_times(
     scint_mat_params = convolve._get_scint_params(material)
     pe = convolve.iterate_stepwise_depositions_times(hits, scint_mat_params)
 
-    return VectorOfVectors(pe, attrs={"units": "ns"})
+    return attach_units(pe, "ns")
