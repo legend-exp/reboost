@@ -153,11 +153,11 @@ _reboost_ contains a function to compute the distance of points to the surface
 ({func}` reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
 
 ```python
-dist_all_in_m = reboost.hpge.surface.distance_to_surface(
+dist_all = reboost.hpge.surface.distance_to_surface(
     stp.xloc, stp.yloc, stp.zloc, hpge_pyobj, position
 )
 
-dist_nplus_in_mm = reboost.hpge.surface.distance_to_surface(
+dist_nplus = reboost.hpge.surface.distance_to_surface(
     stp.xloc,
     stp.yloc,
     stp.zloc,
@@ -192,11 +192,11 @@ r = rng.choice([-1, 1], p=[0.5, 0.5], size=len(r)) * r
 fig, ax = plt.subplots(figsize=(8, 4))
 pygeomhpges.draw.plot_profile(hpge_pyobj, axes=ax, split_by_type=True)
 
-cut = ak.flatten(dist_nplus_in_mm) < 2
+cut = ak.flatten(dist_nplus) < 2
 s = ax.scatter(
     r[cut],
     z[cut],
-    c=ak.flatten(dist_nplus_in_mm)[cut],
+    c=ak.flatten(dist_nplus)[cut],
     marker=".",
     cmap="BuPu",
 )
@@ -251,7 +251,7 @@ We then plot the energy spectra:
 
 ```python
 activeness = reboost.math.functions.piecewise_linear_activeness(
-    dist_all_in_mm, fccd_in_mm=1, dlf=0.4
+    dist_all, fccd_in_mm=1, dlf=0.4
 )
 
 # compute the energy
@@ -329,12 +329,12 @@ event energy weighted center of mass), containing at-least 90% of the energy.
 This can be computed with a simple `reboost` processor: {func}`.hpge.psd.r90`.
 
 ```python
-r90 = reboost.hpge.psd.r90(stp.edep, stp.xloc * 1000, stp.yloc * 1000, stp.zloc * 1000)
+r90 = reboost.hpge.psd.r90(stp.edep, stp.xloc, stp.yloc, stp.zloc)
 
 # make a plot
 fig, ax = plt.subplots(figsize=(8, 4))
 _, _, _, im = ax.hist2d(
-    energy_smeared,
+    energy_smeared.to_numpy(),
     r90.to_numpy(),
     bins=100,
     range=[(0, 3000), (0.1, 5)],
@@ -402,7 +402,7 @@ stp_tbl = Table(stp)
 # add fields
 stp_tbl.add_field("energy", Array(energy_smeared))
 stp_tbl.add_field("r90", Array(r90))
-stp_tbl.add_field("evtid", Array(ak.fill_none(ak.firsts(stp.evtid), np.nan)))
+stp_tbl.add_field("evtid", Array(ak.to_numpy(stp.evtid)))
 stp_tbl.add_field("t0", Array(ak.fill_none(ak.firsts(stp.time), np.nan)))
 
 for field in ["particle", "edep", "time", "xloc", "yloc", "zloc", "dist_to_surf"]:
