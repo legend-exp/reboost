@@ -852,8 +852,8 @@ def _get_psl_waveforms_impl(
         for j in range(len(et)):
             r_idx, z_idx = _get_template_idx(rt[j], zt[j], r_grid, z_grid)
 
-            if has_phi and phi_t is not None:
-                phi_idx = _get_phi_idx(phi_t[j], phi_grid)
+            if has_phi:
+                phi_idx = _get_phi_idx(phi_t[j], phi_grid) if phi_t is not None else 0
                 waveforms[i] += et[j] * pulse_shape_library[r_idx, z_idx, phi_idx]
             else:
                 waveforms[i] += et[j] * pulse_shape_library[r_idx, z_idx]
@@ -1100,4 +1100,4 @@ def waveform_from_pulse_shape_library(
         phi_grid=pulse_shape_library.phi,
     )
 
-    return units.attach_units(ak.Array(waveforms), "keV")
+    return ak.Array(waveforms)
