@@ -108,3 +108,5 @@ def test_get_waveforms_without_phi_on_phi_library(pulse_shape_library_with_phi):
     waveforms = waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library_with_phi)
 
     assert waveforms.to_numpy().shape == (1, 100)
+    # Default to first phi (0 degrees, value=1.0): 100*1 + 200*1 = 300
+    assert np.all(waveforms[0].to_numpy() == 300)

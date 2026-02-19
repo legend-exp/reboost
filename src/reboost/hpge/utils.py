@@ -76,15 +76,15 @@ def get_hpge_pulse_shape_library(
         msg = f"{obj} in {filename} is not an LGDO Struct"
         raise ValueError(msg)
 
+    dt = data["dt"].value
+    dt_u = data["dt"].attrs["units"]
+
     if "t0" in data:
         t0 = data["t0"].value
         t0_u = data["t0"].attrs["units"]
     else:
         t0 = 0
-        t0_u = "ns"
-
-    dt = data["dt"].value
-    dt_u = data["dt"].attrs["units"]
+        t0_u = dt_u
 
     if (t0_u != dt_u) and (t0 != 0):
         msg = "t0 and dt must have the same units"
@@ -117,22 +117,20 @@ def get_hpge_pulse_shape_library(
         # Read phi-dependent fields and stack them
         waveform_list = []
         for phi_field in phi_fields:
-            if "units" not in data[phi_field].attrs:
-                data[phi_field].attrs["units"] = ""
+            has_units = "units" in data[phi_field].attrs
             wf = np.nan_to_num(
-                data[phi_field].view_as("np", with_units=True), nan=out_of_bounds_val
+                data[phi_field].view_as("np", with_units=has_units), nan=out_of_bounds_val
             )
-            waveform_list.append(wf.m)
+            waveform_list.append(wf.m if has_units else wf)
 
         # Stack into 4D array (r, z, phi, time)
         waveforms_4d = np.stack(waveform_list, axis=2)
         phi_array = np.array(phi_angles)
     else:
         # No phi-dependent fields, use the base field
-        if "units" not in data[field].attrs:
-            data[field].attrs["units"] = ""
-        wf = np.nan_to_num(data[field].view_as("np", with_units=True), nan=out_of_bounds_val)
-        waveforms_4d = wf.m
+        has_units = "units" in data[field].attrs
+        wf = np.nan_to_num(data[field].view_as("np", with_units=has_units), nan=out_of_bounds_val)
+        waveforms_4d = wf.m if has_units else wf
         phi_array = None
 
     # Read r and z grids
