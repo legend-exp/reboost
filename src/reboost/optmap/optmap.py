@@ -201,7 +201,7 @@ class OpticalMap:
         ratio_err_0 = self._prepare_hist()
         ratio, ratio_err = self._nda(ratio_0), self._nda(ratio_err_0)
 
-        ratio[:] = np.divide(h1, h2, where=(h2 != 0))
+        np.divide(h1, h2, where=(h2 != 0), out=ratio)
         ratio[h2 == 0] = -1  # -1 denotes no statistics.
 
         if np.any(ratio > 1):
