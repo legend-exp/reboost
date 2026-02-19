@@ -260,15 +260,7 @@ def _current_pulse_model(
 ) -> NDArray:
     r"""Analytic model for the current pulse in a Germanium detector.
 
-    Consists of a Gaussian, a high side exponential tail and a low side tail:
-
-    .. math::
-
-      \begin{align}
-      A(t) = \; &A_\text{max} \times (1-p-p_h) \times \text{Gauss}(t;\mu,\sigma) \\
-        &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
-        &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{1}{2}e^{-t/\tau}
-      \end{align}
+    Consists of a Gaussian, a high side exponential tail and a low side tail.
 
     Parameters
     ----------
@@ -572,6 +564,53 @@ def _get_template_idx(
     return ri, zi
 
 
+@numba.njit(cache=True)
+def _get_phi_idx(phi: float, phi_grid: np.array) -> int:
+    """Extract the closest phi template based on 45-degree repeating symmetry.
+
+    The function assumes phi_grid contains angles in degrees (typically [0, 45]),
+    representing templates with 45-degree repeating symmetry. The template at
+    phi_grid[0] repeats at 0°, 90°, 180°, 270°, and the template at phi_grid[1]
+    repeats at 45°, 135°, 225°, 315°.
+
+    Parameters
+    ----------
+    phi
+        Azimuthal angle in degrees.
+    phi_grid
+        Array of available phi angles in degrees.
+
+    Returns
+    -------
+    Index of the closest phi template.
+    """
+    # Normalize phi to [0, 360) range
+    phi_normalized = phi % 360.0
+
+    # Map to the fundamental domain [0, 90) using the 90-degree periodicity
+    # (since 0° and 90° use the same template due to 45-degree symmetry)
+    phi_in_quadrant = phi_normalized % 90.0
+
+    # Find the closest angle in phi_grid, considering wrap-around
+    min_dist = np.inf
+    best_idx = 0
+    for i in range(len(phi_grid)):
+        # Calculate angular distance considering periodicity
+        # For phi_grid = [0, 45], distances are:
+        # - For 0°: direct distance to phi_in_quadrant
+        # - For 45°: direct distance to phi_in_quadrant
+        # Also consider wrap-around at 90° for the 0° template
+        dist = abs(phi_in_quadrant - phi_grid[i])
+        if phi_grid[i] == 0.0:
+            # 0° template also maps to 90°, so check distance from both ends
+            dist = min(dist, abs(phi_in_quadrant - 90.0))
+        if dist < min_dist:
+            min_dist = dist
+            best_idx = i
+
+    return best_idx
+
+
 def get_current_template(
     low: float = -1000, high: float = 4000, step: float = 1, mean_aoe: float = 1, **kwargs
 ) -> tuple[NDArray, NDArray]:
@@ -761,6 +800,67 @@ def _estimate_current_impl(
     return A, maximum_t, energy
 
 
+@numba.njit(cache=True)
+def _get_psl_waveforms_impl(
+    r: ak.Array,
+    z: ak.Array,
+    edep: ak.Array,
+    pulse_shape_library: np.ndarray,
+    r_grid: np.ndarray,
+    z_grid: np.ndarray,
+    phi: ak.Array | None = None,
+    phi_grid: np.ndarray | None = None,
+) -> ak.Array:
+    """Get the waveforms for each hit based on the pulse shape library.
+
+    Parameters
+    ----------
+    r
+        Radial coordinates for each step.
+    z
+        Z coordinates for each step.
+    edep
+        Energy depositions for each step.
+    pulse_shape_library
+        Array of pulse shape templates with shape (r, z, time) or (r, z, phi, time).
+    r_grid
+        Grid of r values.
+    z_grid
+        Grid of z values.
+    phi
+        Optional azimuthal angles in degrees for each step.
+    phi_grid
+        Optional grid of phi values in degrees.
+
+    Returns
+    -------
+    Array of waveforms.
+    """
+    # Determine the time dimension index
+    has_phi = phi_grid is not None and len(pulse_shape_library.shape) == 4
+    time_dim_idx = 3 if has_phi else 2
+
+    waveforms = np.zeros((len(edep), pulse_shape_library.shape[time_dim_idx]))
+
+    for i in range(len(edep)):
+        rt = np.asarray(r[i])
+        zt = np.asarray(z[i])
+        et = np.asarray(edep[i])
+
+        phi_t = np.asarray(phi[i]) if phi is not None else None
+
+        for j in range(len(et)):
+            r_idx, z_idx = _get_template_idx(rt[j], zt[j], r_grid, z_grid)
+
+            if has_phi and phi_t is not None:
+                phi_idx = _get_phi_idx(phi_t[j], phi_grid)
+                waveforms[i] += et[j] * pulse_shape_library[r_idx, z_idx, phi_idx]
+            else:
+                waveforms[i] += et[j] * pulse_shape_library[r_idx, z_idx]
+
+    return waveforms
+
+
 def prepare_surface_inputs(
     dist_to_nplus: ak.Array,
     edep: ak.Array,
@@ -831,6 +931,11 @@ def maximum_current(
 ) -> ak.Array:
     """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
 
+    Warnings
+    --------
+    - If a pulse shape library is used it should consist of current waveforms normalised by their maximum.
+    - The templates will be shifted according to the drift time, thus it is important to ensure the waveforms are long enough (typically the time axis should extend beyond the range of drift times).
+
     Parameters
     ----------
     edep
@@ -871,6 +976,11 @@ def maximum_current(
     r = units.units_conv_ak(r, "mm")
     z = units.units_conv_ak(z, "mm")
 
+    for arr in [drift_time, dist_to_nplus, r, z]:
+        if arr is not None and not ak.all(ak.num(arr) == ak.num(edep)):
+            msg = "All input arrays should have the same number of steps."
+            raise ValueError(msg)
+
     # prepare inputs for surface sims
     include_surface_effects, dist_to_nplus, templates_surface, activeness_surface = (
         prepare_surface_inputs(dist_to_nplus, edep, templates_surface, activeness_surface, template)
@@ -910,3 +1020,84 @@ def maximum_current(
 
     msg = f"Return mode {return_mode} is not implemented."
     raise ValueError(msg)
+
+
+def waveform_from_pulse_shape_library(
+    edep: ak.Array,
+    r: ak.Array,
+    z: ak.Array,
+    pulse_shape_library: HPGePulseShapeLibrary,
+    phi: ak.Array | None = None,
+) -> ak.Array:
+    r"""Get the current waveform for each hit based on the pulse shape library.
+
+    This is based on modelling the waveform as a sum over the pulse shape library templates:
+
+    .. math::
+        A(t) = \sum_i E_i \times f(t, r_i, z_i, \phi_i)
+
+    where :math:`f(t, r, z, \phi)` is the pulse shape library template for a given (r,z,phi) point and :math:`E_i` is the energy of each step.
+
+    The output waveforms have the same sampling and t0 as the pulse shape library.
+
+    Notes
+    -----
+    - The pulse shape library should consist of waveforms aligned by t0.
+    - This function is a slower way to get the psd parameters than :func:`maximum_current`, as it extracts the full waveform for each hit and then finds the maximum, rather than just finding the maximum directly.
+    - The memory usage of this function can be high, as it extracts the full waveform for each hit.
+    - When phi is provided and the pulse shape library contains phi-dependent templates, the closest template based on 45-degree repeating symmetry is selected.
+
+    Parameters
+    ----------
+    edep
+        Array of energies for each step
+    r
+        Radial coordinate for each step
+    z
+        z coordinate for each step
+    pulse_shape_library
+        The pulse shape library to use, this should be an instance of :class:`HPGePulseShapeLibrary`.
+    phi
+        Optional azimuthal angle in degrees for each step. If provided and the pulse shape library
+        contains phi-dependent templates, the appropriate template is selected based on 45-degree
+        repeating symmetry.
+
+    Returns
+    -------
+    waveforms : awkward.Array
+        Awkward array of waveforms with shape ``(n_events, n_time_samples)``.
+        Each waveform has the same sampling and units as specified by the
+        pulse shape library.
+    """
+    # convert to target units
+    edep = units.units_conv_ak(edep, "keV")
+    r = units.units_conv_ak(r, pulse_shape_library.r_units)
+    z = units.units_conv_ak(z, pulse_shape_library.z_units)
+
+    # validate inputs to prevent numba errors
+    arrays_to_check = [r, z]
+    if phi is not None:
+        phi = units.units_conv_ak(phi, "deg")
+        arrays_to_check.append(phi)
+
+    for arr in arrays_to_check:
+        if not ak.all(ak.num(arr) == ak.num(edep)):
+            msg = "r, z, phi (if provided) and edep should have the same number of steps."
+            raise ValueError(msg)
+
+    # prepare the library
+    library = pulse_shape_library.waveforms
+
+    # get the waveforms
+    waveforms = _get_psl_waveforms_impl(
+        r,
+        z,
+        edep,
+        pulse_shape_library=library,
+        r_grid=pulse_shape_library.r,
+        z_grid=pulse_shape_library.z,
+        phi=phi,
+        phi_grid=pulse_shape_library.phi,
+    )
+
+    return units.attach_units(ak.Array(waveforms), "keV")
