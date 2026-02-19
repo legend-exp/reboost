@@ -89,6 +89,39 @@ def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
     return OptmapForConvolve(np.array([spm_det]), np.array([0]), optmap_edges, ow)
 
 
+def _warn_deposition_stats(res: dict) -> None:
+    looped_steps = res["ib"] + res["oob"]
+    if res["det_no_stats"] > 0:
+        log.warning(
+            "steps in optmap voxels without stats: %d (%.2f%%)",
+            res["det_no_stats"],
+            (res["det_no_stats"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
+        )
+    if res["oob"] > 0:
+        log.warning(
+            "steps outside optmap domain: %d (%.2f%%)",
+            res["oob"],
+            (res["oob"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
+        )
+
+    if res["vuv_primary_oob"] > 0:
+        log.warning(
+            "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
+            res["vuv_primary_oob"],
+            (res["vuv_primary_oob"] / res["vuv_primary_looped"]) * 100
+            if res["vuv_primary_looped"] > 0
+            else 0.0,
+        )
+    if res["vuv_primary_no_stats"] > 0:
+        log.warning(
+            "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
+            res["vuv_primary_no_stats"],
+            (res["vuv_primary_no_stats"] / res["vuv_primary_looped"]) * 100
+            if res["vuv_primary_looped"] > 0
+            else 0.0,
+        )
+
+
 def iterate_stepwise_depositions_pois(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
@@ -125,22 +158,13 @@ def iterate_stepwise_depositions_pois(
             for a in r:
                 builder.extend(a)
 
-    if res["det_no_stats"] > 0:
-        log.warning(
-            "had edep out in voxels without stats: %d",
-            res["det_no_stats"],
-        )
-    if res["oob"] > 0:
-        log.warning(
-            "had edep out of map bounds: %d (%.2f%%)",
-            res["oob"],
-            (res["oob"] / (res["ib"] + res["oob"])) * 100,
-        )
+    _warn_deposition_stats(res)
+
     log.debug(
         "VUV_primary %d ->hits %d (%.2f %% primaries detected in this channel)",
         res["vuv_primary"],
         res["hits"],
-        (res["hits"] / res["vuv_primary"]) * 100,
+        (res["hits"] / res["vuv_primary"]) * 100 if res["vuv_primary"] > 0 else 0.0,
     )
     return builder.snapshot()
 
@@ -170,15 +194,16 @@ def iterate_stepwise_depositions_numdet(
     det: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
+    max_pes_per_hit: int = -1,
     rng: np.random.Generator | None = None,
-):
+) -> ak.Array | tuple[ak.Array, NDArray]:
     if edep_hits.xloc.ndim == 1:
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
 
     rng = np.random.default_rng() if rng is None else rng
     counts = ak.num(edep_hits.num_scint_ph)
-    output_array, res = _iterate_stepwise_depositions_numdet(
+    output_array, max_ph_reached, res = _iterate_stepwise_depositions_numdet(
         edep_hits,
         rng,
         np.where(optmap.dets == det)[0][0],
@@ -187,20 +212,13 @@ def iterate_stepwise_depositions_numdet(
         optmap.edges,
         optmap.weights,
         ak.sum(counts),
+        max_pes_per_hit,
     )
 
-    if res["det_no_stats"] > 0:
-        log.warning(
-            "had edep out in voxels without stats: %d",
-            res["det_no_stats"],
-        )
-    if res["oob"] > 0:
-        log.warning(
-            "had edep out of map bounds: %d (%.2f%%)",
-            res["oob"],
-            (res["oob"] / (res["ib"] + res["oob"])) * 100,
-        )
+    _warn_deposition_stats(res)
 
+    if max_pes_per_hit > 0:
+        return ak.unflatten(output_array, counts), max_ph_reached
     return ak.unflatten(output_array, counts)
 
 
@@ -258,6 +276,7 @@ def _iterate_stepwise_depositions_pois(
 ):
     pdgid_map = {}
     oob = ib = ph_cnt = ph_det2 = det_no_stats = 0  # for statistics
+    vuv_primary_oob = vuv_primary_no_stats = 0
     output_list = []
 
     for rowid in range(len(edep_hits)):  # iterate hits
@@ -284,6 +303,7 @@ def _iterate_stepwise_depositions_pois(
             cur_bins = (bins[0] - 1, bins[1] - 1, bins[2] - 1)
             if cur_bins[0] == -1 or cur_bins[1] == -1 or cur_bins[2] == -1:
                 oob += 1
+                vuv_primary_oob += hit.num_scint_ph[si]
                 continue  # out-of-bounds of optmap
             ib += 1
 
@@ -291,6 +311,7 @@ def _iterate_stepwise_depositions_pois(
             detp = optmap_weights[detidx, cur_bins[0], cur_bins[1], cur_bins[2]] * map_scaling_evt
             if detp < 0.0:
                 det_no_stats += 1
+                vuv_primary_no_stats += hit.num_scint_ph[si]
                 continue
 
             pois_cnt = rng.poisson(lam=hit.num_scint_ph[si] * detp)
@@ -315,6 +336,9 @@ def _iterate_stepwise_depositions_pois(
         "oob": oob,
         "ib": ib,
         "vuv_primary": ph_cnt,
+        "vuv_primary_looped": ph_cnt + vuv_primary_oob + vuv_primary_no_stats,
+        "vuv_primary_oob": vuv_primary_oob,
+        "vuv_primary_no_stats": vuv_primary_no_stats,
         "hits": ph_det2,
         "det_no_stats": det_no_stats,
     }
@@ -367,9 +391,12 @@ def _iterate_stepwise_depositions_numdet(
     optmap_edges,
     optmap_weights,
     output_length: int,
+    max_pes_per_hit: int = -1,
 ):
     oob = ib = det_no_stats = 0
+    vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
+    has_max_ph_hit = np.full(shape=len(edep_hits), fill_value=False, dtype=np.bool)
 
     output_index = 0
     for rowid in range(len(edep_hits)):  # iterate hits
@@ -380,7 +407,16 @@ def _iterate_stepwise_depositions_numdet(
             map_scaling_evt = rng.normal(loc=map_scaling, scale=map_scaling_sigma)
 
         # iterate steps inside the hit
+        photons_in_hit = 0
         for si in range(len(hit.xloc)):
+            if max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit:
+                output[output_index] = 0
+                output_index += 1
+                has_max_ph_hit[rowid] = True
+                continue
+
+            vuv_step = hit.num_scint_ph[si]
+
             loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]], dtype=np.float64)
             # coordinates -> bins of the optical map.
             bins = np.empty(3, dtype=np.int64)
@@ -397,19 +433,39 @@ def _iterate_stepwise_depositions_numdet(
             if bins[0] == -1 or bins[1] == -1 or bins[2] == -1:
                 detp = 0.0  # out-of-bounds of optmap
                 oob += 1
+                vuv_primary_oob += vuv_step
             else:
                 # get probabilities from map.
                 detp = optmap_weights[detidx, bins[0], bins[1], bins[2]] * map_scaling_evt
                 if detp < 0:
                     det_no_stats += 1
+                    vuv_primary_no_stats += vuv_step
+                else:
+                    vuv_primary_inb += vuv_step
                 ib += 1
 
-            pois_cnt = 0 if detp <= 0.0 else rng.poisson(lam=hit.num_scint_ph[si] * detp)
+            pois_cnt = 0 if detp <= 0.0 else rng.poisson(lam=vuv_step * detp)
+            photons_in_hit += pois_cnt
+            if max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit:
+                pois_cnt -= photons_in_hit - max_pes_per_hit
+                has_max_ph_hit[rowid] = True
             output[output_index] = pois_cnt
             output_index += 1
 
     assert output_index == output_length
-    return output, {"oob": oob, "ib": ib, "det_no_stats": det_no_stats}
+
+    return (
+        output,
+        has_max_ph_hit,
+        {
+            "oob": oob,
+            "ib": ib,
+            "det_no_stats": det_no_stats,
+            "vuv_primary_looped": vuv_primary_inb + vuv_primary_oob + vuv_primary_no_stats,
+            "vuv_primary_oob": vuv_primary_oob,
+            "vuv_primary_no_stats": vuv_primary_no_stats,
+        },
+    )
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
