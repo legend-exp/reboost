@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import NamedTuple
+from typing import Literal, NamedTuple, TypeAlias
 
 import awkward as ak
 import numba
@@ -11,6 +11,7 @@ from lgdo import lh5
 from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray
+from pint import Quantity
 from pygeomoptics import fibers, lar, pen
 
 from .numba_pdg import numba_pdgid_funcs
@@ -506,7 +507,10 @@ def _iterate_stepwise_depositions_times(
     return output
 
 
-def _get_scint_params(material: str):
+ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, Quantity, ...]
+
+
+def _get_scint_params(material: ScintMaterial):
     if material == "lar":
         return sc.precompute_scintillation_params(
             lar.lar_scintillation_params(),
