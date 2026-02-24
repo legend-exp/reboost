@@ -121,7 +121,7 @@ def detected_photoelectrons(
     yloc: ak.Array,
     zloc: ak.Array,
     optmap: convolve.OptmapForConvolve,
-    material: str,
+    material: convolve.ScintMaterial,
     spm_detector: str,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
@@ -154,7 +154,8 @@ def detected_photoelectrons(
     optmap
         the optical map loaded via py:func:`load_optmap`.
     material
-        scintillating material name.
+        scintillating material name or material definition as used for
+        :func:`pygeomoptics.scintillate.precompute_scintillation_params`.
     spm_detector
         SiPM detector name as used in the optical map.
     map_scaling
@@ -182,7 +183,9 @@ def detected_photoelectrons(
     return attach_units(pe, "ns")
 
 
-def emitted_scintillation_photons(edep: ak.Array, particle: ak.Array, material: str) -> ak.Array:
+def emitted_scintillation_photons(
+    edep: ak.Array, particle: ak.Array, material: convolve.ScintMaterial
+) -> ak.Array:
     """Derive the number of emitted scintillation photons from scintillator hits.
 
     This processor converts energy depositions into a number of emitted
@@ -195,7 +198,8 @@ def emitted_scintillation_photons(edep: ak.Array, particle: ak.Array, material: 
     particle
         array of particle PDG IDs of scintillation events.
     material
-        scintillating material name.
+        scintillating material name or material definition as used for
+        :func:`pygeomoptics.scintillate.precompute_scintillation_params`.
 
     Returns
     -------
@@ -275,7 +279,7 @@ def photoelectron_times(
     num_det_ph: ak.Array,
     particle: ak.Array,
     time: ak.Array,
-    material: str,
+    material: convolve.ScintMaterial,
 ) -> ak.Array:
     """Derive the arrival times of scintillation photons.
 
@@ -292,7 +296,8 @@ def photoelectron_times(
     time
         array of timestamps of scintillation events.
     material
-        scintillating material name.
+        scintillating material name or material definition as used for
+        :func:`pygeomoptics.scintillate.precompute_scintillation_params`.
 
     Returns
     -------
