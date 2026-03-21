@@ -1,0 +1,712 @@
+<!doctype html>
+<html class="no-js" lang="python" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Full post-processing chain with config files" href="config.html"><link rel="prev" title="Tutorials" href="index.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Basic reboost post-processing in a python script - reboost 0.1.dev2+g192b4a1dd.d20260321</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=acfd86a5" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">reboost 0.1.dev2+g192b4a1dd.d20260321</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">reboost 0.1.dev2+g192b4a1dd.d20260321</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../manual/index.html">User Manual</a><input aria-label="Toggle navigation of User Manual" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../manual/intro.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/iteration.html">Efficient iteration over remage files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/processors.html">Using reboost processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/config.html">The hit tier configuration file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/optical.html">Using optical maps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/psd.html">Simulations of HPGe pulse-shape observables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/event.html">Building events</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../manual/event.html#full-event-tier-post-processing">Full event tier post-processing</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers.html">Developers guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">Tutorials</a><input aria-label="Toggle navigation of Tutorials" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Basic reboost post-processing in a python script</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">Full post-processing chain with config files</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/legend-exp/reboost/blob/main/docs/source/tutorial/simple.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/legend-exp/reboost/edit/main/docs/source/tutorial/simple.md" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="basic-reboost-post-processing-in-a-python-script">
+<h1>Basic reboost post-processing in a python script<a class="headerlink" href="#basic-reboost-post-processing-in-a-python-script" title="Link to this heading">¶</a></h1>
+<p>Simple post-processing of <em>remage</em> simulations can be done in a python script
+or notebook. This has some limitations but is very useful for simple tasks.
+For more complicated tasks we have created a config file interface (see the
+next tutorial). This tutorial builds on the
+ of two germanium detectors in
+a liquid-argon (LAr) orb with a source. It describes how to run a simple
+post-processing with reboost tools, and explains the usual steps.</p>
+<p>For this example we simulate <span class="math notranslate nohighlight">\(^{228}\)</span>Th in the source. We use the following
+macro file (saved as <code class="docutils literal notranslate"><span class="pre">th228.mac</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Geometry</span><span class="o">/</span><span class="n">RegisterDetector</span> <span class="n">Germanium</span> <span class="n">BEGe</span> <span class="mi">001</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Geometry</span><span class="o">/</span><span class="n">RegisterDetector</span> <span class="n">Germanium</span> <span class="n">Coax</span> <span class="mi">002</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Geometry</span><span class="o">/</span><span class="n">RegisterDetector</span> <span class="n">Scintillator</span> <span class="n">LAr</span> <span class="mi">003</span>
+
+<span class="o">/</span><span class="n">run</span><span class="o">/</span><span class="n">initialize</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Output</span><span class="o">/</span><span class="n">Germanium</span><span class="o">/</span><span class="n">DiscardPhotonsIfNoGermaniumEdep</span> <span class="n">true</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Processes</span><span class="o">/</span><span class="n">Stepping</span><span class="o">/</span><span class="n">ResetInitialDecayTime</span> <span class="n">true</span>
+
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Generator</span><span class="o">/</span><span class="n">Confine</span> <span class="n">Volume</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Generator</span><span class="o">/</span><span class="n">Confinement</span><span class="o">/</span><span class="n">SampleOnSurface</span> <span class="n">false</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Generator</span><span class="o">/</span><span class="n">Confinement</span><span class="o">/</span><span class="n">Physical</span><span class="o">/</span><span class="n">AddVolume</span> <span class="n">Source</span>
+
+<span class="c1"># generator</span>
+<span class="o">/</span><span class="n">RMG</span><span class="o">/</span><span class="n">Generator</span><span class="o">/</span><span class="n">Select</span> <span class="n">GPS</span>
+<span class="o">/</span><span class="n">gps</span><span class="o">/</span><span class="n">particle</span> <span class="n">ion</span>
+<span class="o">/</span><span class="n">gps</span><span class="o">/</span><span class="n">energy</span> <span class="mi">0</span> <span class="n">eV</span>
+<span class="o">/</span><span class="n">gps</span><span class="o">/</span><span class="n">ion</span> <span class="mi">88</span> <span class="mi">224</span> <span class="c1"># 224-Ra</span>
+<span class="o">/</span><span class="n">process</span><span class="o">/</span><span class="n">had</span><span class="o">/</span><span class="n">rdm</span><span class="o">/</span><span class="n">nucleusLimits</span> <span class="mi">208</span> <span class="mi">224</span> <span class="mi">81</span> <span class="mi">88</span>
+
+<span class="o">/</span><span class="n">run</span><span class="o">/</span><span class="n">beamOn</span> <span class="mi">1000000</span>
+</pre></div>
+</div>
+<p>And run the <em>remage</em> (from inside the remage container / after installation —
+<span class="xref std std-ref">see instructions</span>) simulation with:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>remage<span class="w"> </span>--threads<span class="w"> </span><span class="m">1</span><span class="w"> </span>--gdml-files<span class="w"> </span>geometry.gdml<span class="w"> </span>--output-file<span class="w"> </span>stp_out.lh5<span class="w"> </span>--<span class="w"> </span>th228.mac
+</pre></div>
+</div>
+<p>This should take about 10 minutes to run.</p>
+<p>We should now have a <em>remage</em> output file to use for our post-processing!</p>
+<section id="setup-the-environment">
+<h2>Setup the environment<a class="headerlink" href="#setup-the-environment" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">lgdo</span> <span class="kn">import</span> <span class="n">lh5</span>
+<span class="kn">from</span> <span class="nn">lgdo.types</span> <span class="kn">import</span> <span class="n">Table</span><span class="p">,</span> <span class="n">Array</span><span class="p">,</span> <span class="n">VectorOfVectors</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pygeomtools.detectors</span> <span class="kn">import</span> <span class="n">get_sensvol_metadata</span>
+<span class="kn">from</span> <span class="nn">pygeomhpges</span> <span class="kn">import</span> <span class="n">make_hpge</span><span class="p">,</span> <span class="n">draw</span>
+<span class="kn">import</span> <span class="nn">pygeomhpges</span>
+<span class="kn">import</span> <span class="nn">pyg4ometry</span>
+<span class="kn">import</span> <span class="nn">awkward</span> <span class="k">as</span> <span class="nn">ak</span>
+<span class="kn">from</span> <span class="nn">reboost.math.stats</span> <span class="kn">import</span> <span class="n">gaussian_sample</span>
+<span class="kn">import</span> <span class="nn">hist</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.colors</span> <span class="k">as</span> <span class="nn">mcolors</span>
+
+<span class="kn">import</span> <span class="nn">reboost</span>
+<span class="kn">from</span> <span class="nn">reboost</span> <span class="kn">import</span> <span class="n">hpge</span>
+<span class="kn">from</span> <span class="nn">reboost.hpge</span> <span class="kn">import</span> <span class="n">surface</span><span class="p">,</span> <span class="n">psd</span>
+<span class="kn">from</span> <span class="nn">reboost.shape</span> <span class="kn">import</span> <span class="n">group</span>
+<span class="kn">from</span> <span class="nn">reboost.math</span> <span class="kn">import</span> <span class="n">functions</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;font.size&quot;</span><span class="p">:</span> <span class="mi">12</span><span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-useful-objects">
+<h2>Extract useful objects<a class="headerlink" href="#extract-useful-objects" title="Link to this heading">¶</a></h2>
+<p>Additional information is needed (for example details of the detector geometry)
+to perform our post-processing. Fortunately for us integration with the
+detector geometry GDML file makes this easy! Similarly to how
+ was used to write the detector
+geometry GDML file it can also be used to read this back into python. This GDML
+file can also contain additional metadata useful for us, which can be extracted
+using the  package.</p>
+<p>This metadata can be used to create a python object describing the HPGe
+detectors using the  package.
+Among other things, the HPGe object from this package has methods to compute
+detector properties (mass, surface area etc.) and to compute the distance of
+points from the detector surface.</p>
+<p>In this example we extract the <code class="xref py py-class docutils literal notranslate"><span class="pre">pyg4ometry.geant4.Registry</span></code> object
+describing the geometry, the <em>legend-pygeom-hpges</em>
+<code class="xref py py-class docutils literal notranslate"><span class="pre">pygeomhpges.base.HPGe</span></code> python object and finally we extract the
+position of the BEGe detector (which we focus on for this analysis).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reg</span> <span class="o">=</span> <span class="n">pyg4ometry</span><span class="o">.</span><span class="n">gdml</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="s2">&quot;geometry.gdml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">getRegistry</span><span class="p">()</span>
+<span class="n">hpge_pyobj</span> <span class="o">=</span> <span class="n">make_hpge</span><span class="p">(</span><span class="n">get_sensvol_metadata</span><span class="p">(</span><span class="n">reg</span><span class="p">,</span> <span class="s2">&quot;BEGe&quot;</span><span class="p">),</span> <span class="n">registry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">position</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">physicalVolumeDict</span><span class="p">[</span><span class="s2">&quot;BEGe&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="read-the-data">
+<h2>Read the data<a class="headerlink" href="#read-the-data" title="Link to this heading">¶</a></h2>
+<p>Next we can read the data using the  package.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the simulations files are large this approach can cause memory issues, in
+that case it is possible to iterate over the files instead using the
+GLMIterator (see the next tutorial).</p>
+</div>
+<p>We use the  package to view the
+data, ideal for working with data with a &quot;jagged&quot; structure, i.e. many vectors
+of different lengths.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stp</span> <span class="o">=</span> <span class="n">lh5</span><span class="o">.</span><span class="n">read_as</span><span class="p">(</span><span class="s2">&quot;stp/det001&quot;</span><span class="p">,</span> <span class="s2">&quot;stp_out.lh5&quot;</span><span class="p">,</span> <span class="s2">&quot;ak&quot;</span><span class="p">,</span> <span class="n">with_units</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="processors">
+<h2>Processors<a class="headerlink" href="#processors" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the <em>remage</em> flat output file is used an additional step of &quot;step-grouping&quot; is required.</p>
+</div>
+<p>Now we can compute some quantities based on our simulation. This is based on
+&quot;processors&quot; (see the User manual for more details). This is just any
+(generic) python function computing a new (post-processed) quantity (i.e. a new
+row of the output table).</p>
+<p>The only requirements are:</p>
+<ul class="simple">
+<li><p>the function should return an <code class="xref py py-class docutils literal notranslate"><span class="pre">awkward.Array</span></code> object,</p></li>
+<li><p>the returned object should have the same length as the original stp table,
+i.e. the processors act on every row but they cannot add, remove or merge
+rows.</p></li>
+</ul>
+<p><a class="reference internal" href="../manual/processors.html#processors-contract"><span class="std std-ref">More details (how to deal with physical units etc.)</span></a> can be found in the manual.</p>
+<section id="active-energy">
+<h3>Active energy<a class="headerlink" href="#active-energy" title="Link to this heading">¶</a></h3>
+<p>One of the main steps in the post-processing of HPGe simulations consists of
+correction for the inactive regions at the surface of the detector.</p>
+<p>A common heuristic approach consists of computing the distance of each energy
+deposition from the detector surface and then weighting the deposited energy by
+an &quot;activeness&quot; function. One complication of this approach is that the
+various surfaces (electrodes) of a Germanium detector do not have the same
+thickness of inactive (commonly called &quot;dead&quot; layer).</p>
+<p><em>reboost</em> contains a function to compute the distance of points to the surface
+(<code class="xref py py-func docutils literal notranslate"> <span class="pre">reboost.hpge.surface.distance_to_surface()</span></code>) of the HPGe detector.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dist_all</span> <span class="o">=</span> <span class="n">reboost</span><span class="o">.</span><span class="n">hpge</span><span class="o">.</span><span class="n">surface</span><span class="o">.</span><span class="n">distance_to_surface</span><span class="p">(</span>
+    <span class="n">stp</span><span class="o">.</span><span class="n">xloc</span><span class="p">,</span> <span class="n">stp</span><span class="o">.</span><span class="n">yloc</span><span class="p">,</span> <span class="n">stp</span><span class="o">.</span><span class="n">zloc</span><span class="p">,</span> <span class="n">hpge_pyobj</span><span class="p">,</span> <span class="n">position</span>
+<span class="p">)</span>
+
+<span class="n">dist_nplus</span> <span class="o">=</span> <span class="n">reboost</span><span class="o">.</span><span class="n">hpge</span><span class="o">.</span><span class="n">surface</span><span class="o">.</span><span class="n">distance_to_surface</span><span class="p">(</span>
+    <span class="n">stp</span><span class="o">.</span><span class="n">xloc</span><span class="p">,</span>
+    <span class="n">stp</span><span class="o">.</span><span class="n">yloc</span><span class="p">,</span>
+    <span class="n">stp</span><span class="o">.</span><span class="n">zloc</span><span class="p">,</span>
+    <span class="n">hpge_pyobj</span><span class="p">,</span>
+    <span class="n">position</span><span class="p">,</span>
+    <span class="n">surface_type</span><span class="o">=</span><span class="s2">&quot;nplus&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This code block demonstrates the <strong>unit handling in <em>remage</em></strong>. The fields of
+the <code class="docutils literal notranslate"><span class="pre">stp</span></code> table carry their units along with them as an awkward-array parameter;
+<code class="docutils literal notranslate"><span class="pre">xloc</span></code>/<code class="docutils literal notranslate"><span class="pre">yloc</span></code>/<code class="docutils literal notranslate"><span class="pre">zloc</span></code> have units of meter. <code class="docutils literal notranslate"><span class="pre">distance_to_surface</span></code> handles the
+units transparently and converts to mm internally. For the manual calculation,
+we also need to track the units along our mathematical expressions.</p>
+</div>
+<p>We make a plot of the distance of the steps to the n+ electrode compared to the <code class="docutils literal notranslate"><span class="pre">r,z</span></code> coordinates.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># extract r and z</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">stp</span><span class="o">.</span><span class="n">xloc</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">-</span> <span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">yloc</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">-</span> <span class="n">position</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">zloc</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">-</span> <span class="n">position</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">p</span><span class="o">=</span><span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">))</span> <span class="o">*</span> <span class="n">r</span>
+
+<span class="c1"># make the plot</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">pygeomhpges</span><span class="o">.</span><span class="n">draw</span><span class="o">.</span><span class="n">plot_profile</span><span class="p">(</span><span class="n">hpge_pyobj</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">split_by_type</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">cut</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">dist_nplus</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">r</span><span class="p">[</span><span class="n">cut</span><span class="p">],</span>
+    <span class="n">z</span><span class="p">[</span><span class="n">cut</span><span class="p">],</span>
+    <span class="n">c</span><span class="o">=</span><span class="n">ak</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">dist_nplus</span><span class="p">)[</span><span class="n">cut</span><span class="p">],</span>
+    <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;BuPu&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+<span class="c1"># configure the plot</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">&quot;Distance [mm]&quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;radius [mm]&quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;height [mm]&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_16_1.png" /></p>
+<p>We can compute for every step the &quot;activeness&quot; or the charge collection
+efficiency based on a simple piecewise linear model. This function is:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split}
+f(d) = \begin{cases} 0 &amp; d&lt; f*l \\
+\frac{d-f*l}{f-f*l} &amp; t&lt;d&lt;f \\
+1 &amp; d&gt; f \end{cases}
+\end{split}\]</div>
+</div>
+<p>where:</p>
+<ul class="simple">
+<li><p>f: is the full-charge-collection depth (FCCD),</p></li>
+<li><p>l: is the fraction fully dead</p></li>
+</ul>
+<p>We first plot this function for nominal values of <span class="math notranslate nohighlight">\(f = 1\)</span> mm and <span class="math notranslate nohighlight">\(l = 0.2\)</span>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1000</span><span class="p">),</span>
+    <span class="n">reboost</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">functions</span><span class="o">.</span><span class="n">piecewise_linear_activeness</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1000</span><span class="p">),</span> <span class="n">fccd_in_mm</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dlf</span><span class="o">=</span><span class="mf">0.2</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Distance to n-plus surface [mm]&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Charge collection efficiency &quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_18_1.png" /></p>
+<p>Finally, we compute the activeness for every step and extract the activeness
+corrected energies, summing over the steps.</p>
+<p>We then plot the energy spectra:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">activeness</span> <span class="o">=</span> <span class="n">reboost</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">functions</span><span class="o">.</span><span class="n">piecewise_linear_activeness</span><span class="p">(</span>
+    <span class="n">dist_all</span><span class="p">,</span> <span class="n">fccd_in_mm</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dlf</span><span class="o">=</span><span class="mf">0.4</span>
+<span class="p">)</span>
+
+<span class="c1"># compute the energy</span>
+<span class="n">total_energy</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">edep</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">corr_energy</span> <span class="o">=</span> <span class="n">ak</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">edep</span> <span class="o">*</span> <span class="n">activeness</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c1"># make a plot</span>
+<span class="k">def</span> <span class="nf">_make_plot</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">corr</span><span class="p">,</span> <span class="n">xrange</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;log&quot;</span><span class="p">):</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    <span class="n">h_total</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="n">xrange</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">Double</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+    <span class="n">h_corr</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="n">xrange</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">Double</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;$^</span><span class="si">{228}</span><span class="s2">$-Th simulation&quot;</span><span class="p">)</span>
+
+    <span class="n">h_total</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">yerr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Total energy&quot;</span><span class="p">)</span>
+    <span class="n">h_corr</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">yerr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Activeness corrected energy&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">*</span><span class="n">xrange</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+
+
+<span class="n">_make_plot</span><span class="p">(</span><span class="n">total_energy</span><span class="p">,</span> <span class="n">corr_energy</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3500</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">_make_plot</span><span class="p">(</span><span class="n">total_energy</span><span class="p">,</span> <span class="n">corr_energy</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">2615</span> <span class="o">-</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2615</span> <span class="o">+</span> <span class="mi">50</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">_make_plot</span><span class="p">(</span><span class="n">total_energy</span><span class="p">,</span> <span class="n">corr_energy</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_20_0.png" /></p>
+<p><img alt="png" src="../_images/simple_20_1.png" /></p>
+<p><img alt="png" src="../_images/simple_20_2.png" /></p>
+<p>The HPGe activeness correction shifts events out of the 2615 keV full energy
+peak into the continuum. It also increases the number of hits with very low
+energy (due to interactions in the dead-layer).</p>
+</section>
+<section id="energy-resolution-smearing">
+<h3>Energy resolution smearing<a class="headerlink" href="#energy-resolution-smearing" title="Link to this heading">¶</a></h3>
+<p>The remage simulations do not include the effect of the energy resolution. To
+do this there is the reboost processor <code class="xref py py-func docutils literal notranslate"><span class="pre">math.stats.gaussian_sample()</span></code>
+to sample from a Gaussian distribution.</p>
+<p>We demonstrate this with a sigma of 0.5 keV.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">energy_smeared</span> <span class="o">=</span> <span class="n">reboost</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">gaussian_sample</span><span class="p">(</span><span class="n">corr_energy</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">h_smear</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2615</span> <span class="o">-</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">2615</span> <span class="o">+</span> <span class="mi">50</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">Double</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">energy_smeared</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;$^</span><span class="si">{228}</span><span class="s2">$-Th simulation&quot;</span><span class="p">)</span>
+<span class="n">h_smear</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">yerr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Total energy&quot;</span><span class="p">)</span>
+
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">2615</span> <span class="o">-</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">2615</span> <span class="o">+</span> <span class="mi">50</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s2">&quot;log&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_24_0.png" /></p>
+<p>This introduces a Gaussian spread to the energy spectrum.</p>
+</section>
+<section id="psd-heuristics-r90">
+<h3>PSD heuristics - r90<a class="headerlink" href="#psd-heuristics-r90" title="Link to this heading">¶</a></h3>
+<p>Another area of HPGe post-processing involves the calculation of PSD
+heuristics. These are quantities which help estimate if an event would have a
+single or multi-site event topology.</p>
+<p>One simple example is the <code class="docutils literal notranslate"><span class="pre">r90</span></code>, or the radius of a sphere (centered on the
+event energy weighted center of mass), containing at-least 90% of the energy.</p>
+<p>This can be computed with a simple <code class="docutils literal notranslate"><span class="pre">reboost</span></code> processor: <code class="xref py py-func docutils literal notranslate"><span class="pre">hpge.psd.r90()</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">r90</span> <span class="o">=</span> <span class="n">reboost</span><span class="o">.</span><span class="n">hpge</span><span class="o">.</span><span class="n">psd</span><span class="o">.</span><span class="n">r90</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">edep</span><span class="p">,</span> <span class="n">stp</span><span class="o">.</span><span class="n">xloc</span><span class="p">,</span> <span class="n">stp</span><span class="o">.</span><span class="n">yloc</span><span class="p">,</span> <span class="n">stp</span><span class="o">.</span><span class="n">zloc</span><span class="p">)</span>
+
+<span class="c1"># make a plot</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">hist2d</span><span class="p">(</span>
+    <span class="n">energy_smeared</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">r90</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="nb">range</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3000</span><span class="p">),</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;BuPu&quot;</span><span class="p">,</span>
+    <span class="n">norm</span><span class="o">=</span><span class="n">mcolors</span><span class="o">.</span><span class="n">LogNorm</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Counts&quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;r90 [mm]&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_27_1.png" /></p>
+<p>The average <code class="docutils literal notranslate"><span class="pre">r90</span></code> generally increases through the energy spectra, as we expect.
+Cutting on events with <code class="docutils literal notranslate"><span class="pre">r90</span></code> &lt; 2 mm we can obtain a rough estimate of the
+spectrum after the PSD cut.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_make_plot</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">xrange</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;log&quot;</span><span class="p">):</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    <span class="n">h_total</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="n">xrange</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">Double</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">energy</span><span class="p">)</span>
+    <span class="n">h_sse</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">Reg</span><span class="p">(</span><span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="n">xrange</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;energy [keV]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">Double</span><span class="p">()</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">energy</span><span class="p">[</span><span class="n">cut</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;$^</span><span class="si">{228}</span><span class="s2">$-Th simulation&quot;</span><span class="p">)</span>
+
+    <span class="n">h_total</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">yerr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;All events&quot;</span><span class="p">)</span>
+    <span class="n">h_sse</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">yerr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;r90 &lt; 2 mm (SSE)&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">*</span><span class="n">xrange</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+
+
+<span class="n">_make_plot</span><span class="p">(</span><span class="n">energy_smeared</span><span class="p">,</span> <span class="n">r90</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3500</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">_make_plot</span><span class="p">(</span>
+    <span class="n">energy_smeared</span><span class="p">,</span> <span class="n">r90</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">2615</span> <span class="o">-</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">2615</span> <span class="o">+</span> <span class="mi">50</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span>
+<span class="p">)</span>
+<span class="n">_make_plot</span><span class="p">(</span>
+    <span class="n">energy_smeared</span><span class="p">,</span> <span class="n">r90</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">1590</span> <span class="o">-</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">1590</span> <span class="o">+</span> <span class="mi">50</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span>
+<span class="p">)</span>
+<span class="n">_make_plot</span><span class="p">(</span>
+    <span class="n">energy_smeared</span><span class="p">,</span> <span class="n">r90</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xrange</span><span class="o">=</span><span class="p">(</span><span class="mi">2104</span> <span class="o">-</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">2104</span> <span class="o">+</span> <span class="mi">50</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="png" src="../_images/simple_29_0.png" /></p>
+<p><img alt="png" src="../_images/simple_29_1.png" /></p>
+<p><img alt="png" src="../_images/simple_29_2.png" /></p>
+<p><img alt="png" src="../_images/simple_29_3.png" /></p>
+<p>We see that this basic cut removes most of the 2615 keV events, and the events
+in the 2104 keV single escape peak, while keeping the 1588 keV double escape
+peak almost unaffected. This is what we would expect. More sophisticated
+heuristics are able to reproduce better the features of experimental data!</p>
+</section>
+<section id="saving-to-disk">
+<h3>Saving to disk<a class="headerlink" href="#saving-to-disk" title="Link to this heading">¶</a></h3>
+<p>We can save the data to disk by appending the fields to the hit table.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stp_tbl</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span><span class="n">stp</span><span class="p">)</span>
+
+<span class="c1"># add fields</span>
+<span class="n">stp_tbl</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s2">&quot;energy&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">(</span><span class="n">energy_smeared</span><span class="p">))</span>
+<span class="n">stp_tbl</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s2">&quot;r90&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">(</span><span class="n">r90</span><span class="p">))</span>
+<span class="n">stp_tbl</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s2">&quot;evtid&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">evtid</span><span class="p">)))</span>
+<span class="n">stp_tbl</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s2">&quot;t0&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">fill_none</span><span class="p">(</span><span class="n">ak</span><span class="o">.</span><span class="n">firsts</span><span class="p">(</span><span class="n">stp</span><span class="o">.</span><span class="n">time</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)))</span>
+
+<span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;particle&quot;</span><span class="p">,</span> <span class="s2">&quot;edep&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;xloc&quot;</span><span class="p">,</span> <span class="s2">&quot;yloc&quot;</span><span class="p">,</span> <span class="s2">&quot;zloc&quot;</span><span class="p">,</span> <span class="s2">&quot;dist_to_surf&quot;</span><span class="p">]:</span>
+    <span class="n">stp_tbl</span><span class="o">.</span><span class="n">remove_field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">lh5</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">stp_tbl</span><span class="p">,</span> <span class="s2">&quot;hit/det001&quot;</span><span class="p">,</span> <span class="s2">&quot;hit_out.lh5&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now we have a hit tier file for further analysis!</p>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="config.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Full post-processing chain with config files</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Tutorials</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; The LEGEND Collaboration
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Basic reboost post-processing in a python script</a><ul>
+<li><a class="reference internal" href="#setup-the-environment">Setup the environment</a></li>
+<li><a class="reference internal" href="#extract-useful-objects">Extract useful objects</a></li>
+<li><a class="reference internal" href="#read-the-data">Read the data</a></li>
+<li><a class="reference internal" href="#processors">Processors</a><ul>
+<li><a class="reference internal" href="#active-energy">Active energy</a></li>
+<li><a class="reference internal" href="#energy-resolution-smearing">Energy resolution smearing</a></li>
+<li><a class="reference internal" href="#psd-heuristics-r90">PSD heuristics - r90</a></li>
+<li><a class="reference internal" href="#saving-to-disk">Saving to disk</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=d048f138"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    </body>
+</html>
