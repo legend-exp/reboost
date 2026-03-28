@@ -284,7 +284,7 @@ def _current_pulse_model(
         Fraction of the tail in the pulse.
     tau
         Time constant of the low time tail.
-    high__tail_fraction
+    high_tail_fraction
         Fraction of the high tail in the pulse.
     high_tau
         Time constant of the high time tail.
