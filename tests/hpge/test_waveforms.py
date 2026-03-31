@@ -110,3 +110,63 @@ def test_get_waveforms_without_phi_on_phi_library(pulse_shape_library_with_phi):
     assert waveforms.to_numpy().shape == (1, 100)
     # Default to first phi (0 degrees, value=1.0): 100*1 + 200*1 = 300
     assert np.all(waveforms[0].to_numpy() == 300)
+
+
+def test_get_waveforms_mismatched_shapes(pulse_shape_library):
+    """Test that mismatched input shapes raise a ValueError."""
+    r = units.attach_units(ak.Array([[10, 30], [20]]), "mm")
+    z = units.attach_units(ak.Array([[50, 40], [10]]), "mm")
+    edep = units.attach_units(ak.Array([[100, 200, 300], [600]]), "keV")  # mismatched
+
+    with pytest.raises(ValueError, match="same number of steps"):
+        waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library)
+
+
+def test_get_waveforms_mismatched_phi_shape(pulse_shape_library_with_phi):
+    """Test that mismatched phi shape raises a ValueError."""
+    r = units.attach_units(ak.Array([[10, 30]]), "mm")
+    z = units.attach_units(ak.Array([[50, 40]]), "mm")
+    edep = units.attach_units(ak.Array([[100, 200]]), "keV")
+    phi = units.attach_units(ak.Array([[0, 0, 0]]), "deg")  # mismatched
+
+    with pytest.raises(ValueError, match="same number of steps"):
+        waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library_with_phi, phi)
+
+
+def test_get_waveforms_zero_energy(pulse_shape_library):
+    """Test that zero energy depositions produce a zero waveform."""
+    r = units.attach_units(ak.Array([[10, 30]]), "mm")
+    z = units.attach_units(ak.Array([[50, 40]]), "mm")
+    edep = units.attach_units(ak.Array([[0, 0]]), "keV")
+
+    waveforms = waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library)
+
+    assert waveforms.to_numpy().shape == (1, 100)
+    assert np.all(waveforms[0].to_numpy() == 0)
+
+
+def test_get_waveforms_single_hit(pulse_shape_library):
+    """Test waveform extraction for a single event with a single hit."""
+    r = units.attach_units(ak.Array([[10]]), "mm")
+    z = units.attach_units(ak.Array([[50]]), "mm")
+    edep = units.attach_units(ak.Array([[500]]), "keV")
+
+    waveforms = waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library)
+
+    assert waveforms.to_numpy().shape == (1, 100)
+    # Template value is 1 everywhere, so result is 500 * 1 = 500
+    assert np.all(waveforms[0].to_numpy() == 500)
+
+
+def test_get_waveforms_out_of_bounds(pulse_shape_library):
+    """Test that r/z values outside the grid are clamped to the grid boundary."""
+    # Use values far outside the grid (r_grid: 0-20 mm, z_grid: 0-60 mm)
+    r = units.attach_units(ak.Array([[100, -5]]), "mm")
+    z = units.attach_units(ak.Array([[200, -10]]), "mm")
+    edep = units.attach_units(ak.Array([[100, 200]]), "keV")
+
+    # Should not raise, and since templates are all 1, result is sum of energies
+    waveforms = waveform_from_pulse_shape_library(edep, r, z, pulse_shape_library)
+
+    assert waveforms.to_numpy().shape == (1, 100)
+    assert np.all(waveforms[0].to_numpy() == 300)  # (100 + 200) * 1
