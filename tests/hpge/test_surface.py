@@ -7,6 +7,7 @@ import pytest
 from legendtestdata import LegendTestData
 from pygeomhpges import make_hpge
 
+import reboost.hpge.surface as surface_module
 from reboost import units
 from reboost.hpge.surface import distance_to_surface, get_surface_response
 from reboost.units import ureg as u
@@ -111,7 +112,18 @@ def test_units(test_data_configs):
     assert ak.all(dists == dist_m)
 
 
-def test_surface_response():
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_surface_response(use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            surface_module, "_advance_diffusion", surface_module._advance_diffusion.py_func
+        )
+        monkeypatch.setattr(
+            surface_module,
+            "_compute_diffusion_impl",
+            surface_module._compute_diffusion_impl.py_func,
+        )
+
     response = get_surface_response(fccd=1000, init=500)
 
     # should be 10000 samples

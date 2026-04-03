@@ -177,7 +177,13 @@ def test_drift_time(dt_map):
     assert units.unit_to_lh5_attr(unit) == "ns"
 
 
-def test_drift_time_heuristics(dt_map):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_drift_time_heuristics(dt_map, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            psd, "_drift_time_heuristic_impl", psd._drift_time_heuristic_impl.py_func
+        )
+
     dt_values = psd.drift_time(
         gamma_stp.xloc,
         gamma_stp.yloc,

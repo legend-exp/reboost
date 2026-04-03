@@ -5,11 +5,18 @@ import numpy as np
 import pytest
 from lgdo import VectorOfVectors
 
+import reboost.hpge.surface as surface_module
 from reboost import units
 from reboost.hpge import psd, surface
-from reboost.hpge.psd import _get_template_idx
 from reboost.hpge.utils import get_hpge_pulse_shape_library
 from reboost.shape import cluster
+
+_BULK_NUMBA_FUNCS = [
+    "_estimate_current_impl",
+    "_get_waveform_maximum_impl",
+    "_get_waveform_value",
+    "_interpolate_pulse_model",
+]
 
 
 @pytest.fixture(scope="module")
@@ -49,15 +56,24 @@ def test_model():
     return model, x
 
 
-def test_get_template(test_pulse_shape_library):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_get_template(test_pulse_shape_library, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(psd, "_get_template_idx", psd._get_template_idx.py_func)
+
     lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
-    ri, zi = _get_template_idx(10, 10, lib.r, lib.z)
+    ri, zi = psd._get_template_idx(10, 10, lib.r, lib.z)
 
     assert len(lib.waveforms[ri][zi]) == 4001
 
 
-def test_maximum_current(test_model):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_maximum_current(test_model, use_jit, monkeypatch):
+    if not use_jit:
+        for name in _BULK_NUMBA_FUNCS:
+            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
+
     model, x = test_model
 
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
@@ -101,7 +117,12 @@ def test_maximum_current(test_model):
     assert abs(energy[2] - 500.0) < 2
 
 
-def test_units(test_model):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_units(test_model, use_jit, monkeypatch):
+    if not use_jit:
+        for name in _BULK_NUMBA_FUNCS:
+            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
+
     # standard units
     model, x = test_model
 
@@ -134,7 +155,15 @@ def test_units(test_model):
     assert ak.all(time == max_time_us)
 
 
-def test_with_cluster(test_model):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_with_cluster(test_model, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            cluster, "_cluster_by_distance_numba", cluster._cluster_by_distance_numba.py_func
+        )
+        for name in _BULK_NUMBA_FUNCS:
+            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
+
     model, x = test_model
 
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 1.0, 100.0], [500.0]]), "keV")
@@ -163,7 +192,20 @@ def test_with_cluster(test_model):
     assert abs(curr[0] - 225) < 0.1
 
 
-def test_maximum_current_surface(test_model):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_maximum_current_surface(test_model, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            surface_module, "_advance_diffusion", surface_module._advance_diffusion.py_func
+        )
+        monkeypatch.setattr(
+            surface_module,
+            "_compute_diffusion_impl",
+            surface_module._compute_diffusion_impl.py_func,
+        )
+        for name in [*_BULK_NUMBA_FUNCS, "_get_waveform_value_surface"]:
+            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
+
     model, x = test_model
 
     # test for both input types
@@ -222,7 +264,16 @@ def test_maximum_current_surface(test_model):
         assert np.all(curr_surf < curr_bulk)
 
 
-def test_maximum_current_library(test_pulse_shape_library):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_maximum_current_library(test_pulse_shape_library, use_jit, monkeypatch):
+    if not use_jit:
+        for name in [
+            *_BULK_NUMBA_FUNCS,
+            "_get_waveform_value_pulse_shape_library",
+            "_get_template_idx",
+        ]:
+            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
+
     lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
     model = lib.waveforms[0][0]

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import awkward as ak
+import pytest
 
+from reboost.optmap import convolve
 from reboost.spms.pe import (
     corrected_photoelectrons,
     emitted_scintillation_photons,
@@ -39,7 +41,16 @@ def test_forced_trigger_correction():
     assert ak.all(uid == [[0, 1], [0, 1], [0, 1]])
 
 
-def test_emitted_scintillation_photons():
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_emitted_scintillation_photons(use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            convolve,
+            "_iterate_stepwise_depositions_scintillate",
+            convolve._iterate_stepwise_depositions_scintillate.py_func,
+        )
+        monkeypatch.setattr(convolve, "_pdgid_to_particle", convolve._pdgid_to_particle.py_func)
+
     edep = ak.Array([[1.0, 2.0], [3.0]])
     particle = ak.Array([[22, 22], [22]])
 
@@ -50,7 +61,15 @@ def test_emitted_scintillation_photons():
     assert ak.all(ak.values_astype(out, int) == out)
 
 
-def test_number_of_detected_photoelectrons(mock_optmap_for_convolve):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_number_of_detected_photoelectrons(mock_optmap_for_convolve, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            convolve,
+            "_iterate_stepwise_depositions_numdet",
+            convolve._iterate_stepwise_depositions_numdet.py_func,
+        )
+
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
@@ -70,7 +89,15 @@ def test_number_of_detected_photoelectrons(mock_optmap_for_convolve):
     assert ak.all(ak.values_astype(out, int) == out)
 
 
-def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve):
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            convolve,
+            "_iterate_stepwise_depositions_numdet",
+            convolve._iterate_stepwise_depositions_numdet.py_func,
+        )
+
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
@@ -106,7 +133,16 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve):
     assert is_max.tolist() == [True, False]
 
 
-def test_photoelectron_times():
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_photoelectron_times(use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            convolve,
+            "_iterate_stepwise_depositions_times",
+            convolve._iterate_stepwise_depositions_times.py_func,
+        )
+        monkeypatch.setattr(convolve, "_pdgid_to_particle", convolve._pdgid_to_particle.py_func)
+
     num_det_ph = ak.Array([[0, 2], [1]])
     particle = ak.Array([[22, 22], [22]])
     time = ak.Array([[0.0, 1.0], [2.0]])
