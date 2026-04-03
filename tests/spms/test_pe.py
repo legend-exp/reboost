@@ -41,15 +41,9 @@ def test_forced_trigger_correction():
     assert ak.all(uid == [[0, 1], [0, 1], [0, 1]])
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_emitted_scintillation_photons(use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            convolve,
-            "_iterate_stepwise_depositions_scintillate",
-            convolve._iterate_stepwise_depositions_scintillate.py_func,
-        )
-        monkeypatch.setattr(convolve, "_pdgid_to_particle", convolve._pdgid_to_particle.py_func)
+def test_emitted_scintillation_photons(compare_numba_vs_python, monkeypatch):
+    # directly compare JIT vs Python for the @njit particle-type helper
+    compare_numba_vs_python(convolve._pdgid_to_particle, 22)
 
     edep = ak.Array([[1.0, 2.0], [3.0]])
     particle = ak.Array([[22, 22], [22]])
@@ -60,16 +54,19 @@ def test_emitted_scintillation_photons(use_jit, monkeypatch):
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)
 
+    # exercise the Python (py_func) path for the main iteration kernel
+    monkeypatch.setattr(
+        convolve,
+        "_iterate_stepwise_depositions_scintillate",
+        convolve._iterate_stepwise_depositions_scintillate.py_func,
+    )
+    out_py = emitted_scintillation_photons(edep, particle, "lar")
+    assert ak.num(out_py).tolist() == ak.num(edep).tolist()
+    assert ak.all(out_py >= 0)
+    assert ak.all(ak.values_astype(out_py, int) == out_py)
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_number_of_detected_photoelectrons(mock_optmap_for_convolve, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            convolve,
-            "_iterate_stepwise_depositions_numdet",
-            convolve._iterate_stepwise_depositions_numdet.py_func,
-        )
 
+def test_number_of_detected_photoelectrons(mock_optmap_for_convolve, monkeypatch):
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
@@ -88,16 +85,26 @@ def test_number_of_detected_photoelectrons(mock_optmap_for_convolve, use_jit, mo
     assert ak.all(out >= 0)
     assert ak.all(ak.values_astype(out, int) == out)
 
+    # exercise the Python (py_func) path for the main iteration kernel
+    monkeypatch.setattr(
+        convolve,
+        "_iterate_stepwise_depositions_numdet",
+        convolve._iterate_stepwise_depositions_numdet.py_func,
+    )
+    out_py = number_of_detected_photoelectrons(
+        xloc,
+        yloc,
+        zloc,
+        num_scint_ph,
+        mock_optmap_for_convolve,
+        "all",
+    )
+    assert ak.num(out_py).tolist() == ak.num(num_scint_ph).tolist()
+    assert ak.all(out_py >= 0)
+    assert ak.all(ak.values_astype(out_py, int) == out_py)
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            convolve,
-            "_iterate_stepwise_depositions_numdet",
-            convolve._iterate_stepwise_depositions_numdet.py_func,
-        )
 
+def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, monkeypatch):
     xloc = ak.Array([[0.1, 0.2], [0.3]])
     yloc = ak.Array([[0.1, 0.2], [0.3]])
     zloc = ak.Array([[0.1, 0.2], [0.3]])
@@ -132,16 +139,28 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, use_jit
 
     assert is_max.tolist() == [True, False]
 
+    # exercise the Python (py_func) path for the main iteration kernel
+    monkeypatch.setattr(
+        convolve,
+        "_iterate_stepwise_depositions_numdet",
+        convolve._iterate_stepwise_depositions_numdet.py_func,
+    )
+    num_scint_ph = ak.Array([[1, 1], [3000]])
+    out_py, is_max_py = number_of_detected_photoelectrons(
+        xloc,
+        yloc,
+        zloc,
+        num_scint_ph,
+        mock_optmap_for_convolve,
+        "all",
+        max_pes_per_hit=5,
+    )
+    assert is_max_py.tolist() == [False, True]
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_photoelectron_times(use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            convolve,
-            "_iterate_stepwise_depositions_times",
-            convolve._iterate_stepwise_depositions_times.py_func,
-        )
-        monkeypatch.setattr(convolve, "_pdgid_to_particle", convolve._pdgid_to_particle.py_func)
+
+def test_photoelectron_times(compare_numba_vs_python, monkeypatch):
+    # directly compare JIT vs Python for the @njit particle-type helper
+    compare_numba_vs_python(convolve._pdgid_to_particle, 22)
 
     num_det_ph = ak.Array([[0, 2], [1]])
     particle = ak.Array([[22, 22], [22]])
@@ -151,3 +170,13 @@ def test_photoelectron_times(use_jit, monkeypatch):
 
     assert ak.num(out).tolist() == ak.sum(num_det_ph, axis=1).tolist()
     assert ak.all(out >= 0)
+
+    # exercise the Python (py_func) path for the main iteration kernel
+    monkeypatch.setattr(
+        convolve,
+        "_iterate_stepwise_depositions_times",
+        convolve._iterate_stepwise_depositions_times.py_func,
+    )
+    out_py = photoelectron_times(num_det_ph, particle, time, "lar")
+    assert ak.num(out_py).tolist() == ak.sum(num_det_ph, axis=1).tolist()
+    assert ak.all(out_py >= 0)

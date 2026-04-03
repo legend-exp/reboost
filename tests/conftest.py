@@ -102,4 +102,35 @@ def test_pulse_shape_library(tmptestdir):
     return f"{tmptestdir}/pulse_shape_lib.lh5"
 
 
+@pytest.fixture(scope="function")
+def compare_numba_vs_python():
+    """Compare the JIT and Python (py_func) versions of an ``@njit`` function.
+
+    Inspired by the `dspeed
+    <https://dspeed.readthedocs.io/en/stable/developer.html>`_ approach for
+    testing numba-wrapped functions. Both the JIT-compiled version and the pure
+    Python version (via ``.py_func``) are called with the same arguments. For
+    deterministic functions the outputs are asserted to be numerically equal.
+    The JIT result is returned so it can be used directly in assertions.
+    """
+
+    def _compare(func, *args, check_equal=True, **kwargs):
+        result_jit = func(*args, **kwargs)
+        result_py = func.py_func(*args, **kwargs)
+
+        if check_equal:
+            jit_outs = result_jit if isinstance(result_jit, tuple) else (result_jit,)
+            py_outs = result_py if isinstance(result_py, tuple) else (result_py,)
+            for o_jit, o_py in zip(jit_outs, py_outs):
+                np.testing.assert_allclose(
+                    np.asarray(o_jit, dtype=float),
+                    np.asarray(o_py, dtype=float),
+                    equal_nan=True,
+                )
+
+        return result_jit
+
+    return _compare
+
+
 patch_numba_for_tests()

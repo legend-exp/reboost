@@ -11,13 +11,6 @@ from reboost.hpge import psd, surface
 from reboost.hpge.utils import get_hpge_pulse_shape_library
 from reboost.shape import cluster
 
-_BULK_NUMBA_FUNCS = [
-    "_estimate_current_impl",
-    "_get_waveform_maximum_impl",
-    "_get_waveform_value",
-    "_interpolate_pulse_model",
-]
-
 
 @pytest.fixture(scope="module")
 def test_model():
@@ -56,25 +49,25 @@ def test_model():
     return model, x
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_get_template(test_pulse_shape_library, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(psd, "_get_template_idx", psd._get_template_idx.py_func)
-
+def test_get_template(test_pulse_shape_library, compare_numba_vs_python):
     lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
-    ri, zi = psd._get_template_idx(10, 10, lib.r, lib.z)
+    ri, zi = compare_numba_vs_python(psd._get_template_idx, 10.0, 10.0, lib.r, lib.z)
 
     assert len(lib.waveforms[ri][zi]) == 4001
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_maximum_current(test_model, use_jit, monkeypatch):
-    if not use_jit:
-        for name in _BULK_NUMBA_FUNCS:
-            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
-
+def test_maximum_current(test_model, compare_numba_vs_python):
     model, x = test_model
+
+    # directly compare JIT vs Python for @njit leaf functions in the call chain
+    compare_numba_vs_python(psd._njit_erf, np.linspace(-2.0, 2.0, 5))
+    compare_numba_vs_python(
+        psd._interpolate_pulse_model, model, 100.0, float(x[0]), float(x[-1]), 1.0, 0.0
+    )
+    edep_1 = np.array([100.0, 500.0])
+    dt_1 = np.array([400.0, 700.0])
+    compare_numba_vs_python(psd._get_waveform_value, 100, edep_1, dt_1, model, float(x[0]), 1.0)
 
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
     times = units.attach_units(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), "ns")
@@ -117,15 +110,15 @@ def test_maximum_current(test_model, use_jit, monkeypatch):
     assert abs(energy[2] - 500.0) < 2
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_units(test_model, use_jit, monkeypatch):
-    if not use_jit:
-        for name in _BULK_NUMBA_FUNCS:
-            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
-
-    # standard units
+def test_units(test_model, compare_numba_vs_python):
     model, x = test_model
 
+    # directly compare JIT vs Python for the @njit current-pulse model
+    compare_numba_vs_python(
+        psd._current_pulse_model, x.astype(np.float64), 1.0, 0.0, 100.0, 0.65, 100.0, 0.1, 10.0
+    )
+
+    # standard units
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
     times = units.attach_units(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), "ns")
 
@@ -155,15 +148,7 @@ def test_units(test_model, use_jit, monkeypatch):
     assert ak.all(time == max_time_us)
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_with_cluster(test_model, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            cluster, "_cluster_by_distance_numba", cluster._cluster_by_distance_numba.py_func
-        )
-        for name in _BULK_NUMBA_FUNCS:
-            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
-
+def test_with_cluster(test_model, compare_numba_vs_python):
     model, x = test_model
 
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 1.0, 100.0], [500.0]]), "keV")
@@ -174,6 +159,26 @@ def test_with_cluster(test_model, use_jit, monkeypatch):
     yloc = ak.full_like(xloc, 0.0)
     zloc = ak.full_like(xloc, 0.0)
     trackid = ak.full_like(xloc, 0)
+
+    # directly compare JIT vs Python for the @njit cluster function
+    local_idx = ak.flatten(ak.local_index(trackid)).to_numpy()
+    tid = ak.flatten(trackid).to_numpy()
+    pos = np.vstack([
+        ak.flatten(units.units_conv_ak(xloc, "mm")).to_numpy().astype(np.float64),
+        ak.flatten(units.units_conv_ak(yloc, "mm")).to_numpy().astype(np.float64),
+        ak.flatten(units.units_conv_ak(zloc, "mm")).to_numpy().astype(np.float64),
+    ]).T
+    dist_np = ak.flatten(units.units_conv_ak(dist, "mm")).to_numpy()
+    compare_numba_vs_python(
+        cluster._cluster_by_distance_numba,
+        local_idx,
+        tid,
+        pos,
+        dist_to_surf=dist_np,
+        surf_cut=0.0,
+        threshold=1.0,
+        threshold_surf=1.0,
+    )
 
     clusters = cluster.cluster_by_step_length(
         trackid, xloc, yloc, zloc, dist, threshold_in_mm=1, threshold_surf_in_mm=1, surf_cut=0
@@ -192,20 +197,7 @@ def test_with_cluster(test_model, use_jit, monkeypatch):
     assert abs(curr[0] - 225) < 0.1
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_maximum_current_surface(test_model, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            surface_module, "_advance_diffusion", surface_module._advance_diffusion.py_func
-        )
-        monkeypatch.setattr(
-            surface_module,
-            "_compute_diffusion_impl",
-            surface_module._compute_diffusion_impl.py_func,
-        )
-        for name in [*_BULK_NUMBA_FUNCS, "_get_waveform_value_surface"]:
-            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
-
+def test_maximum_current_surface(test_model, compare_numba_vs_python):
     model, x = test_model
 
     # test for both input types
@@ -236,6 +228,30 @@ def test_maximum_current_surface(test_model, use_jit, monkeypatch):
         surface_templates = psd.make_convolved_surface_library(model, surface_models)
         surface_activeness = surface_models[:, -1]
 
+        # directly compare JIT vs Python for the surface-specific @njit functions
+        charge = np.zeros(100)
+        charge[50] = 1.0
+        compare_numba_vs_python(surface_module._advance_diffusion, charge.copy(), 0.29)
+        compare_numba_vs_python(surface_module._compute_diffusion_impl, charge.copy(), 100, 0.29)
+
+        edep_1 = np.array([100.0, 0.2])
+        dt_1 = np.array([400.0, 500.0])
+        dist_1 = np.array([50.0, 0.1])  # second step is inside FCCD (1002 um)
+        compare_numba_vs_python(
+            psd._get_waveform_value_surface,
+            100,
+            edep_1,
+            dt_1,
+            dist_1,
+            model,
+            surface_templates.T,
+            surface_activeness,
+            10.0,
+            1002.0,
+            float(x[0]),
+            1.0,
+        )
+
         curr_surf = psd.maximum_current(
             edep,
             times,
@@ -264,20 +280,31 @@ def test_maximum_current_surface(test_model, use_jit, monkeypatch):
         assert np.all(curr_surf < curr_bulk)
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_maximum_current_library(test_pulse_shape_library, use_jit, monkeypatch):
-    if not use_jit:
-        for name in [
-            *_BULK_NUMBA_FUNCS,
-            "_get_waveform_value_pulse_shape_library",
-            "_get_template_idx",
-        ]:
-            monkeypatch.setattr(psd, name, getattr(psd, name).py_func)
-
+def test_maximum_current_library(test_pulse_shape_library, compare_numba_vs_python):
     lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
     model = lib.waveforms[0][0]
     x = lib.t
+
+    # directly compare JIT vs Python for the library-specific @njit functions
+    compare_numba_vs_python(psd._get_template_idx, 20.0, 40.0, lib.r, lib.z)
+
+    edep_1 = np.array([100.0, 300.0])
+    dt_1 = np.array([400.0, 500.0])
+    r_1 = np.array([20.0, 10.0])
+    z_1 = np.array([40.0, 2.0])
+    pulse_shape_library = (lib.waveforms, lib.r, lib.z)
+    compare_numba_vs_python(
+        psd._get_waveform_value_pulse_shape_library,
+        100,
+        edep_1,
+        dt_1,
+        r_1,
+        z_1,
+        pulse_shape_library,
+        float(x[0]),
+        1.0,
+    )
 
     edep = VectorOfVectors(
         ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), attrs={"unit": "keV"}
