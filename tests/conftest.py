@@ -102,7 +102,7 @@ def test_pulse_shape_library(tmptestdir):
     return f"{tmptestdir}/pulse_shape_lib.lh5"
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def compare_numba_vs_python():
     """Compare the JIT and Python (py_func) versions of an ``@njit`` function.
 
@@ -121,7 +121,7 @@ def compare_numba_vs_python():
         if check_equal:
             jit_outs = result_jit if isinstance(result_jit, tuple) else (result_jit,)
             py_outs = result_py if isinstance(result_py, tuple) else (result_py,)
-            for o_jit, o_py in zip(jit_outs, py_outs):
+            for o_jit, o_py in zip(jit_outs, py_outs, strict=True):
                 np.testing.assert_allclose(
                     np.asarray(o_jit, dtype=float),
                     np.asarray(o_py, dtype=float),

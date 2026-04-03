@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import awkward as ak
-import pytest
 
 from reboost.optmap import convolve
 from reboost.spms.pe import (
@@ -146,7 +145,7 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, monkeyp
         convolve._iterate_stepwise_depositions_numdet.py_func,
     )
     num_scint_ph = ak.Array([[1, 1], [3000]])
-    out_py, is_max_py = number_of_detected_photoelectrons(
+    _out_py, is_max_py = number_of_detected_photoelectrons(
         xloc,
         yloc,
         zloc,
