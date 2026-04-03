@@ -163,11 +163,13 @@ def test_with_cluster(test_model, compare_numba_vs_python):
     # directly compare JIT vs Python for the @njit cluster function
     local_idx = ak.flatten(ak.local_index(trackid)).to_numpy()
     tid = ak.flatten(trackid).to_numpy()
-    pos = np.vstack([
-        ak.flatten(units.units_conv_ak(xloc, "mm")).to_numpy().astype(np.float64),
-        ak.flatten(units.units_conv_ak(yloc, "mm")).to_numpy().astype(np.float64),
-        ak.flatten(units.units_conv_ak(zloc, "mm")).to_numpy().astype(np.float64),
-    ]).T
+    pos = np.vstack(
+        [
+            ak.flatten(units.units_conv_ak(xloc, "mm")).to_numpy().astype(np.float64),
+            ak.flatten(units.units_conv_ak(yloc, "mm")).to_numpy().astype(np.float64),
+            ak.flatten(units.units_conv_ak(zloc, "mm")).to_numpy().astype(np.float64),
+        ]
+    ).T
     dist_np = ak.flatten(units.units_conv_ak(dist, "mm")).to_numpy()
     compare_numba_vs_python(
         cluster._cluster_by_distance_numba,
