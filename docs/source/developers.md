@@ -11,11 +11,23 @@ fixture provided in `tests/conftest.py`.
 
 The fixture calls the function twice — once through the JIT-compiled path and
 once via `.py_func` — asserts that the results are numerically equal, and
-returns the JIT result so it can be used directly in assertions:
+returns the JIT result so it can be used directly in assertions. Equality
+checking uses `np.testing.assert_allclose`, so all function outputs must be
+numpy arrays or array-like values that can be converted with `np.asarray`
+(e.g. scalars, lists, or awkward arrays). Pass `check_equal=False` for
+functions with non-array outputs:
 
 ```python
 def test_my_numba_func(compare_numba_vs_python):
     result = compare_numba_vs_python(my_module._my_njit_func, arg1, arg2)
+    assert result == expected
+
+
+# skip automatic equality check for non-array outputs
+def test_my_numba_func_no_check(compare_numba_vs_python):
+    result = compare_numba_vs_python(
+        my_module._my_njit_func, arg1, arg2, check_equal=False
+    )
     assert result == expected
 ```
 
