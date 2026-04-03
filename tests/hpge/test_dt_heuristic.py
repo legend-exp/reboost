@@ -177,19 +177,18 @@ def test_drift_time(dt_map):
     assert units.unit_to_lh5_attr(unit) == "ns"
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_drift_time_heuristics(dt_map, use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            psd, "_drift_time_heuristic_impl", psd._drift_time_heuristic_impl.py_func
-        )
-
+def test_drift_time_heuristics(dt_map, compare_numba_vs_python):
     dt_values = psd.drift_time(
         gamma_stp.xloc,
         gamma_stp.yloc,
         gamma_stp.zloc,
         dt_map,
     )
+
+    # directly compare JIT vs Python for the @njit implementation
+    dt_values_ak, _t_units = units.unwrap_lgdo(dt_values)
+    edep_ak, _e_units = units.unwrap_lgdo(gamma_stp.edep)
+    compare_numba_vs_python(psd._drift_time_heuristic_impl, dt_values_ak, edep_ak)
 
     dt_heu = psd.drift_time_heuristic(
         dt_values,

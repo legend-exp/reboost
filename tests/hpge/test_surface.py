@@ -112,17 +112,15 @@ def test_units(test_data_configs):
     assert ak.all(dists == dist_m)
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_surface_response(use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            surface_module, "_advance_diffusion", surface_module._advance_diffusion.py_func
-        )
-        monkeypatch.setattr(
-            surface_module,
-            "_compute_diffusion_impl",
-            surface_module._compute_diffusion_impl.py_func,
-        )
+def test_surface_response(compare_numba_vs_python):
+    # directly compare JIT vs Python for the @njit implementations
+    charge = np.zeros(100)
+    charge[50] = 1.0
+    compare_numba_vs_python(surface_module._advance_diffusion, charge.copy(), 0.29)
+
+    init_charge = np.zeros(100)
+    init_charge[50] = 1.0
+    compare_numba_vs_python(surface_module._compute_diffusion_impl, init_charge, 100, 0.29)
 
     response = get_surface_response(fccd=1000, init=500)
 

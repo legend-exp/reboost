@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import awkward as ak
 import numpy as np
-import pytest
 from lgdo import Array, Table
 
 import reboost
@@ -148,19 +147,32 @@ def test_cluster_basic():
     )
 
 
-@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
-def test_cluster_by_step_length(use_jit, monkeypatch):
-    if not use_jit:
-        monkeypatch.setattr(
-            cluster, "_cluster_by_distance_numba", cluster._cluster_by_distance_numba.py_func
-        )
-
+def test_cluster_by_step_length(compare_numba_vs_python):
     # test wrapped function
     trackid = ak.Array([[1, 1, 1, 2, 2, 2, 2, 2], [2, 2, 2, 3, 3, 3], [1]])
     x = ak.Array([[0, 0.1, 0.5, 1, 2, 2.01, 2.02, 4], [0, 1, 4, 5, 5, 6], [0]])
     y = ak.Array([[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0]])
     z = ak.Array([[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0]])
     dist = ak.Array([[0.1, 0.1, 0.1, 0.1, 2, 2, 2, 2], [2, 2, 2, 2, 2, 2], [0.3]])
+
+    # directly compare JIT vs Python for the @njit implementation
+    local_idx = ak.flatten(ak.local_index(trackid)).to_numpy()
+    tid = ak.flatten(trackid).to_numpy()
+    pos = np.vstack([
+        ak.flatten(x).to_numpy().astype(np.float64),
+        ak.flatten(y).to_numpy().astype(np.float64),
+        ak.flatten(z).to_numpy().astype(np.float64),
+    ]).T
+    compare_numba_vs_python(
+        cluster._cluster_by_distance_numba,
+        local_idx,
+        tid,
+        pos,
+        dist_to_surf=ak.flatten(dist).to_numpy(),
+        surf_cut=0.15,
+        threshold=0.2,
+        threshold_surf=0.02,
+    )
 
     clusters = cluster.cluster_by_step_length(
         trackid, x, y, z, dist, threshold_in_mm=0.2, threshold_surf_in_mm=0.02, surf_cut=0.15
