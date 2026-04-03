@@ -151,10 +151,10 @@ def _cluster_by_distance_numba(
         return np.sqrt(np.sum((a - b) ** 2))
 
     n = len(local_index)
-    out = np.zeros((n,), dtype=numba.int32)
+    out = np.zeros((n,), dtype=np.int32)
 
     trackid_prev = -1
-    pos_prev = np.zeros(3, dtype=numba.float64)
+    pos_prev = np.zeros(3, dtype=np.float64)
     cluster_idx = -1
     is_surf_prev = False
 

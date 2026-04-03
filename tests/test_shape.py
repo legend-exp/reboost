@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import awkward as ak
 import numpy as np
+import pytest
 from lgdo import Array, Table
 
 import reboost
@@ -147,7 +148,13 @@ def test_cluster_basic():
     )
 
 
-def test_cluster_by_step_length():
+@pytest.mark.parametrize("use_jit", [True, False], ids=["jit", "no-jit"])
+def test_cluster_by_step_length(use_jit, monkeypatch):
+    if not use_jit:
+        monkeypatch.setattr(
+            cluster, "_cluster_by_distance_numba", cluster._cluster_by_distance_numba.py_func
+        )
+
     # test wrapped function
     trackid = ak.Array([[1, 1, 1, 2, 2, 2, 2, 2], [2, 2, 2, 3, 3, 3], [1]])
     x = ak.Array([[0, 0.1, 0.5, 1, 2, 2.01, 2.02, 4], [0, 1, 4, 5, 5, 6], [0]])
