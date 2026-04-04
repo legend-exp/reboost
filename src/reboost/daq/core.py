@@ -23,33 +23,25 @@ def run_daq_non_sparse(
 
     Pipe simulated HPGe events through the DAQ system in non-sparse mode.
     Return a table where each row represents an event that was actually
-    recorded by the DAQ. for each event and each channel, determine the
+    recorded by the DAQ. For each event and each channel, determine the
     characteristics of the waveform.
 
     Warning
     -------
     This code assumes that the simulated events are time-independent.
 
-    The returned Awkward array (the table) has the following fields:
-
-    - ``evtid`` (int): event ID in the simulation.
-    - ``timestamp`` (float): timestamp of the event.
-    - ``has_trigger`` (array of bools): this waveform triggered the DAQ.
-    - ``has_pre_pulse`` (array of bools): the waveform has a signal below
-      trigger_threshold in the first part of the waveform, before the trigger
-      position.
-    - ``has_post_pulse`` (array of bools): the waveform has a signal in the
-      second part of the waveform, after the trigger position.
-    - ``has_slope`` (array of bools): waveform has decaying tail of earlier
-      signals, that came before this waveform.
-
-    The table sits in a tuple, together with a list of the channel
-    identifiers, with the same order as in the data array.
-
     Parameters
     ----------
     evt
-        simulated events.
+        simulated events. Must be an Awkward array with the following fields:
+
+        - ``evtid`` (int): event ID in the simulation.
+        - ``geds_energy_active`` (array of floats): energy deposits (in keV)
+          in the active HPGe detector channels for this event.
+        - ``geds_rawid_active`` (array of ints): hardware raw-IDs of the
+          active HPGe detector channels, in the same order as
+          ``geds_energy_active``.
+
     source_activity
         source activity in Bq.
     n_sim_events
@@ -80,6 +72,37 @@ def run_daq_non_sparse(
     trigger_position
         location (offset) in microseconds of the triggered signal in the
         waveform.
+
+    Returns
+    -------
+    tuple[ak.Array, list[int]]
+        A two-element tuple ``(daq_data, channel_ids)``:
+
+        ``daq_data``
+            Awkward array (table) where each row is one DAQ record. Fields:
+
+            - ``evtid`` (int): event ID in the simulation.
+            - ``timestamp`` (float): timestamp of the start of the waveform
+              in microseconds.
+            - ``has_trigger`` (2-D array of bool, shape ``(n_records,
+              n_channels)``): ``True`` for the channel(s) whose energy
+              deposit triggered the DAQ.
+            - ``has_pre_pulse`` (2-D array of bool, shape ``(n_records,
+              n_channels)``): ``True`` when a signal above
+              ``noise_threshold`` is present in the pre-trigger part of the
+              waveform (hard pre-pile-up).
+            - ``has_post_pulse`` (2-D array of bool, shape ``(n_records,
+              n_channels)``): ``True`` when a signal above
+              ``noise_threshold`` arrives after the trigger position but
+              still within the waveform window (hard post-pile-up).
+            - ``has_slope`` (2-D array of bool, shape ``(n_records,
+              n_channels)``): ``True`` when the decaying tail of an earlier
+              signal produces a significant baseline slope.
+
+        ``channel_ids``
+            Sorted list of the unique hardware raw-IDs (integers) of all
+            channels present in *evt*. The column order in the 2-D boolean
+            fields above matches this list.
     """
     # random engine
     rng = np.random.default_rng()
