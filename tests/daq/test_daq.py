@@ -4,8 +4,16 @@ import awkward as ak
 import numpy as np
 import pytest
 
-from reboost.daq import run_daq_non_sparse
+from reboost.daq import core, run_daq_non_sparse
 from reboost.daq.utils import print_random_crash_msg
+
+# Default parameters for _run_daq_non_sparse_impl (matching the public API defaults)
+_TAU = 500.0  # µs
+_NOISE = 5.0  # keV
+_SLOPE_THR = 0.01  # keV/µs
+_TRIG_THR = 25.0  # keV
+_WF_LEN = 100.0  # µs
+_TRIG_POS = 50.0  # µs
 
 
 def _make_evt(energies, rawids):
@@ -15,6 +23,18 @@ def _make_evt(energies, rawids):
             "evtid": list(range(len(energies))),
             "geds_energy_active": energies,
             "geds_rawid_active": rawids,
+        }
+    )
+
+
+def _make_impl_evt(evtids, energies, rawids, t0s):
+    """Build event array with *t0* field for direct use by _run_daq_non_sparse_impl."""
+    return ak.Array(
+        {
+            "evtid": evtids,
+            "geds_energy_active": energies,
+            "geds_rawid_active": rawids,
+            "t0": t0s,
         }
     )
 
@@ -158,3 +178,190 @@ def test_print_random_crash_msg(capsys):
     print_random_crash_msg(rng)
     captured = capsys.readouterr()
     assert len(captured.out.strip()) > 0
+
+
+# ---------------------------------------------------------------------------
+# Tests for _run_daq_non_sparse_impl (numba @njit) via compare_numba_vs_python
+# ---------------------------------------------------------------------------
+
+
+def test_impl_single_trigger(compare_numba_vs_python):
+    """One event above the trigger threshold produces exactly one DAQ record."""
+    evt = _make_impl_evt([0], [[50.0]], [[1000]], [100.0])
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, timestamp, has_trigger, has_pre_pulse, has_post_pulse, has_slope = (
+        compare_numba_vs_python(
+            core._run_daq_non_sparse_impl,
+            evt,
+            chids,
+            _TAU,
+            _NOISE,
+            _SLOPE_THR,
+            _TRIG_THR,
+            _WF_LEN,
+            _TRIG_POS,
+        )
+    )
+
+    assert len(evtid) == 1
+    assert evtid[0] == 0
+    # timestamp is shifted back by trigger_position
+    assert np.isclose(timestamp[0], 100.0 - _TRIG_POS)
+    assert has_trigger[0, 0]
+    assert not has_pre_pulse[0, 0]
+    assert not has_post_pulse[0, 0]
+    assert not has_slope[0, 0]
+
+
+def test_impl_no_triggers(compare_numba_vs_python):
+    """Events below the trigger threshold produce an empty output."""
+    evt = _make_impl_evt([0, 1], [[10.0], [15.0]], [[1000], [1000]], [100.0, 500.0])
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, *_ = compare_numba_vs_python(
+        core._run_daq_non_sparse_impl,
+        evt,
+        chids,
+        _TAU,
+        _NOISE,
+        _SLOPE_THR,
+        _TRIG_THR,
+        _WF_LEN,
+        _TRIG_POS,
+    )
+
+    assert len(evtid) == 0
+
+
+def test_impl_post_pulse(compare_numba_vs_python):
+    """An energy deposit in the post-trigger window sets has_post_pulse."""
+    # event 0 triggers; event 1 arrives 30 µs later (< waveform_length - trigger_position = 50 µs)
+    evt = _make_impl_evt([0, 1], [[50.0], [10.0]], [[1000], [1000]], [100.0, 130.0])
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, _timestamp, _has_trigger, _has_pre_pulse, has_post_pulse, _has_slope = (
+        compare_numba_vs_python(
+            core._run_daq_non_sparse_impl,
+            evt,
+            chids,
+            _TAU,
+            _NOISE,
+            _SLOPE_THR,
+            _TRIG_THR,
+            _WF_LEN,
+            _TRIG_POS,
+        )
+    )
+
+    assert len(evtid) == 1
+    assert has_post_pulse[0, 0]
+
+
+def test_impl_dead_time(compare_numba_vs_python):
+    """An event inside the dead-time window (after post-trigger, before next waveform) is skipped."""
+    # event 0 triggers at t=100; event 1 at t=170 is in dead zone (50 < dt=70 < 100);
+    # event 2 at t=400 is free to trigger again
+    evt = _make_impl_evt(
+        [0, 1, 2],
+        [[50.0], [30.0], [50.0]],
+        [[1000], [1000], [1000]],
+        [100.0, 170.0, 400.0],
+    )
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, *_ = compare_numba_vs_python(
+        core._run_daq_non_sparse_impl,
+        evt,
+        chids,
+        _TAU,
+        _NOISE,
+        _SLOPE_THR,
+        _TRIG_THR,
+        _WF_LEN,
+        _TRIG_POS,
+    )
+
+    # event 1 falls in the dead zone and must be skipped
+    assert len(evtid) == 2
+    assert evtid[0] == 0
+    assert evtid[1] == 2
+
+
+def test_impl_pre_pulse(compare_numba_vs_python):
+    """A sub-threshold deposit inside the pre-trigger window sets has_pre_pulse."""
+    # event 0 (below trigger, above noise) at t=100;
+    # event 1 triggers at t=130 → t0_start = 80 µs, so event 0 (80 < 100 < 130) is a pre-pulse
+    evt = _make_impl_evt([0, 1], [[10.0], [50.0]], [[1000], [1000]], [100.0, 130.0])
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, _timestamp, _has_trigger, has_pre_pulse, _has_post_pulse, _has_slope = (
+        compare_numba_vs_python(
+            core._run_daq_non_sparse_impl,
+            evt,
+            chids,
+            _TAU,
+            _NOISE,
+            _SLOPE_THR,
+            _TRIG_THR,
+            _WF_LEN,
+            _TRIG_POS,
+        )
+    )
+
+    assert len(evtid) == 1
+    assert has_pre_pulse[0, 0]
+
+
+def test_impl_baseline_slope(compare_numba_vs_python):
+    """A large prior deposit leaves a measurable tail that sets has_slope."""
+    # event 0 at t=0 with 1000 keV triggers; event 1 at t=1000 also triggers.
+    # baseline slope for event 1:
+    #   E/tau * exp(-(t0_start - t_prev)/tau) = 1000/500 * exp(-950/500) ≈ 0.30 > 0.01
+    evt = _make_impl_evt([0, 1], [[1000.0], [50.0]], [[1000], [1000]], [0.0, 1000.0])
+    chids = np.array([1000], dtype=np.int64)
+
+    evtid, _timestamp, _has_trigger, _has_pre_pulse, _has_post_pulse, has_slope = (
+        compare_numba_vs_python(
+            core._run_daq_non_sparse_impl,
+            evt,
+            chids,
+            _TAU,
+            _NOISE,
+            _SLOPE_THR,
+            _TRIG_THR,
+            _WF_LEN,
+            _TRIG_POS,
+        )
+    )
+
+    assert len(evtid) == 2
+    # second record: large tail from first event produces a slope
+    assert has_slope[1, 0]
+    # first record: no prior history, no slope
+    assert not has_slope[0, 0]
+
+
+def test_impl_multi_channel_trigger(compare_numba_vs_python):
+    """Only the channel(s) exceeding the trigger threshold get has_trigger=True."""
+    # ch1000 deposits 30 keV (> 25); ch2000 deposits 10 keV (< 25)
+    evt = _make_impl_evt([0], [[30.0, 10.0]], [[1000, 2000]], [100.0])
+    chids = np.array([1000, 2000], dtype=np.int64)
+
+    evtid, _timestamp, has_trigger, _has_pre_pulse, _has_post_pulse, _has_slope = (
+        compare_numba_vs_python(
+            core._run_daq_non_sparse_impl,
+            evt,
+            chids,
+            _TAU,
+            _NOISE,
+            _SLOPE_THR,
+            _TRIG_THR,
+            _WF_LEN,
+            _TRIG_POS,
+        )
+    )
+
+    assert len(evtid) == 1
+    assert has_trigger[0, 0]  # ch1000 triggered
+    assert not has_trigger[0, 1]  # ch2000 did not trigger
