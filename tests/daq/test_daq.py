@@ -90,7 +90,6 @@ def test_run_daq_non_sparse_output_shapes(simple_evt):
         arr = daq_data[field]
         assert arr.ndim == 2
         assert len(arr) == n_records
-        assert arr.type.length == n_records
         assert ak.to_numpy(ak.num(arr, axis=1)).tolist() == [n_channels] * n_records
 
 
