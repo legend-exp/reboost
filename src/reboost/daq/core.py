@@ -93,10 +93,11 @@ def run_daq_non_sparse(
 
     # get rawids of detectors present in the simulation
     channel_ids = np.sort(np.unique(ak.flatten(evt.geds_rawid_active))).to_list()
+    channel_ids_arr = np.array(channel_ids, dtype=np.int64)
 
     daq_records = _run_daq_non_sparse_impl(
         evt,
-        channel_ids,
+        channel_ids_arr,
         tau_preamp,
         noise_threshold,
         baseline_slope_threshold,
@@ -115,7 +116,7 @@ def run_daq_non_sparse(
 @numba.njit(cache=True)
 def _run_daq_non_sparse_impl(
     evt: ak.Array,
-    chids: list,
+    chids: np.ndarray,
     tau_preamp: float,
     noise_threshold: float,
     baseline_slope_threshold: float,
@@ -178,7 +179,7 @@ def _run_daq_non_sparse_impl(
             if dt < (waveform_length - trigger_position):
                 for rawid, ene in zip(ev.geds_rawid_active, ev.geds_energy_active):  # noqa: B905
                     if ene >= noise_threshold:
-                        o_has_post_pulse[r_idx, chids.index(rawid)] = True
+                        o_has_post_pulse[r_idx, np.searchsorted(chids, rawid)] = True
                 continue
 
             # check if the last trigger was less than waveform_length but more than
@@ -208,7 +209,7 @@ def _run_daq_non_sparse_impl(
 
         # then, let's log which channels triggered the daq in the daq_record
         for rawid in triggered_rawids:
-            o_has_trigger[r_idx, chids.index(rawid)] = True
+            o_has_trigger[r_idx, np.searchsorted(chids, rawid)] = True
 
         # time of the start of the waveform
         t0_start = ev.t0 - trigger_position
@@ -239,12 +240,12 @@ def _run_daq_non_sparse_impl(
                 # (timestamp - trigger_position) ago, this channel has a hard
                 # pre-pile-up in the current waveform
                 elif tj < ev.t0 and ej >= noise_threshold:
-                    o_has_pre_pulse[r_idx, chids.index(rawid)] = True
+                    o_has_pre_pulse[r_idx, np.searchsorted(chids, rawid)] = True
 
             # now we have computed the baseline and we can check against the the
             # noise threshold if it's significantly non-flat
             if abs_baseline_slope >= baseline_slope_threshold:
-                o_has_slope[r_idx, chids.index(rawid)] = True
+                o_has_slope[r_idx, np.searchsorted(chids, rawid)] = True
 
     # the timestamp should refer to the start of the waveform, like in our DAQ
     o_timestamp -= trigger_position
