@@ -53,6 +53,7 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
     """
     # convert to ak
     distances_ak = units.units_conv_ak(distances, "mm")
+    assert distances_ak is not None
 
     dl = fccd_in_mm * dlf
     distances_flat = (
@@ -113,24 +114,25 @@ def vectorised_active_energy(
     Activeness for each set of parameters
     """
     # add checks on fccd, dlf
-    fccd = np.array(fccd)
-    dlf = np.array(dlf)
+    fccd_arr = np.array(fccd)
+    dlf_arr = np.array(dlf)
 
-    if (fccd.ndim + dlf.ndim) > 1:
+    if (fccd_arr.ndim + dlf_arr.ndim) > 1:
         msg = "Currently only one of FCCD and dlf can be varied"
         raise NotImplementedError(msg)
 
     # convert fccd and or dlf to the right shape
-    if fccd.ndim == 0:
-        if dlf.ndim == 0:
-            dlf = dlf[np.newaxis]
-        fccd = np.full_like(dlf, fccd)
+    if fccd_arr.ndim == 0:
+        if dlf_arr.ndim == 0:
+            dlf_arr = dlf_arr[np.newaxis]
+        fccd_arr = np.full_like(dlf_arr, fccd_arr)
 
-    dl = fccd * dlf
+    dl = fccd_arr * dlf_arr
 
     def _convert(field, unit):
         # convert to ak
         field_ak = units.units_conv_ak(field, unit)
+        assert field_ak is not None
 
         return field_ak, ak.flatten(field_ak).to_numpy()[:, np.newaxis]
 
@@ -140,7 +142,7 @@ def vectorised_active_energy(
 
     # vectorise fccd or tl
 
-    fccd_list = np.tile(fccd, (len(distances_flat), 1))
+    fccd_list = np.tile(fccd_arr, (len(distances_flat), 1))
     dl_list = np.tile(dl, (len(distances_flat), 1))
     distances_shaped = np.tile(distances_flat, (1, len(dl)))
 
@@ -215,8 +217,8 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
     """
     # Convert to ak
     distances_ak = units.units_conv_ak(distances, "mm")
-
-    # Flatten the distance to 1D
+    assert distances_ak is not None
+    # flatten the distances to 1D
     distances_flat = (
         ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
     )

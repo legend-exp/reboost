@@ -29,7 +29,7 @@ class ProfileDict(AttrsDict):
         time_end = time.time()
 
         for idx, name_tmp in enumerate(name_split):
-            dict_tmp = self if (group is None) else dict_tmp[group]
+            dict_tmp = self if (group is None) else dict_tmp[group]  # type: ignore[index]
 
             # if we are at the end and the name is not in the dictionary add it
             if (idx == len(name_split) - 1) and (name_tmp not in dict_tmp):
@@ -52,7 +52,7 @@ class ProfileDict(AttrsDict):
         """Return a human-readable profiling summary."""
         return "\nReboost post processing took: \n" + self._format(self, indent=1)
 
-    def _format(self, data: ProfileDict, indent: int = 1) -> str:
+    def _format(self, data: dict, indent: int = 1) -> str:
         """Recursively format the dictionary.
 
         Parameters

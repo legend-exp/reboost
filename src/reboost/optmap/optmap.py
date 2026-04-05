@@ -6,6 +6,7 @@ import logging
 import math
 import multiprocessing as mp
 from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 from lgdo import Histogram, Struct, lh5
@@ -15,27 +16,27 @@ log = logging.getLogger(__name__)
 
 
 class OpticalMap:
-    def __init__(self, name: str, settings: Mapping[str, str], use_shmem: bool = False):
+    def __init__(self, name: str, settings: Mapping[str, Any] | None, use_shmem: bool = False):
         self.settings = settings
         self.name = name
         self.use_shmem = use_shmem
 
-        self.h_vertex = None
-        self.h_hits = None
-        self.h_prob = None
-        self.h_prob_uncert = None
+        self.h_vertex: NDArray | mp.sharedctypes.SynchronizedArray | None = None
+        self.h_hits: NDArray | mp.sharedctypes.SynchronizedArray | None = None
+        self.h_prob: NDArray | mp.sharedctypes.SynchronizedArray | None = None
+        self.h_prob_uncert: NDArray | mp.sharedctypes.SynchronizedArray | None = None
 
-        self.binning = None
+        self.binning: list | None = None
 
-        self.__fill_hits_buf = None
+        self.__fill_hits_buf: NDArray | None = None
 
         if settings is not None:
-            self._single_shape = tuple(self.settings["bins"])
+            self._single_shape = tuple(self.settings["bins"])  # type: ignore[index]
             self._single_stride = None
 
             binedge_attrs = {"units": "m"}
-            bins = self.settings["bins"]
-            bounds = self.settings["range_in_m"]
+            bins = self.settings["bins"]  # type: ignore[index]
+            bounds = self.settings["range_in_m"]  # type: ignore[index]
             self.binning = [
                 Histogram.Axis(
                     None,
@@ -49,7 +50,7 @@ class OpticalMap:
             ]
 
     @staticmethod
-    def create_empty(name: str, settings: Mapping[str, str]) -> OpticalMap:
+    def create_empty(name: str, settings: Mapping[str, Any] | None) -> OpticalMap:
         om = OpticalMap(name, settings)
         om.h_vertex = om._prepare_hist()
         om.h_hits = om._prepare_hist()
@@ -79,19 +80,21 @@ class OpticalMap:
         om.binning = bin_nr_gen
         return om
 
-    def _prepare_hist(self) -> np.ndarray:
+    def _prepare_hist(self) -> NDArray | mp.sharedctypes.SynchronizedArray:
         """Prepare an empty histogram with the parameters global to this map instance."""
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
-            a = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
-            nda = self._nda(a)
+            a: NDArray | mp.sharedctypes.SynchronizedArray = self._mp_man.Array(
+                ctypes.c_double, math.prod(self._single_shape)
+            )
+            nda: NDArray = self._nda(a)  # type: ignore[assignment]
             nda.fill(0)
         else:
-            a = np.zeros(shape=self._single_shape, dtype=np.float64)
+            a = np.zeros(shape=self._single_shape, dtype=np.float64)  # type: ignore[arg-type]
             nda = a
         stride = [s // nda.dtype.itemsize for s in nda.strides]
         if self._single_stride is None:
-            self._single_stride = stride
+            self._single_stride = stride  # type: ignore[assignment]
         assert self._single_stride == stride
         return a
 
@@ -112,7 +115,7 @@ class OpticalMap:
         idx = np.zeros(xyz.shape[1], np.int64)  # bin indices for flattened array
         oor_mask = np.ones(xyz.shape[1], np.bool_)  # mask to remove out of range values
         dims = range(xyz.shape[0])
-        for col, ax, s, dim in zip(xyz, self.binning, self._single_stride, dims, strict=True):
+        for col, ax, s, dim in zip(xyz, self.binning, self._single_stride, dims, strict=True):  # type: ignore[arg-type]
             assert ax.is_range
             assert ax.closedleft
             oor_mask &= (ax.first <= col) & (col < ax.last)
@@ -124,17 +127,17 @@ class OpticalMap:
         if idx.shape[0] == 0:
             return
 
-        if for_hits and idx.shape[0] < self.__fill_hits_buf.shape[0]:
+        if for_hits and idx.shape[0] < self.__fill_hits_buf.shape[0]:  # type: ignore[union-attr]
             # special path for the typically small number of hits.
             # this circumvents a memory leak in _fill_histogram_buf when called with varying and
             # small shapes of the idx array.
             end = self.__fill_hits_pos + idx.shape[0]
-            if end >= self.__fill_hits_buf.shape[0]:
+            if end >= self.__fill_hits_buf.shape[0]:  # type: ignore[union-attr]
                 # flush the old buffer to the map, as the new data does not fit.
-                self._fill_histogram_buf(h, self.__fill_hits_buf[0 : self.__fill_hits_pos])
+                self._fill_histogram_buf(h, self.__fill_hits_buf[0 : self.__fill_hits_pos])  # type: ignore[index]
                 self.__fill_hits_pos = 0
                 end = idx.shape[0]
-            self.__fill_hits_buf[self.__fill_hits_pos : end] = idx
+            self.__fill_hits_buf[self.__fill_hits_pos : end] = idx  # type: ignore[index]
             self.__fill_hits_pos = end
         else:
             # here we assume a uniform size of idx, so that we do not hit the memory leak.
@@ -151,13 +154,13 @@ class OpticalMap:
 
     def _nda(self, h: NDArray | mp.sharedctypes.SynchronizedArray) -> NDArray:
         if not self.use_shmem:
-            return h
-        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.get_obj())
+            return h  # type: ignore[return-value]
+        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.get_obj())  # type: ignore[union-attr,arg-type]
 
     def _lock_nda(self, h: NDArray | mp.sharedctypes.SynchronizedArray):
         if not self.use_shmem:
             return contextlib.nullcontext
-        return h.get_lock
+        return h.get_lock  # type: ignore[union-attr]
 
     def _mp_preinit(self, mp_man: mp.context.BaseContext, vertex: bool) -> None:
         self._mp_man = mp_man
@@ -189,10 +192,14 @@ class OpticalMap:
         """Commit all remaining hit coordinates in the buffer."""
         if self.h_hits is None or self.__fill_hits_pos <= 0:
             return
-        self._fill_histogram_buf(self.h_hits, self.__fill_hits_buf[0 : self.__fill_hits_pos])
+        self._fill_histogram_buf(self.h_hits, self.__fill_hits_buf[0 : self.__fill_hits_pos])  # type: ignore[index]
         self.__fill_hits_buf = None
 
-    def _divide_hist(self, h1: NDArray, h2: NDArray) -> tuple[NDArray, NDArray]:
+    def _divide_hist(
+        self, h1: NDArray, h2: NDArray
+    ) -> tuple[
+        NDArray | mp.sharedctypes.SynchronizedArray, NDArray | mp.sharedctypes.SynchronizedArray
+    ]:
         """Calculate the ratio (and its standard error) from two histograms."""
         h1 = self._nda(h1)
         h2 = self._nda(h2)
@@ -217,7 +224,7 @@ class OpticalMap:
 
     def create_probability(self) -> None:
         """Compute probability map (and map uncertainty) from vertex and hit map."""
-        self.h_prob, self.h_prob_uncert = self._divide_hist(self.h_hits, self.h_vertex)
+        self.h_prob, self.h_prob_uncert = self._divide_hist(self.h_hits, self.h_vertex)  # type: ignore[arg-type]
 
     def write_lh5(self, lh5_file: str, group: str = "all", wo_mode: str = "write_safe") -> None:
         """Write this map to a LH5 file."""
@@ -234,19 +241,19 @@ class OpticalMap:
             )
 
         # only use the passed wo_mode for the first file.
-        write_hist(self.h_vertex, "_nr_gen", lh5_file, group, wo_mode)
-        write_hist(self.h_hits, "_nr_det", lh5_file, group, "append_column")
-        write_hist(self.h_prob, "prob", lh5_file, group, "append_column")
-        write_hist(self.h_prob_uncert, "prob_unc", lh5_file, group, "append_column")
+        write_hist(self.h_vertex, "_nr_gen", lh5_file, group, wo_mode)  # type: ignore[arg-type]
+        write_hist(self.h_hits, "_nr_det", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        write_hist(self.h_prob, "prob", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        write_hist(self.h_prob_uncert, "prob_unc", lh5_file, group, "append_column")  # type: ignore[arg-type]
 
-    def get_settings(self) -> dict:
+    def get_settings(self) -> Mapping[str, Any] | dict:
         """Get the binning settings that were used to create this optical map instance."""
         if self.settings is not None:
             return self.settings
 
         range_in_m = []
         bins = []
-        for b in self.binning:
+        for b in self.binning:  # type: ignore[union-attr]
             if not b.is_range:
                 msg = "cannot get binning settings for variable binning map"
                 raise RuntimeError(msg)
@@ -264,9 +271,9 @@ class OpticalMap:
         def _warn(fmt: str, *args):
             log.warning("%s" + fmt, log_prefix, *args)  # noqa: G003
 
-        h_vertex = self._nda(self.h_vertex)
-        h_prob = self._nda(self.h_prob)
-        h_prob_uncert = self._nda(self.h_prob_uncert)
+        h_vertex = self._nda(self.h_vertex)  # type: ignore[arg-type]
+        h_prob = self._nda(self.h_prob)  # type: ignore[arg-type]
+        h_prob_uncert = self._nda(self.h_prob_uncert)  # type: ignore[arg-type]
 
         ncells = h_vertex.shape[0] * h_vertex.shape[1] * h_vertex.shape[2]
 
@@ -319,9 +326,9 @@ class OpticalMap:
     ) -> bool:
         """Compare edge-tuples for two histograms."""
         if isinstance(e1[0], Histogram.Axis):
-            e1 = tuple([b.edges for b in e1])
+            e1 = tuple([b.edges for b in e1])  # type: ignore[union-attr]
         if isinstance(e2[0], Histogram.Axis):
-            e2 = tuple([b.edges for b in e2])
+            e2 = tuple([b.edges for b in e2])  # type: ignore[union-attr]
         assert all(isinstance(b, np.ndarray) for b in e1)
         assert all(isinstance(b, np.ndarray) for b in e2)
 
