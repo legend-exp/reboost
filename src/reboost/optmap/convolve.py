@@ -11,7 +11,6 @@ from lgdo import lh5
 from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray
-from pint import Quantity
 from pygeomoptics import fibers, lar, pen
 
 from .numba_pdg import numba_pdgid_funcs

@@ -84,7 +84,9 @@ class OpticalMap:
         """Prepare an empty histogram with the parameters global to this map instance."""
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
-            a: NDArray | mp.sharedctypes.SynchronizedArray = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
+            a: NDArray | mp.sharedctypes.SynchronizedArray = self._mp_man.Array(
+                ctypes.c_double, math.prod(self._single_shape)
+            )
             nda: NDArray = self._nda(a)  # type: ignore[assignment]
             nda.fill(0)
         else:
@@ -193,7 +195,11 @@ class OpticalMap:
         self._fill_histogram_buf(self.h_hits, self.__fill_hits_buf[0 : self.__fill_hits_pos])  # type: ignore[index]
         self.__fill_hits_buf = None
 
-    def _divide_hist(self, h1: NDArray, h2: NDArray) -> tuple[NDArray | mp.sharedctypes.SynchronizedArray, NDArray | mp.sharedctypes.SynchronizedArray]:
+    def _divide_hist(
+        self, h1: NDArray, h2: NDArray
+    ) -> tuple[
+        NDArray | mp.sharedctypes.SynchronizedArray, NDArray | mp.sharedctypes.SynchronizedArray
+    ]:
         """Calculate the ratio (and its standard error) from two histograms."""
         h1 = self._nda(h1)
         h2 = self._nda(h2)
