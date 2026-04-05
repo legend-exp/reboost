@@ -22,16 +22,18 @@ from .optmap import OpticalMap
 
 log = logging.getLogger(__name__)
 
+_shared_optmaps: list[OpticalMap] | None = None
+
 
 def _optmaps_for_channels(
     all_det_ids: dict[int, str],
     settings,
-    chfilter: tuple[str | int] | Literal["*"] = (),
+    chfilter: tuple[str | int, ...] | Literal["*"] = (),
     use_shmem: bool = False,
 ):
     if chfilter != "*":
-        chfilter = [str(ch) for ch in chfilter]  # normalize types
-        optmap_det_ids = {det: name for det, name in all_det_ids.items() if str(det) in chfilter}
+        chfilter_list = [str(ch) for ch in chfilter]  # normalize types
+        optmap_det_ids = {det: name for det, name in all_det_ids.items() if str(det) in chfilter_list}
     else:
         optmap_det_ids = all_det_ids
 
@@ -125,9 +127,9 @@ def create_optical_maps(
     optmap_events_fn: list[str],
     settings,
     buffer_len: int = int(5e6),
-    chfilter: tuple[str | int] | Literal["*"] = (),
+    chfilter: tuple[str | int, ...] | Literal["*"] = (),
     output_lh5_fn: str | None = None,
-    after_save: Callable[[int, str, OpticalMap]] | None = None,
+    after_save: Callable[[int, str, OpticalMap], None] | None = None,
     check_after_create: bool = False,
     n_procs: int | None = 1,
     geom_fn: str | None = None,
@@ -249,7 +251,7 @@ def _merge_optical_maps_process(
     settings,
     check_after_create: bool = False,
     write_part_file: bool = False,
-) -> bool:
+) -> str:
     log.info("merging optical map group: %s", d)
     merged_map = OpticalMap.create_empty(d, settings)
     merged_nr_gen = merged_map.h_vertex
@@ -308,13 +310,13 @@ def merge_optical_maps(
             raise ValueError(msg)
         all_det_ntuples = det_ntuples
 
-    log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))
+    log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))  # type: ignore[arg-type]
 
-    use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1
+    use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1  # type: ignore[arg-type]
 
     if not use_mp:
         # sequential mode: merge maps one-by-one.
-        for d in all_det_ntuples:
+        for d in all_det_ntuples:  # type: ignore[union-attr]
             _merge_optical_maps_process(
                 d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp
             )
@@ -332,7 +334,7 @@ def merge_optical_maps(
         pool_results = []
 
         # merge maps in workers.
-        for d in all_det_ntuples:
+        for d in all_det_ntuples:  # type: ignore[union-attr]
             r = pool.apply_async(
                 _merge_optical_maps_process,
                 args=(d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp),
@@ -382,7 +384,7 @@ def check_optical_map(map_l5_file: str):
             continue
         om.check_histograms(include_prefix=True)
 
-        if all_binning is not None and not OpticalMap._edges_eq(om.binning, all_binning):
+        if all_binning is not None and not OpticalMap._edges_eq(om.binning, all_binning):  # type: ignore[arg-type]
             log.error("edges of optical map %s differ", submap)
         else:
             all_binning = om.binning
@@ -400,8 +402,8 @@ def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
         raise ValueError(msg)
 
     def _rebin_map(large: NDArray, factor: int) -> NDArray:
-        factor = np.full(3, factor, dtype=int)
-        sh = np.column_stack([np.array(large.shape) // factor, factor]).ravel()
+        factor_arr = np.full(3, factor, dtype=int)
+        sh = np.column_stack([np.array(large.shape) // factor_arr, factor_arr]).ravel()
         return large.reshape(sh).sum(axis=(1, 3, 5))
 
     for submap in list_optical_maps(map_l5_file):
@@ -414,10 +416,10 @@ def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
             msg = f"invalid factor {factor}, not a divisor"
             raise ValueError(msg)
         settings = copy.copy(settings)
-        settings["bins"] = [b // factor for b in settings["bins"]]
+        settings["bins"] = [b // factor for b in settings["bins"]]  # type: ignore[index]
 
         om_new = OpticalMap.create_empty(om.name, settings)
-        om_new.h_vertex = _rebin_map(om.h_vertex, factor)
-        om_new.h_hits = _rebin_map(om.h_hits, factor)
+        om_new.h_vertex = _rebin_map(om.h_vertex, factor)  # type: ignore[arg-type]
+        om_new.h_hits = _rebin_map(om.h_hits, factor)  # type: ignore[arg-type]
         om_new.create_probability()
         om_new.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")

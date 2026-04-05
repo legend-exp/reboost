@@ -276,7 +276,7 @@ def get_surface_response(
     if init_size != 0:
         charge = stats.norm.pdf(x, loc=init, scale=init_size)
         charge_full = stats.norm.pdf(x_full, loc=init, scale=init_size)
-        charge_col = [(np.sum(charge_full) - np.sum(charge)) / np.sum(charge_full)]
+        charge_col = np.array([(np.sum(charge_full) - np.sum(charge)) / np.sum(charge_full)])
         charge = charge / np.sum(charge_full)
     elif int(init * nx / fccd) < len(charge):
         charge[int(init * nx / fccd)] = 1

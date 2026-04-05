@@ -14,7 +14,7 @@ from scipy.interpolate import RegularGridInterpolator
 class HPGePulseShapeLibrary(NamedTuple):
     """A set of templates defined in the cylindrical-like (r, z) HPGe plane."""
 
-    waveforms: np.array
+    waveforms: np.ndarray
     "Field, function of the coordinates (r, z)."
     r_units: pint.Unit
     "Physical units of the coordinate `r`."
@@ -22,11 +22,11 @@ class HPGePulseShapeLibrary(NamedTuple):
     "Physical units of the coordinate `z`."
     t_units: pint.Unit
     "Physical units of the times."
-    r: np.array
+    r: np.ndarray
     "One dimensional arrays specifying the radial coordinates"
-    z: np.array
+    z: np.ndarray
     "One dimensional arrays specifying the z coordinates"
-    t: np.array
+    t: np.ndarray
     "Times used to define the waveforms"
 
 

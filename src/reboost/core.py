@@ -90,12 +90,12 @@ def read_data_at_channel_as_ak(
             np.concatenate((tcm_rows_full, tcm_rows)) if tcm_rows_full is not None else tcm_rows
         )
 
-    if len(data_flat) != len(tcm_rows_full):
+    if len(data_flat) != len(tcm_rows_full):  # type: ignore[arg-type]
         msg = "every index in the tcm should have been read"
         raise ValueError(msg)
 
     # sort the final data
-    data_flat = data_flat[np.argsort(tcm_rows_full)]
+    data_flat = data_flat[np.argsort(tcm_rows_full)]  # type: ignore[arg-type,index]
     data_unflat = ak.unflatten(data_flat, reorder)
 
     if with_units and units is not None:
@@ -159,9 +159,9 @@ def evaluate_output_column(
     globals_dict.pop("ak", None)
 
     if globals_dict == {}:
-        globals_dict = None
+        globals_dict = None  # type: ignore[assignment]
 
-    ctx = contextlib.nullcontext()
+    ctx: contextlib.AbstractContextManager = contextlib.nullcontext()
     if globals_dict is not None and "pyg4ometry" in globals_dict:
         ctx = utils.filter_logging(logging.CRITICAL)
 
@@ -210,7 +210,7 @@ def evaluate_object(
 
 
 def get_global_objects(
-    expressions: dict[str, str], *, local_dict: dict, time_dict: dict | None = None
+    expressions: dict[str, str], *, local_dict: dict, time_dict: ProfileDict | None = None
 ) -> AttrsDict:
     """Extract global objects used in the processing.
 
@@ -233,7 +233,7 @@ def get_global_objects(
 
     msg = f"Getting global objects with {expressions.keys()} and {local_dict}"
     log.debug(msg)
-    res = {}
+    res: dict = {}
 
     for obj_name, expression in expressions.items():
         res[obj_name] = evaluate_object(
@@ -400,7 +400,7 @@ def get_detector_objects(
 
     det_objects_dict = {}
     for output_detector in output_detectors:
-        obj_dict = {}
+        obj_dict: dict = {}
         for obj_name, obj_expression in expressions.items():
             obj_dict[obj_name] = evaluate_object(
                 obj_expression,
@@ -422,7 +422,7 @@ def get_detector_objects(
 
 
 def evaluate_hit_table_layout(
-    steps: ak.Array | Table, expression: str, time_dict: dict | None = None
+    steps: ak.Array | Table, expression: str, time_dict: ProfileDict | None = None
 ) -> Table:
     """Evaluate the hit_table_layout expression, producing the hit table.
 

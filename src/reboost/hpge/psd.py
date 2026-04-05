@@ -239,7 +239,7 @@ def _drift_time_heuristic_impl(
 
 
 @numba.njit(cache=True)
-def _njit_erf(x: ArrayLike) -> NDArray:
+def _njit_erf(x: NDArray) -> NDArray:
     """Error function that can take in a numpy array."""
     out = np.empty_like(x)
     for i in range(x.size):
@@ -249,7 +249,7 @@ def _njit_erf(x: ArrayLike) -> NDArray:
 
 @numba.njit(cache=True)
 def _current_pulse_model(
-    times: ArrayLike,
+    times: NDArray,
     amax: float,
     mu: float,
     sigma: float,
@@ -314,13 +314,13 @@ def _current_pulse_model(
 
 @numba.njit(cache=True)
 def _interpolate_pulse_model(
-    template: Array, time: float, start: float, end: float, dt: float, mu: float
+    template: NDArray, time: float, start: float, end: float, dt: float, mu: float
 ) -> NDArray:
     """Interpolate to extract the pulse model given a particular mu."""
     local_time = time - mu - start
 
     if (local_time < start) or (int(local_time) > end):
-        return 0
+        return 0  # type: ignore[return-value]
 
     sample = int(local_time / dt)
     A_before = template[sample]
@@ -330,7 +330,7 @@ def _interpolate_pulse_model(
     return A_before + frac * (A_after - A_before)
 
 
-def make_convolved_surface_library(bulk_template: np.array, surface_library: np.array) -> NDArray:
+def make_convolved_surface_library(bulk_template: np.ndarray, surface_library: np.ndarray) -> NDArray:
     """Make the convolved surface library out of the template.
 
     This convolves every row of the surface_library with the template and reshapes the output
@@ -388,11 +388,11 @@ def convolve_surface_response(surf_current: np.ndarray, bulk_pulse: np.ndarray) 
 def get_current_waveform(
     edep: ak.Array,
     drift_time: ak.Array,
-    template: ArrayLike,
+    template: NDArray,
     start: float,
     dt: float,
     range_t: tuple,
-) -> tuple(NDArray, NDArray):
+) -> tuple[NDArray, NDArray]:
     r"""Estimate the current waveform.
 
     Based on modelling the current as a sum over the current pulse model defined by
@@ -444,11 +444,11 @@ def get_current_waveform(
 def _get_waveform_value_surface(
     idx: int,
     edep: NDArray,
-    drift_time: np.array,
-    dist_to_nplus: np.array,
-    bulk_template: ArrayLike,
-    templates_surface: ArrayLike,
-    activeness_surface: ArrayLike,
+    drift_time: np.ndarray,
+    dist_to_nplus: np.ndarray,
+    bulk_template: NDArray,
+    templates_surface: NDArray,
+    activeness_surface: NDArray,
     distance_step_in_um: float,
     fccd: float,
     start: float,
@@ -496,9 +496,10 @@ def _get_waveform_value(
     idx: int,
     edep: ak.Array,
     drift_time: ak.Array,
-    template: ArrayLike,
+    template: NDArray,
     start: float,
     dt: float,
+    range_t: tuple,
 ) -> float:
     """Get the value of the waveform at a certain index."""
     out = 0
@@ -522,7 +523,7 @@ def _get_waveform_value_pulse_shape_library(
     drift_time: ak.Array,
     r: ak.Array,
     z: ak.Array,
-    pulse_shape_library: tuple[np.array, np.array, np.array],
+    pulse_shape_library: tuple[NDArray, NDArray, NDArray],
     start: float,
     dt: float,
 ) -> float:
@@ -549,8 +550,8 @@ def _get_waveform_value_pulse_shape_library(
 def _get_template_idx(
     r: float,
     z: float,
-    r_grid: np.array,
-    z_grid: np.array,
+    r_grid: np.ndarray,
+    z_grid: np.ndarray,
 ) -> tuple[int, int]:
     """Extract the closest template to a given (r,z) point with uniform grid, apart from the first and last point."""
     if r < r_grid[1]:
@@ -614,7 +615,7 @@ def _get_waveform_maximum_impl(
     r: ArrayLike,
     z: ArrayLike,
     template: ArrayLike,
-    pulse_shape_library: tuple[np.array, np.array, np.array],
+    pulse_shape_library: tuple[NDArray, NDArray, NDArray],
     templates_surface: ArrayLike,
     activeness_surface: ArrayLike,
     tmin: float,
@@ -676,14 +677,14 @@ def _estimate_current_impl(
     dist_to_nplus: ak.Array,
     r: ak.Array,
     z: ak.Array,
-    template: np.array,
-    pulse_shape_library: tuple[np.array, np.array, np.array],
-    times: np.array,
+    template: np.ndarray,
+    pulse_shape_library: tuple[NDArray, NDArray, NDArray],
+    times: np.ndarray,
     include_surface_effects: bool,
     use_library: bool,
     fccd: float,
-    templates_surface: np.array,
-    activeness_surface: np.array,
+    templates_surface: np.ndarray,
+    activeness_surface: np.ndarray,
     surface_step_in_um: float,
 ) -> tuple[NDArray, NDArray, NDArray]:
     """Estimate the maximum current that would be measured in the HPGe detector.
@@ -821,8 +822,8 @@ def maximum_current(
     r: ArrayLike | None = None,
     z: ArrayLike | None = None,
     *,
-    template: np.array | HPGePulseShapeLibrary,
-    times: np.array,
+    template: np.ndarray | HPGePulseShapeLibrary,
+    times: np.ndarray,
     fccd_in_um: float = 0,
     templates_surface: ArrayLike | None = None,
     activeness_surface: ArrayLike | None = None,
