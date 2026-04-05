@@ -7,7 +7,8 @@ import numpy as np
 from dbetto import AttrsDict
 from lgdo import Array, Table, VectorOfVectors, lh5
 
-from . import core, math, shape, utils
+from . import core, shape, utils
+from .math import stats
 from .shape import group
 
 log = logging.getLogger(__name__)
@@ -103,7 +104,7 @@ def build_evt(
             channels, rows, hitfile, "energy", "hit", tcm_tables
         )
 
-        energy = math.stats.apply_energy_resolution(
+        energy = stats.apply_energy_resolution(
             energy_true,
             channels,
             tcm_tables,

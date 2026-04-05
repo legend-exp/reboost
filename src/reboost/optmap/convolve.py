@@ -11,7 +11,6 @@ from lgdo import lh5
 from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray
-from pint import Quantity
 from pygeomoptics import fibers, lar, pen
 
 from .numba_pdg import numba_pdgid_funcs
@@ -27,7 +26,7 @@ class OptmapForConvolve(NamedTuple):
 
     dets: NDArray
     detidx: NDArray
-    edges: NDArray
+    edges: tuple
     weights: NDArray
 
 
@@ -507,7 +506,7 @@ def _iterate_stepwise_depositions_times(
     return output
 
 
-ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, Quantity, ...]
+ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple  # type: ignore[misc]
 
 
 def _get_scint_params(material: ScintMaterial):
