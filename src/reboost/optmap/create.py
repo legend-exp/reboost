@@ -33,7 +33,9 @@ def _optmaps_for_channels(
 ):
     if chfilter != "*":
         chfilter_list = [str(ch) for ch in chfilter]  # normalize types
-        optmap_det_ids = {det: name for det, name in all_det_ids.items() if str(det) in chfilter_list}
+        optmap_det_ids = {
+            det: name for det, name in all_det_ids.items() if str(det) in chfilter_list
+        }
     else:
         optmap_det_ids = all_det_ids
 

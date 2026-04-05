@@ -8,7 +8,7 @@ import numba
 import numpy as np
 import pint
 import pyg4ometry
-from lgdo import Array, VectorOfVectors
+from lgdo import VectorOfVectors
 from numpy.typing import ArrayLike, NDArray
 
 from .. import units
@@ -330,7 +330,9 @@ def _interpolate_pulse_model(
     return A_before + frac * (A_after - A_before)
 
 
-def make_convolved_surface_library(bulk_template: np.ndarray, surface_library: np.ndarray) -> NDArray:
+def make_convolved_surface_library(
+    bulk_template: np.ndarray, surface_library: np.ndarray
+) -> NDArray:
     """Make the convolved surface library out of the template.
 
     This convolves every row of the surface_library with the template and reshapes the output
