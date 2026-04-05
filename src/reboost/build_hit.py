@@ -238,7 +238,7 @@ def build_hit(
 
     # get the arguments
     if not isinstance(args, AttrsDict):
-        args = AttrsDict(args)
+        args = AttrsDict(args)  # type: ignore[arg-type]
 
     time_dict = ProfileDict()
 
@@ -250,7 +250,7 @@ def build_hit(
     # get the input files
     files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files, hit_files=hit_files)
 
-    output_tables = {}
+    output_tables: dict = {}
     output_tables_names = set()
 
     # iterate over files
@@ -433,7 +433,7 @@ def build_hit(
     log.info(time_dict)
 
     if output_tables == {}:
-        output_tables = None
+        output_tables = None  # type: ignore[assignment]
 
     return output_tables, time_dict
 

@@ -157,10 +157,10 @@ def get_file_dict(
 
     if not hit_is_list:
         hit_files_list = [hit_files] * len(stp_files)
-    elif hit_is_list and len(hit_files) == 1 and len(stp_files) > 1:
-        hit_files_list = [hit_files[0]] * len(stp_files)
+    elif hit_is_list and len(hit_files) == 1 and len(stp_files) > 1:  # type: ignore[arg-type]
+        hit_files_list = [hit_files[0]] * len(stp_files)  # type: ignore[index]
     else:
-        hit_files_list = hit_files
+        hit_files_list = hit_files  # type: ignore[assignment]
 
     files = {}
 
@@ -170,12 +170,12 @@ def get_file_dict(
         if isinstance(file_list, str):
             files[file_type] = [file_list]
         else:
-            files[file_type] = file_list
+            files[file_type] = file_list  # type: ignore[assignment]
 
     return AttrsDict(files)
 
 
-def get_file_list(path: str | None, threads: int | None = None) -> list[str]:
+def get_file_list(path: str | None, threads: int | None = None) -> list[str] | str | None:
     """Get a list of files accounting for the multithread index."""
     if threads is None or path is None:
         return path
@@ -229,7 +229,7 @@ def get_function_string(expr: str, aliases: dict | None = None) -> tuple[str, di
     for name, short_name in aliases.items():
         expr = expr.replace(name, short_name)
 
-    globs = {}
+    globs: dict[str, object] = {}
     # search on the whole expression
 
     funcs = _search_string(expr.strip())
@@ -286,9 +286,9 @@ def get_channels_from_groups(names: list | str | None, groupings: dict | None = 
     if names is None:
         channels_e = []
     elif isinstance(names, str):
-        channels_e = groupings[names]
+        channels_e = groupings[names]  # type: ignore[index]
     elif isinstance(names, list):
-        channels_e = list(itertools.chain.from_iterable([groupings[e] for e in names]))
+        channels_e = list(itertools.chain.from_iterable([groupings[e] for e in names]))  # type: ignore[index]
     else:
         msg = f"names {names} must be list or str or `None`"
         raise ValueError(msg)
@@ -313,7 +313,7 @@ def merge_dicts(dict_list: list) -> dict:
     >>> merge_dicts([{"a":[1,2,3],"b":[2]},{"a":[4,5,6],"c":[2]}])
     {"a":[1,2,3,4,5,6],"b":[2],"c":[2]}
     """
-    merged = {}
+    merged: dict = {}
 
     for tmp_dict in dict_list:
         for key, item in tmp_dict.items():
@@ -348,7 +348,7 @@ def _check_output_file(parser, file: str | Iterable[str] | None, optional: bool 
         return
 
     file = (file,) if isinstance(file, str) else file
-    for f in file:
+    for f in file:  # type: ignore[union-attr]
         if Path(f).exists():
             parser.error(f"output file {f} already exists")
 

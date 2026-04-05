@@ -27,7 +27,7 @@ class OptmapForConvolve(NamedTuple):
 
     dets: NDArray
     detidx: NDArray
-    edges: NDArray
+    edges: tuple
     weights: NDArray
 
 
@@ -507,7 +507,7 @@ def _iterate_stepwise_depositions_times(
     return output
 
 
-ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, Quantity, ...]
+ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple  # type: ignore[misc]
 
 
 def _get_scint_params(material: ScintMaterial):

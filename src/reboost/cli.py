@@ -128,9 +128,7 @@ def cli(args=None) -> None:
         glm_files = get_file_list(args.glm_file, threads=args.threads)
         stp_files = get_file_list(args.stp_file, threads=args.threads)
 
-        _check_input_file(parser, stp_files)
-
-        if args.overwrite is False:
+        _check_input_file(parser, stp_files)  # type: ignore[arg-type]
             _check_output_file(parser, glm_files)
 
         msg = "Running build_glm with arguments: \n"
@@ -144,7 +142,7 @@ def cli(args=None) -> None:
         log.info(msg)
 
         build_glm(
-            stp_files,
+            stp_files,  # type: ignore[arg-type]
             glm_files,
             out_table_name=args.out_table_name,
             id_name=args.id_name,

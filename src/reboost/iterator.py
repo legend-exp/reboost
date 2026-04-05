@@ -9,6 +9,7 @@ from lgdo.lh5 import LH5Store
 from lgdo.types import LGDO, Table
 
 from . import build_glm
+from .profile import ProfileDict
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class GLMIterator:
         *,
         stp_field: str = "stp",
         buffer: int = 10000,
-        time_dict: dict | None = None,
+        time_dict: ProfileDict | None = None,
         reshaped_files: bool = False,
     ):
         """Constructor for the GLMIterator.
@@ -99,7 +100,7 @@ class GLMIterator:
             if self.time_dict is not None:
                 self.time_dict.update_field("read/glm", time_start)
 
-            glm_n_rows = len(self.glm)
+            glm_n_rows = len(self.glm)  # type: ignore[arg-type]
 
         elif self.glm_file is None:
             self.use_glm = False

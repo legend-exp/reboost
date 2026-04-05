@@ -231,14 +231,14 @@ def step_lengths(
     for idx, var in enumerate(data):
         # check shape
         if var.ndim != 3:
-            msg = f"The input array for step lengths must be 3 dimensional not {data[idx.dim]}"
+            msg = f"The input array for step lengths must be 3 dimensional not {var.ndim}"
             raise ValueError(msg)
 
         # type convert
         data[idx] = units.units_conv_ak(data[idx], "mm")
 
     counts = ak.num(data[0], axis=-1)
-    data = np.vstack([ak.flatten(ak.flatten(var)).to_numpy() for var in data])
+    data = np.vstack([ak.flatten(ak.flatten(var)).to_numpy() for var in data])  # type: ignore[assignment]
     dist = np.append(np.sqrt(np.sum(np.diff(data, axis=1) ** 2, axis=0)), 0)
 
     n_cluster = ak.num(counts, axis=-1)

@@ -115,7 +115,7 @@ def run_daq_non_sparse(
     evt["t0"] = np.cumsum(rng.exponential(scale=1e6 / detected_rate, size=len(evt)))
 
     # get rawids of detectors present in the simulation
-    channel_ids = np.sort(np.unique(ak.flatten(evt.geds_rawid_active))).to_list()
+    channel_ids = np.sort(np.unique(ak.flatten(evt.geds_rawid_active))).tolist()
     channel_ids_arr = np.array(channel_ids, dtype=np.int64)
 
     daq_records = _run_daq_non_sparse_impl(
@@ -164,7 +164,7 @@ def _run_daq_non_sparse_impl(
 
     # list of event indices (fifo) to keep track of past events that have still
     # an effect on the baseline
-    evt_idx_buffer = []
+    evt_idx_buffer: list[int] = []
 
     # TODO: this will need to be updated
     # {

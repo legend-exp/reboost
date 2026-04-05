@@ -84,15 +84,15 @@ def get_glm_rows(stp_evtids: ArrayLike, vert: ArrayLike, *, start_row: int = 0) 
         raise ValueError(msg)
 
     # get the start row
-    start_row = np.array([np.nan] * len(vert), dtype=float)
-    start_row[positions] = ak.fill_none(ak.firsts(ak_tmp.indices), np.nan)
+    start_row_arr = np.array([np.nan] * len(vert), dtype=float)
+    start_row_arr[positions] = ak.fill_none(ak.firsts(ak_tmp.indices), np.nan)
 
     n_row = np.array([0] * len(vert), dtype=float)
     n_row[positions] = ak.num(ak_tmp.indices)
 
     # add to the  output
     output["n_rows"] = n_row
-    output["start_row"] = start_row
+    output["start_row"] = start_row_arr
 
     return output
 
@@ -221,7 +221,7 @@ def build_glm(
     files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files)
 
     # loop over files
-    glm_sum = {}
+    glm_sum: dict = {}
 
     for file_idx, stp_file in enumerate(files.stp):
         msg = f"start generating glm for {stp_file} "
@@ -240,7 +240,7 @@ def build_glm(
                 if lh5_table.replace("stp/", "") not in glm_sum:
                     glm_sum[lh5_table.replace("stp/", "")] = None
         else:
-            glm_sum = None
+            glm_sum = None  # type: ignore[assignment]
 
         # start row for each table
         start_row = dict.fromkeys(lh5_table_list, 0)
