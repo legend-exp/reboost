@@ -238,8 +238,8 @@ def step_lengths(
         data[idx] = units.units_conv_ak(data[idx], "mm")
 
     counts = ak.num(data[0], axis=-1)
-    data = np.vstack([ak.flatten(ak.flatten(var)).to_numpy() for var in data])  # type: ignore[assignment]
-    dist = np.append(np.sqrt(np.sum(np.diff(data, axis=1) ** 2, axis=0)), 0)
+    xyz_data = np.vstack([ak.flatten(ak.flatten(var)).to_numpy() for var in data])
+    dist = np.append(np.sqrt(np.sum(np.diff(xyz_data, axis=1) ** 2, axis=0)), 0)
 
     n_cluster = ak.num(counts, axis=-1)
     clusters = ak.unflatten(ak.Array(dist), ak.flatten(counts))
