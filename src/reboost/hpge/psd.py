@@ -315,7 +315,7 @@ def _current_pulse_model(
 @numba.njit(cache=True)
 def _interpolate_pulse_model(
     template: NDArray, time: float, start: float, end: float, dt: float, mu: float
-) -> NDArray:
+) -> float:
     """Interpolate to extract the pulse model given a particular mu."""
     local_time = time - mu - start
 
@@ -331,7 +331,7 @@ def _interpolate_pulse_model(
 
 
 def make_convolved_surface_library(
-    bulk_template: np.ndarray, surface_library: np.ndarray
+    bulk_template: np.ndarray, surface_library: ArrayLike
 ) -> NDArray:
     """Make the convolved surface library out of the template.
 
