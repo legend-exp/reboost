@@ -221,7 +221,7 @@ def build_glm(
     files = utils.get_file_dict(stp_files=stp_files, glm_files=glm_files)
 
     # loop over files
-    glm_sum: dict = {}
+    glm_sum: dict[str, ak.Array | None] = {}
 
     for file_idx, stp_file in enumerate(files.stp):
         msg = f"start generating glm for {stp_file} "
