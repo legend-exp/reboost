@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Sequence
 
 import numpy as np
 from lgdo.lh5 import LH5Iterator
@@ -14,7 +14,7 @@ EVT_TABLE_NAME = "optmap_evt"
 
 
 def generate_optmap_evt(
-    lh5_in_file: str, detectors: Iterable[str | int], buffer_len: int = int(5e6)
+    lh5_in_file: str, detectors: Sequence[str | int], buffer_len: int = int(5e6)
 ) -> Generator[Table, None, None]:
     """Create a faster map for lookup of the hits in each detector, for each primary event."""
     log.info("reading file %s", lh5_in_file)
@@ -27,7 +27,7 @@ def generate_optmap_evt(
         raise ValueError(msg)
     detectors = [str(d) for d in detectors]
     for d in detectors:
-        if not d.isnumeric():
+        if not d.isnumeric():  # type: ignore[union-attr]
             log.warning("Detector ID %s is not numeric.", d)
 
     vert_df = None
@@ -95,7 +95,7 @@ def generate_optmap_evt(
 
         for t in opti_df[["evtid", "det_uid"]].itertuples(name=None, index=False):
             yield from _ensure_vert_df(vert_it, t[0])
-            vert_df.loc[t[0], str(t[1])] += 1
+            vert_df.loc[t[0], str(t[1])] += 1  # type: ignore[union-attr]
             hits_expected += 1
 
     yield from _store_vert_df(last_chunk=True)  # store the last chunk.
