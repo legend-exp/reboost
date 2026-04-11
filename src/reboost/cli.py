@@ -157,9 +157,11 @@ def cli(args=None) -> None:
         stp_files = get_file_list(args.stp_file, threads=args.threads)
         hit_files = get_file_list(args.hit_file, threads=args.threads)
 
+        assert stp_files is not None
         _check_input_file(parser, stp_files)
 
         if args.glm_file is not None:
+            assert glm_files is not None
             _check_input_file(parser, glm_files)
 
         if args.overwrite is False:

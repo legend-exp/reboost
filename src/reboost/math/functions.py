@@ -144,7 +144,7 @@ def vectorised_active_energy(
 
     fccd_list = np.tile(fccd_arr, (len(distances_flat), 1))
     dl_list = np.tile(dl, (len(distances_flat), 1))
-    distances_shaped = np.tile(distances_flat, (1, len(dlf_arr)))
+    distances_shaped = np.tile(distances_flat, (1, len(dl)))
 
     # compute the linear piecewise
     results = np.full_like(fccd_list, np.nan, dtype=np.float64)

@@ -630,8 +630,8 @@ def _get_waveform_maximum_impl(
     use_library: bool,
 ):
     """Basic implementation to get the maximum of the waveform."""
-    max_a = 0
-    max_t = 0
+    max_a: float = 0
+    max_t: float = 0
     energy = np.sum(e)
 
     for j in range(0, n, time_step):
