@@ -37,7 +37,7 @@ def _slice_text(viewdata: dict) -> str:
 
 def _process_key(event) -> None:
     fig = event.canvas.figure
-    viewdata = fig.__reboost  # type: ignore[attr-defined]
+    viewdata = fig.__reboost
 
     if event.key == "up":
         viewdata["axis"] = min(viewdata["axis"] + 1, 2)
@@ -57,7 +57,7 @@ def _process_key(event) -> None:
 
 
 def _update_figure(fig) -> None:
-    viewdata = fig.__reboost  # type: ignore[attr-defined]
+    viewdata = fig.__reboost
     w, extent, labels = _get_weights(viewdata)
 
     ax = fig.axes[0]
@@ -72,15 +72,15 @@ def _update_figure(fig) -> None:
 
 def _channel_selector(fig) -> None:
     axbox = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-    channels = fig.__reboost["available_dets"]  # type: ignore[attr-defined]
-    tb = widgets.RadioButtons(axbox, channels, active=channels.index(fig.__reboost["detid"]))  # type: ignore[attr-defined]
+    channels = fig.__reboost["available_dets"]
+    tb = widgets.RadioButtons(axbox, channels, active=channels.index(fig.__reboost["detid"]))
 
     def change_detector(label: str | None) -> None:
-        if fig.__reboost["detid"] != label:  # type: ignore[attr-defined]
-            fig.__reboost["detid"] = label  # type: ignore[attr-defined]
-            edges, weights, _, _ = _prepare_data(*fig.__reboost["prepare_args"], label)  # type: ignore[attr-defined]
-            fig.__reboost["weights"] = weights  # type: ignore[attr-defined]
-            fig.__reboost["edges"] = edges  # type: ignore[attr-defined]
+        if fig.__reboost["detid"] != label:
+            fig.__reboost["detid"] = label
+            edges, weights, _, _ = _prepare_data(*fig.__reboost["prepare_args"], label)
+            fig.__reboost["weights"] = weights
+            fig.__reboost["edges"] = edges
         tb.disconnect_events()
         axbox.remove()
         _update_figure(fig)
@@ -116,7 +116,7 @@ def _prepare_data(
     cmap_max: float | Literal["auto"] = 1e-2,
     histogram_choice: str = "prob",
     detid: str = "all",
-) -> tuple[tuple[NDArray], NDArray, float | Literal["auto"], float | Literal["auto"]]:
+) -> tuple[tuple[NDArray], NDArray]:
     optmap_edges, optmap_weights = _read_data(optmap_fn, detid, histogram_choice)
 
     if divide_fn is not None:
@@ -154,7 +154,7 @@ def _prepare_data(
 
 
 def view_optmap(
-    optmap_fn: str,
+    optmap_fn: list[str],
     detid: str = "all",
     divide_fn: str | None = None,
     start_axis: int = 2,
@@ -171,7 +171,7 @@ def view_optmap(
     fig = plt.figure(figsize=(10, 10))
     fig.canvas.mpl_connect("key_press_event", _process_key)
     start_axis_len = edges[start_axis].shape[0] - 1
-    fig.__reboost = {  # type: ignore[attr-defined]
+    fig.__reboost = {
         "axis": start_axis,
         "weights": weights,
         "detid": detid,
@@ -181,11 +181,11 @@ def view_optmap(
         "prepare_args": prepare_args,
     }
 
-    cmap = plt.cm.plasma.with_extremes(bad="w", under="gray", over="red")  # type: ignore[attr-defined]
-    weights, extent, labels = _get_weights(fig.__reboost)  # type: ignore[attr-defined]
+    cmap = plt.cm.plasma.with_extremes(bad="w", under="gray", over="red")
+    weights, extent, labels = _get_weights(fig.__reboost)
     plt.imshow(
-        weights[fig.__reboost["idx"]],  # type: ignore[attr-defined]
-        norm=colors.LogNorm(vmin=cmap_min, vmax=cmap_max),  # type: ignore[arg-type]
+        weights[fig.__reboost["idx"]],
+        norm=colors.LogNorm(vmin=cmap_min, vmax=cmap_max),
         aspect=1,
         interpolation="none",
         cmap=cmap,
@@ -203,6 +203,6 @@ def view_optmap(
     plt.xlabel(labels[0])
     plt.ylabel(labels[1])
 
-    plt.text(0, 1.02, _slice_text(fig.__reboost), transform=fig.axes[0].transAxes)  # type: ignore[attr-defined]
+    plt.text(0, 1.02, _slice_text(fig.__reboost), transform=fig.axes[0].transAxes)
     plt.colorbar()
     plt.show()

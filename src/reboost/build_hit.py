@@ -236,6 +236,8 @@ def build_hit(
     if isinstance(config, str):
         config = dbetto.utils.load_dict(config)
 
+    assert isinstance(config, Mapping)
+
     # get the arguments
     if not isinstance(args, AttrsDict):
         args = AttrsDict(args)  # type: ignore[arg-type]
