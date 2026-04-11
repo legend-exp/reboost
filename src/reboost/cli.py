@@ -129,6 +129,8 @@ def cli(args=None) -> None:
         stp_files = get_file_list(args.stp_file, threads=args.threads)
 
         _check_input_file(parser, stp_files)  # type: ignore[arg-type]
+
+        if args.overwrite is False:
             _check_output_file(parser, glm_files)
 
         msg = "Running build_glm with arguments: \n"
