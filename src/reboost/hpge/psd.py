@@ -501,7 +501,6 @@ def _get_waveform_value(
     template: NDArray,
     start: float,
     dt: float,
-    range_t: tuple,
 ) -> float:
     """Get the value of the waveform at a certain index."""
     out = 0
