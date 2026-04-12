@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, NamedTuple, TypeAlias
+from typing import Literal, NamedTuple, TypeAlias
 
 import awkward as ak
 import numba
 import numpy as np
+import pint
 import pygeomoptics.scintillate as sc
 from lgdo import lh5
 from lgdo.types import Histogram
@@ -506,7 +507,9 @@ def _iterate_stepwise_depositions_times(
     return output
 
 
-ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, tuple[Any, ...]]
+ScintMaterial: TypeAlias = (
+    Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, tuple[pint.Quantity, ...]]
+)
 
 
 def _get_scint_params(material: ScintMaterial):
