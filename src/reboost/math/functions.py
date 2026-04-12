@@ -218,6 +218,7 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
     # Convert to ak
     distances_ak = units.units_conv_ak(distances, "mm")
     assert distances_ak is not None
+    # flatten the distances to 1D
     distances_flat = (
         ak.flatten(distances_ak).to_numpy() if distances_ak.ndim > 1 else distances_ak.to_numpy()
     )

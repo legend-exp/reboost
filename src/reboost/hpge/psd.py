@@ -320,7 +320,7 @@ def _interpolate_pulse_model(
     local_time = time - mu - start
 
     if (local_time < start) or (int(local_time) > end):
-        return 0  # type: ignore[return-value]
+        return 0.
 
     sample = int(local_time / dt)
     A_before = template[sample]
@@ -446,8 +446,8 @@ def get_current_waveform(
 def _get_waveform_value_surface(
     idx: int,
     edep: NDArray,
-    drift_time: np.ndarray,
-    dist_to_nplus: np.ndarray,
+    drift_time: NDArray,
+    dist_to_nplus: NDArray,
     bulk_template: NDArray,
     templates_surface: NDArray,
     activeness_surface: NDArray,
@@ -551,8 +551,8 @@ def _get_waveform_value_pulse_shape_library(
 def _get_template_idx(
     r: float,
     z: float,
-    r_grid: np.ndarray,
-    z_grid: np.ndarray,
+    r_grid: NDArray,
+    z_grid: NDArray,
 ) -> tuple[int, int]:
     """Extract the closest template to a given (r,z) point with uniform grid, apart from the first and last point."""
     if r < r_grid[1]:
@@ -678,14 +678,14 @@ def _estimate_current_impl(
     dist_to_nplus: ak.Array,
     r: ak.Array,
     z: ak.Array,
-    template: np.ndarray,
+    template: NDArray,
     pulse_shape_library: tuple[NDArray, NDArray, NDArray],
-    times: np.ndarray,
+    times: NDArray,
     include_surface_effects: bool,
     use_library: bool,
     fccd: float,
-    templates_surface: np.ndarray,
-    activeness_surface: np.ndarray,
+    templates_surface: NDArray,
+    activeness_surface: NDArray,
     surface_step_in_um: float,
 ) -> tuple[NDArray, NDArray, NDArray]:
     """Estimate the maximum current that would be measured in the HPGe detector.
@@ -823,8 +823,8 @@ def maximum_current(
     r: ArrayLike | None = None,
     z: ArrayLike | None = None,
     *,
-    template: np.ndarray | HPGePulseShapeLibrary,
-    times: np.ndarray,
+    template: NDArray | HPGePulseShapeLibrary,
+    times: NDArray,
     fccd_in_um: float = 0,
     templates_surface: ArrayLike | None = None,
     activeness_surface: ArrayLike | None = None,

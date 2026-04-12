@@ -347,8 +347,8 @@ def _check_output_file(parser, file: str | Iterable[str] | None, optional: bool 
     if file is None and optional:
         return
 
-    file = (file,) if isinstance(file, str) else file
-    for f in file:  # type: ignore[union-attr]
+    files_list: Iterable[str] = (file,) if isinstance(file, str) else file
+    for f in files_list:
         if Path(f).exists():
             parser.error(f"output file {f} already exists")
 
