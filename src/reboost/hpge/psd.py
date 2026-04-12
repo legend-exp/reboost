@@ -320,7 +320,7 @@ def _interpolate_pulse_model(
     local_time = time - mu - start
 
     if (local_time < start) or (int(local_time) > end):
-        return 0.
+        return 0.0
 
     sample = int(local_time / dt)
     A_before = template[sample]
