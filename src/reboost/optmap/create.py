@@ -304,7 +304,7 @@ def merge_optical_maps(
         number of processors, ``1`` for sequential mode, or ``None`` to use all processors.
     """
     # verify that we have the same maps in all files.
-    all_det_ntuples = None
+    all_det_ntuples: list[str] | None = None
     for optmap_fn in map_l5_files:
         det_ntuples = list_optical_maps(optmap_fn)
         if all_det_ntuples is not None and det_ntuples != all_det_ntuples:
@@ -312,13 +312,15 @@ def merge_optical_maps(
             raise ValueError(msg)
         all_det_ntuples = det_ntuples
 
-    log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))  # type: ignore[arg-type]
+    assert all_det_ntuples is not None
 
-    use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1  # type: ignore[arg-type]
+    log.info("merging optical map groups: %s", ", ".join(all_det_ntuples))
+
+    use_mp = (n_procs is None or n_procs > 1) and len(all_det_ntuples) > 1
 
     if not use_mp:
         # sequential mode: merge maps one-by-one.
-        for d in all_det_ntuples:  # type: ignore[union-attr]
+        for d in all_det_ntuples:
             _merge_optical_maps_process(
                 d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp
             )
@@ -336,7 +338,7 @@ def merge_optical_maps(
         pool_results = []
 
         # merge maps in workers.
-        for d in all_det_ntuples:  # type: ignore[union-attr]
+        for d in all_det_ntuples:
             r = pool.apply_async(
                 _merge_optical_maps_process,
                 args=(d, map_l5_files, output_lh5_fn, settings, check_after_create, use_mp),
@@ -421,7 +423,9 @@ def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
         settings["bins"] = [b // factor for b in settings["bins"]]  # type: ignore[index]
 
         om_new = OpticalMap.create_empty(om.name, settings)
-        om_new.h_vertex = _rebin_map(om.h_vertex, factor)  # type: ignore[arg-type]
-        om_new.h_hits = _rebin_map(om.h_hits, factor)  # type: ignore[arg-type]
+        assert isinstance(om.h_vertex, np.ndarray)
+        assert isinstance(om.h_hits, np.ndarray)
+        om_new.h_vertex = _rebin_map(om.h_vertex, factor)
+        om_new.h_hits = _rebin_map(om.h_hits, factor)
         om_new.create_probability()
         om_new.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")

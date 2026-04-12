@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from typing import Literal
 
 import dbetto
 
@@ -183,10 +184,10 @@ def optical_cli() -> None:
         _check_input_file(parser, args.input, "settings")
         settings = dbetto.utils.load_dict(args.settings)
 
-        chfilter = "*"
+        chfilter: tuple[str | int, ...] | Literal["*"] = "*"
         if args.detectors is not None:
             # load detector ids from a JSON/YAML array
-            chfilter = dbetto.utils.load_dict(args.detectors)
+            chfilter = tuple(dbetto.utils.load_dict(args.detectors))
 
         create_optical_maps(
             args.input,
