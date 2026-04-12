@@ -5,14 +5,17 @@ import ctypes
 import logging
 import math
 import multiprocessing as mp
+import multiprocessing.sharedctypes
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from lgdo import Histogram, Struct, lh5
 from numpy.typing import NDArray
 
 log = logging.getLogger(__name__)
+
+HistArray: TypeAlias = NDArray | mp.sharedctypes.SynchronizedArray
 
 
 class OpticalMap:
@@ -21,10 +24,10 @@ class OpticalMap:
         self.name = name
         self.use_shmem = use_shmem
 
-        self.h_vertex: NDArray | mp.sharedctypes.SynchronizedArray | None = None
-        self.h_hits: NDArray | mp.sharedctypes.SynchronizedArray | None = None
-        self.h_prob: NDArray | mp.sharedctypes.SynchronizedArray | None = None
-        self.h_prob_uncert: NDArray | mp.sharedctypes.SynchronizedArray | None = None
+        self.h_vertex: HistArray | None = None
+        self.h_hits: HistArray | None = None
+        self.h_prob: HistArray | None = None
+        self.h_prob_uncert: HistArray | None = None
 
         self.binning: list | None = None
 
@@ -32,7 +35,7 @@ class OpticalMap:
 
         if settings is not None:
             self._single_shape = tuple(self.settings["bins"])  # type: ignore[index]
-            self._single_stride = None
+            self._single_stride: list[int] | None = None
 
             binedge_attrs = {"units": "m"}
             bins = self.settings["bins"]  # type: ignore[index]
@@ -80,13 +83,11 @@ class OpticalMap:
         om.binning = bin_nr_gen
         return om
 
-    def _prepare_hist(self) -> NDArray | mp.sharedctypes.SynchronizedArray:
+    def _prepare_hist(self) -> HistArray:
         """Prepare an empty histogram with the parameters global to this map instance."""
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
-            a: NDArray | mp.sharedctypes.SynchronizedArray = self._mp_man.Array(
-                ctypes.c_double, math.prod(self._single_shape)
-            )
+            a: HistArray = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
             nda: NDArray = self._nda(a)  # type: ignore[assignment]
             nda.fill(0)
         else:
@@ -94,13 +95,13 @@ class OpticalMap:
             nda = a
         stride = [s // nda.dtype.itemsize for s in nda.strides]
         if self._single_stride is None:
-            self._single_stride = stride  # type: ignore[assignment]
+            self._single_stride = stride
         assert self._single_stride == stride
         return a
 
     def _fill_histogram(
         self,
-        h: NDArray | mp.sharedctypes.SynchronizedArray,
+        h: HistArray,
         xyz: NDArray,
         for_hits: bool = False,
     ) -> None:
@@ -114,8 +115,10 @@ class OpticalMap:
 
         idx = np.zeros(xyz.shape[1], np.int64)  # bin indices for flattened array
         oor_mask = np.ones(xyz.shape[1], np.bool_)  # mask to remove out of range values
+        assert self.binning is not None
+        assert self._single_stride is not None
         dims = range(xyz.shape[0])
-        for col, ax, s, dim in zip(xyz, self.binning, self._single_stride, dims, strict=True):  # type: ignore[arg-type]
+        for col, ax, s, dim in zip(xyz, self.binning, self._single_stride, dims, strict=True):
             assert ax.is_range
             assert ax.closedleft
             oor_mask &= (ax.first <= col) & (col < ax.last)
@@ -145,19 +148,19 @@ class OpticalMap:
 
     def _fill_histogram_buf(
         self,
-        h: NDArray | mp.sharedctypes.SynchronizedArray,
+        h: HistArray,
         idx: NDArray,
     ) -> None:
         # increment bin contents
         with self._lock_nda(h)():
             np.add.at(self._nda(h).reshape(-1), idx, 1)
 
-    def _nda(self, h: NDArray | mp.sharedctypes.SynchronizedArray) -> NDArray:
+    def _nda(self, h: HistArray) -> NDArray:
         if not self.use_shmem:
             return h  # type: ignore[return-value]
         return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.get_obj())  # type: ignore[union-attr,arg-type]
 
-    def _lock_nda(self, h: NDArray | mp.sharedctypes.SynchronizedArray):
+    def _lock_nda(self, h: HistArray):
         if not self.use_shmem:
             return contextlib.nullcontext
         return h.get_lock  # type: ignore[union-attr]
@@ -195,11 +198,7 @@ class OpticalMap:
         self._fill_histogram_buf(self.h_hits, self.__fill_hits_buf[0 : self.__fill_hits_pos])  # type: ignore[index]
         self.__fill_hits_buf = None
 
-    def _divide_hist(
-        self, h1: NDArray, h2: NDArray
-    ) -> tuple[
-        NDArray | mp.sharedctypes.SynchronizedArray, NDArray | mp.sharedctypes.SynchronizedArray
-    ]:
+    def _divide_hist(self, h1: NDArray, h2: NDArray) -> tuple[HistArray, HistArray]:
         """Calculate the ratio (and its standard error) from two histograms."""
         h1 = self._nda(h1)
         h2 = self._nda(h2)

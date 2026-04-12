@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -72,15 +72,18 @@ def _update_figure(fig) -> None:
 
 def _channel_selector(fig) -> None:
     axbox = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-    channels = fig.__reboost["available_dets"]  # type: ignore[attr-defined]
-    tb = widgets.RadioButtons(axbox, channels, active=channels.index(fig.__reboost["detid"]))  # type: ignore[attr-defined]
+    viewdata: dict[str, Any] = fig.__reboost  # type: ignore[attr-defined]
+    channels = viewdata["available_dets"]
+    tb = widgets.RadioButtons(axbox, channels, active=channels.index(viewdata["detid"]))
 
     def change_detector(label: str | None) -> None:
-        if fig.__reboost["detid"] != label:  # type: ignore[attr-defined]
-            fig.__reboost["detid"] = label  # type: ignore[attr-defined]
-            edges, weights, _, _ = _prepare_data(*fig.__reboost["prepare_args"], label)  # type: ignore[attr-defined]
-            fig.__reboost["weights"] = weights  # type: ignore[attr-defined]
-            fig.__reboost["edges"] = edges  # type: ignore[attr-defined]
+        if viewdata["detid"] != label:
+            viewdata["detid"] = label
+            pa = viewdata["prepare_args"]
+            assert label is not None
+            edges, weights, _, _ = _prepare_data(pa[0], pa[1], pa[2], pa[3], pa[4], label)
+            viewdata["weights"] = weights
+            viewdata["edges"] = edges
         tb.disconnect_events()
         axbox.remove()
         _update_figure(fig)
@@ -171,7 +174,7 @@ def view_optmap(
     fig = plt.figure(figsize=(10, 10))
     fig.canvas.mpl_connect("key_press_event", _process_key)
     start_axis_len = edges[start_axis].shape[0] - 1
-    fig.__reboost = {  # type: ignore[attr-defined]
+    viewdata: dict[str, Any] = {
         "axis": start_axis,
         "weights": weights,
         "detid": detid,
@@ -180,11 +183,12 @@ def view_optmap(
         "available_dets": available_dets,
         "prepare_args": prepare_args,
     }
+    fig.__reboost = viewdata  # type: ignore[attr-defined]
 
     cmap = plt.cm.plasma.with_extremes(bad="w", under="gray", over="red")  # type: ignore[attr-defined]
-    weights, extent, labels = _get_weights(fig.__reboost)  # type: ignore[attr-defined]
+    weights, extent, labels = _get_weights(viewdata)
     plt.imshow(
-        weights[fig.__reboost["idx"]],  # type: ignore[attr-defined]
+        weights[viewdata["idx"]],
         norm=colors.LogNorm(vmin=cmap_min, vmax=cmap_max),  # type: ignore[arg-type]
         aspect=1,
         interpolation="none",
@@ -203,6 +207,6 @@ def view_optmap(
     plt.xlabel(labels[0])
     plt.ylabel(labels[1])
 
-    plt.text(0, 1.02, _slice_text(fig.__reboost), transform=fig.axes[0].transAxes)  # type: ignore[attr-defined]
+    plt.text(0, 1.02, _slice_text(viewdata), transform=fig.axes[0].transAxes)
     plt.colorbar()
     plt.show()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal, NamedTuple, TypeAlias
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 import awkward as ak
 import numba
@@ -506,7 +506,7 @@ def _iterate_stepwise_depositions_times(
     return output
 
 
-ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple  # type: ignore[misc]
+ScintMaterial: TypeAlias = Literal["lar", "pen", "fiber"] | tuple[sc.ScintConfig, tuple[Any, ...]]
 
 
 def _get_scint_params(material: ScintMaterial):
