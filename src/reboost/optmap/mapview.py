@@ -79,9 +79,11 @@ def _channel_selector(fig) -> None:
     def change_detector(label: str | None) -> None:
         if viewdata["detid"] != label:
             viewdata["detid"] = label
-            pa = viewdata["prepare_args"]
+            optmap_fn, divide_fn, cmap_min_pa, cmap_max_pa, hist_choice = viewdata["prepare_args"]
             assert label is not None
-            edges, weights, _, _ = _prepare_data(pa[0], pa[1], pa[2], pa[3], pa[4], label)
+            edges, weights, _, _ = _prepare_data(
+                optmap_fn, divide_fn, cmap_min_pa, cmap_max_pa, hist_choice, label
+            )
             viewdata["weights"] = weights
             viewdata["edges"] = edges
         tb.disconnect_events()
