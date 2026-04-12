@@ -347,6 +347,7 @@ def _check_output_file(parser, file: str | Iterable[str] | None, optional: bool 
     if file is None and optional:
         return
 
+    assert file is not None
     files_list: Iterable[str] = (file,) if isinstance(file, str) else file
     for f in files_list:
         if Path(f).exists():
