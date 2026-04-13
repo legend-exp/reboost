@@ -7,6 +7,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Codecov](https://img.shields.io/codecov/c/github/legend-exp/reboost?logo=codecov)](https://app.codecov.io/gh/legend-exp/reboost)
+[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 ![GitHub issues](https://img.shields.io/github/issues/legend-exp/reboost?logo=github)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/legend-exp/reboost?logo=github)
 ![License](https://img.shields.io/github/license/legend-exp/reboost)
