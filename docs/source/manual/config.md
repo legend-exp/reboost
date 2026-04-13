@@ -123,11 +123,11 @@ operations:
 
   activeness:
     reboost.math.functions.piecewise_linear_activeness(HITS.distance_to_nplus,
-    fccd=DETECTOR_OBJECTS.det_pars.fccd_in_mm,
-    tl=DETECTOR_OBJECTS.det_pars.tl_in_mm)
+    fccd_in_mm=DETECTOR_OBJECTS.det_pars.fccd_in_mm,
+    dlf=DETECTOR_OBJECTS.det_pars.dlf)
 
   active_energy: ak.sum(HITS.edep*HITS.activeness, axis=-1)
-  smeared_energy: reboost.math.stats.gaussian_sample(HITS.active_energy,DETECTOR_OBJECTS.det_pars.reso_in_sigma)
+  smeared_energy: reboost.math.stats.gaussian_sample(HITS.active_energy,DETECTOR_OBJECTS.det_pars.reso_fwhm_in_keV/2.355)
 ```
 
 The post-processing based on this configuration file format is handled by

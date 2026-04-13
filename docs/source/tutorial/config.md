@@ -33,7 +33,6 @@ import logging
 import json
 
 from reboost.build_hit import build_hit
-from reboost.build_glm import build_glm
 
 # setup logging
 handler = colorlog.StreamHandler()
@@ -95,7 +94,7 @@ config:
         activeness: reboost.math.functions.piecewise_linear_activeness(HITS.distance_to_nplus,fccd_in_mm=DETECTOR_OBJECTS.det_pars.fccd_in_mm, dlf=DETECTOR_OBJECTS.det_pars.dlf)
         active_energy: ak.sum(HITS.edep*HITS.activeness, axis=-1)
         smeared_energy: reboost.math.stats.gaussian_sample(HITS.active_energy,DETECTOR_OBJECTS.det_pars.reso_fwhm_in_keV/2.355)
-        r90: reboost.hpge.psd.r90(HITS.edep,HITS.xloc*1000,HITS.yloc*1000,HITS.zloc*1000)
+        r90: reboost.hpge.psd.r90(HITS.edep,HITS.xloc,HITS.yloc,HITS.zloc)
 
     - name: LAr # processing of hits in the LAr volume
       detector_mapping:
@@ -380,6 +379,7 @@ build_hit(
     "config.yaml",
     args,
     stp_files="stp_out.lh5",
+    glm_files=None,
     hit_files="hit_out.lh5",
     buffer=int(1e5),
 )
@@ -388,20 +388,13 @@ build_hit(
 Output:
 
 ```
-reboost.core [INFO] Getting global objects with dict_keys(['geometry', 'user_pars']) and {'ARGS': {'gdml': 'geometry.gdml', 'pars': 'pars.json'}}
-reboost.build_hit [INFO] ... starting post processing of stp_out.lh5 to hit_out.lh5
-reboost.build_hit [INFO] ... starting group geds
-reboost.build_hit [INFO] ... processing det001 (to ['det001'])
-reboost.build_hit [INFO] ... processing det002 (to ['det002'])
-reboost.build_hit [INFO] ... starting group LAr
-reboost.build_hit [INFO] ... processing det003 (to ['det003'])
+reboost.build_hit [INFO] starting processing of stp_out.lh5 to hit_out.lh5
 reboost.build_hit [INFO]
 Reboost post processing took:
  - global_objects        :     3.6 s
  - geds:
    - detector_objects    :     0.4 s
-   - read:
-     - stp               :     2.4 s
+   - conv                :   < 0.1 s
    - hit_layout          :     0.6 s
    - expressions:
      - t0                :   < 0.1 s
@@ -415,9 +408,7 @@ Reboost post processing took:
    - write               :     0.3 s
  - LAr:
    - detector_objects    :   < 0.1 s
-   - read:
-     - glm               :     0.1 s
-     - stp               :    34.6 s
+   - conv                :   < 0.1 s
    - hit_layout          :     7.7 s
    - expressions:
      - t0                :     0.2 s
