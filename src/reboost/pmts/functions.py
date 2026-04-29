@@ -9,16 +9,18 @@ def align_detectors(
     field: str = "time",
     return_event_ids: bool = False,
 ) -> ak.Array:
-    """Build jagged array [detector][event][hit], aligning events across detectors. Missing detector-event combinations become empty lists. Shape x * y * var.
+    """Build jagged array [detector][event][hit], aligning events across detectors.
+
+    Missing detector-event combinations become empty lists. Shape x * y * var.
 
     Parameters
     ----------
-    data_arr : ak.Array
-        Input array of shape n_detectors * var * {evtid, field, ...}. Needs to contain the field "evtid" and the specified field.
-    field : str
-        Field to extract and align (e.g. "time").
-    return_event_ids : bool
-        If True, also return the array of unique event IDs corresponding to axis 1. Required for event building with other detector systems.
+        data_arr : ak.Array
+            Input array of shape n_detectors * var * {evtid, field, ...}. Needs to contain the field "evtid" and the specified field.
+        field : str
+            Field to extract and align (e.g. "time").
+        return_event_ids : bool
+            If True, also return the array of unique event IDs corresponding to axis 1. Required for event building with other detector systems.
     """
     # --- collect all event IDs ---
     all_evtids = ak.flatten(data_arr["evtid"])
@@ -65,36 +67,38 @@ def build_hardware_triggers(
     light_threshold: float = 1,
     integration_time: float = 4,
 ) -> ak.Array:
-    """Build hardware trigger array based on multiplicity and light thresholds. IT IS ALWAYS > Threshold NOT >= Threshold.
+    """Build hardware trigger array based on multiplicity and light thresholds.
+
+    IT IS ALWAYS > Threshold NOT >= Threshold.
 
     Parameters
     ----------
-    data_array : awkward.Array
-        Jagged array [detector][event][hit] with hit times. Shape x * y * var.
-    multiplicity_threshold : int
-        Minimum number of different detectors triggering within timegate to trigger.
-        Needs to be defined and > 0 if no trigger groups are defined.
-    timegate : float
-        Time window (in ns) to consider for multiplicity trigger.
-    trigger_deadtime : float
-        Time window (in ns) for which the system is unresponsive after a trigger.
-    trigger_groups : dict | None
-        Optional dict defining groups of detectors that are evaluated for their multiplicity threshold. Format:
-        {group_name: {"detector_indices": (detector_indices),
-                      "threshold": (threshold)
-                      }
-        },. If None, all detectors are treated as one group.
-    light_threshold : float
-        Minimum number of photons required to count as detector trigger. NOT IMPLEMENTED YET.
-    integration_time : float
-        Time window (in ns) for summing photons to determine if detector trigger occurs. NOT IMPLEMENTED YET.
+        data_array : awkward.Array
+            Jagged array [detector][event][hit] with hit times. Shape x * y * var.
+        multiplicity_threshold : int
+            Minimum number of different detectors triggering within timegate to trigger.
+            Needs to be defined and > 0 if no trigger groups are defined.
+        timegate : float
+            Time window (in ns) to consider for multiplicity trigger.
+        trigger_deadtime : float
+            Time window (in ns) for which the system is unresponsive after a trigger.
+        trigger_groups : dict | None
+            Optional dict defining groups of detectors that are evaluated for their multiplicity threshold. Format:
+            {group_name: {"detector_indices": (detector_indices),
+                          "threshold": (threshold)
+                          }
+            },. If None, all detectors are treated as one group.
+        light_threshold : float
+            Minimum number of photons required to count as detector trigger. NOT IMPLEMENTED YET.
+        integration_time : float
+            Time window (in ns) for summing photons to determine if detector trigger occurs. NOT IMPLEMENTED YET.
 
     Returns
     -------
-    awkward.Array
-        Trigger timestamps per event (ns), duplicated for each detector along axis 0. Shape x * y * var.
-        The timestamps are the first hit times when the multiplicity threshold condition is satisfied,
-        applying deadtime afterwards and not allowing overlaps in timegate (within the same trigger group.).
+        awkward.Array
+            Trigger timestamps per event (ns), duplicated for each detector along axis 0. Shape x * y * var.
+            The timestamps are the first hit times when the multiplicity threshold condition is satisfied,
+            applying deadtime afterwards and not allowing overlaps in timegate (within the same trigger group.).
     """
     # Parameters kept for future extension.
     _ = light_threshold, integration_time
@@ -213,27 +217,29 @@ def build_hits(
     ns_per_sample: float,
     trigger_position: float = 0,
 ) -> ak.Array:
-    """Build hits based on hardware triggers. Gives the pulse height in p.e. for each hardware trigger.
+    """Build hits based on hardware triggers.
+
+    Gives the pulse height in p.e. for each hardware trigger.
 
     Parameters
     ----------
-    data_array : ak.Array
-        Jagged array [detector][event][hit] with photon hit times. Shape x * y * var.
-    hardware_triggers : ak.Array
-        Jagged array [event][var] with trigger times. Shape y * var.
-    trace_length : float
-        Length of the trace around the trigger (in ns).
-    ns_per_sample : float, optional
-        Time resolution of the trace (in ns) (bin width).
-        If omitted, integration_time can be used as an alias.
-    trigger_position : float
-        Position of the hardware trigger in the trace (in ns, relative to trace start).
+        data_array : ak.Array
+            Jagged array [detector][event][hit] with photon hit times. Shape x * y * var.
+        hardware_triggers : ak.Array
+            Jagged array [event][var] with trigger times. Shape y * var.
+        trace_length : float
+            Length of the trace around the trigger (in ns).
+        ns_per_sample : float, optional
+            Time resolution of the trace (in ns) (bin width).
+            If omitted, integration_time can be used as an alias.
+        trigger_position : float
+            Position of the hardware trigger in the trace (in ns, relative to trace start).
 
     Returns
     -------
-    ak.Array
-        Jagged array [detector][event][var] with the maximum pulse height in p.e. for each hardware trigger.
-        If there are no hardware triggers for an event, the var axis will be empty for that event.
+        ak.Array
+            Jagged array [detector][event][var] with the maximum pulse height in p.e. for each hardware trigger.
+            If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if ns_per_sample <= 0:
         msg = "ns_per_sample must be > 0."
@@ -314,26 +320,28 @@ def build_traces(
     ns_per_sample: float,
     trigger_position: float,
 ) -> ak.Array:
-    """Build detector traces around hardware triggers. This will inflate the input data adding a lot of empty samples, so only use if you need the full trace information.
+    """Build detector traces around hardware triggers.
+
+    This will inflate the input data adding a lot of empty samples, so only use if you need the full trace information.
 
     Parameters
     ----------
-    data_array : ak.Array
-        Jagged array [detector][event][hit] with hit times. Shape x * y * var.
-    hardware_triggers : ak.Array
-        Jagged array [event][var] with trigger times. Shape y * var.
-    trace_length : float
-        Length of the trace to build around the trigger (in ns).
-    ns_per_sample : float
-        Time resolution of the trace (in ns) (bin width).
-    trigger_position : float
-        Position of the hardware trigger in the trace (in ns, relative to trace start).
+        data_array : ak.Array
+            Jagged array [detector][event][hit] with hit times. Shape x * y * var.
+        hardware_triggers : ak.Array
+            Jagged array [event][var] with trigger times. Shape y * var.
+        trace_length : float
+            Length of the trace to build around the trigger (in ns).
+        ns_per_sample : float
+            Time resolution of the trace (in ns) (bin width).
+        trigger_position : float
+            Position of the hardware trigger in the trace (in ns, relative to trace start).
 
     Returns
     -------
-    ak.Array
-        Jagged array [detector][event][var][sample] with photon hit counts per sample. Shape x * y * var * z.
-        If there are no hardware triggers for an event, the var axis will be empty for that event.
+        ak.Array
+            Jagged array [detector][event][var][sample] with photon hit counts per sample. Shape x * y * var * z.
+            If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if ns_per_sample <= 0:
         msg = "ns_per_sample must be > 0."
