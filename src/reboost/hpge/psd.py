@@ -690,7 +690,8 @@ def _estimate_current_impl(
 ) -> tuple[NDArray, NDArray, NDArray]:
     """Estimate the maximum current that would be measured in the HPGe detector.
 
-    This is based on extracting a waveform with :func:`get_current_waveform` and finding the maxima of it.
+    This is based on extracting a waveform with :func:`get_current_waveform` and finding
+    the maxima of it.
     """
     A = np.zeros(len(dt))
     maximum_t = np.zeros(len(dt))

@@ -106,8 +106,9 @@ def test_pulse_shape_library(tmptestdir):
 def compare_numba_vs_python():
     """Compare the JIT and Python (py_func) versions of an ``@njit`` function.
 
-    Inspired by the `dspeed
-    <https://dspeed.readthedocs.io/en/stable/developer.html>`_ approach for
+    Inspired by the
+    `dspeed <https://dspeed.readthedocs.io/en/stable/developer.html>`_
+    approach for
     testing numba-wrapped functions. Both the JIT-compiled version and the pure
     Python version (via ``.py_func``) are called with the same arguments. For
     deterministic functions the outputs are asserted to be numerically equal.
