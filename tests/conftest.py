@@ -6,11 +6,12 @@ from getpass import getuser
 from pathlib import Path
 from tempfile import gettempdir
 
+import lh5
 import numba
 import numpy as np
 import pytest
 from legendtestdata import LegendTestData
-from lgdo import Array, Scalar, Struct, lh5
+from lgdo import Array, Scalar, Struct
 
 from reboost.hpge import psd
 from reboost.optmap.convolve import OptmapForConvolve
@@ -106,8 +107,9 @@ def test_pulse_shape_library(tmptestdir):
 def compare_numba_vs_python():
     """Compare the JIT and Python (py_func) versions of an ``@njit`` function.
 
-    Inspired by the `dspeed
-    <https://dspeed.readthedocs.io/en/stable/developer.html>`_ approach for
+    Inspired by the
+    `dspeed <https://dspeed.readthedocs.io/en/stable/developer.html>`_
+    approach for
     testing numba-wrapped functions. Both the JIT-compiled version and the pure
     Python version (via ``.py_func``) are called with the same arguments. For
     deterministic functions the outputs are asserted to be numerically equal.

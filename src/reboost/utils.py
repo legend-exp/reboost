@@ -10,8 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import h5py
+import lh5
 from dbetto import AttrsDict
-from lgdo import lh5
 from lgdo.types import Struct, Table, VectorOfVectors
 
 from .profile import ProfileDict
@@ -362,22 +362,24 @@ def write_lh5(
     out_detector: str,
     wo_mode: str,
 ):
-    """Write the lh5 file. This function handles writing first the data as a struct and then appending to this.
+    """Write the lh5 file.
+
+    This function handles writing first the data as a struct and then appending to this.
 
     Parameters
     ----------
-    hit_table
-        the table to write
-    file
-        the file to write to
-    time_dict
-        the dictionary of timing information to update.
-    out_field
-        output field
-    out_detector
-        output detector name
-    wo_mode
-        the mode to pass to `lh5.write`
+        hit_table
+            the table to write
+        file
+            the file to write to
+        time_dict
+            the dictionary of timing information to update.
+        out_field
+            output field
+        out_detector
+            output detector name
+        wo_mode
+            the mode to pass to `lh5.write`
     """
     if time_dict is not None:
         start_time = time.time()

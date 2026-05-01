@@ -4,9 +4,9 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
+import lh5
 import matplotlib.pyplot as plt
 import numpy as np
-from lgdo import lh5
 from matplotlib import colors, widgets
 from numpy.typing import NDArray
 
