@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import awkward as ak
+import lh5
 import numpy as np
 import pyg4ometry as pg4
 import pygeomhpges
@@ -11,7 +12,7 @@ import pygeomtools
 import pytest
 from dbetto import AttrsDict
 from legendtestdata import LegendTestData
-from lgdo import Array, Struct, Table, VectorOfVectors, lh5
+from lgdo import Array, Struct, Table, VectorOfVectors
 
 import reboost
 

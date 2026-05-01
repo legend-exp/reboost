@@ -6,11 +6,12 @@ from getpass import getuser
 from pathlib import Path
 from tempfile import gettempdir
 
+import lh5
 import numba
 import numpy as np
 import pytest
 from legendtestdata import LegendTestData
-from lgdo import Array, Scalar, Struct, lh5
+from lgdo import Array, Scalar, Struct
 
 from reboost.hpge import psd
 from reboost.optmap.convolve import OptmapForConvolve

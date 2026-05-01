@@ -3,8 +3,9 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
+import lh5
 import pytest
-from lgdo import Array, Table, lh5
+from lgdo import Array, Table
 
 from reboost.cli import cli
 

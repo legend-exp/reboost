@@ -6,9 +6,9 @@ import time
 from typing import Any
 
 import awkward as ak
+import lh5
 import numpy as np
 from dbetto import AttrsDict
-from lgdo import lh5
 from lgdo.types import LGDO, Table
 
 from . import units, utils

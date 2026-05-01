@@ -4,9 +4,10 @@ import copy
 import logging
 
 import awkward as ak
+import lh5
 import numpy as np
-from lgdo import Array, Table, lh5
-from lgdo.lh5 import LH5Iterator, LH5Store
+from lgdo import Array, Table
+from lh5 import LH5Iterator, LH5Store
 from numpy.typing import ArrayLike
 
 from . import utils

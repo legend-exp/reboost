@@ -10,8 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import h5py
+import lh5
 from dbetto import AttrsDict
-from lgdo import lh5
 from lgdo.types import Struct, Table, VectorOfVectors
 
 from .profile import ProfileDict

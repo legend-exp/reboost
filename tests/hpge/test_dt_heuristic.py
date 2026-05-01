@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import awkward as ak
+import lh5
 import numpy as np
 import pytest
 from dbetto import AttrsDict
-from lgdo import lh5
 from scipy.interpolate import RegularGridInterpolator
 
 from reboost import units

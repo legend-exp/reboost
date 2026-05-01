@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 
 import awkward as ak
+import lh5
 import numpy as np
 from dbetto import AttrsDict
-from lgdo import Array, Table, VectorOfVectors, lh5
+from lgdo import Array, Table, VectorOfVectors
 
 from . import core, shape, utils
 from .math import stats

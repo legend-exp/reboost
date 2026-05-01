@@ -8,8 +8,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
+import lh5
 import numpy as np
-from lgdo import Histogram, lh5
+from lgdo import Histogram
 from numba import njit
 from numpy.typing import NDArray
 

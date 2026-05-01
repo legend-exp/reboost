@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import lh5
 import numpy as np
 import pytest
-from lgdo import Array, Table, lh5
+from lgdo import Array, Table
 
 from reboost.optmap.create import (
     check_optical_map,
