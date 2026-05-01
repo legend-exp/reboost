@@ -4,11 +4,11 @@ import logging
 from typing import Literal, NamedTuple, TypeAlias
 
 import awkward as ak
+import lh5
 import numba
 import numpy as np
 import pint
 import pygeomoptics.scintillate as sc
-from lgdo import lh5
 from lgdo.types import Histogram
 from numba import njit
 from numpy.typing import NDArray

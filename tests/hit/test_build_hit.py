@@ -6,9 +6,10 @@ from pathlib import Path
 import awkward as ak
 import dbetto
 import h5py
+import lh5
 import numpy as np
 import pytest
-from lgdo import Array, Struct, Table, VectorOfVectors, lh5
+from lgdo import Array, Struct, Table, VectorOfVectors
 
 import reboost
 from reboost import units

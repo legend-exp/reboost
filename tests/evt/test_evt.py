@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import awkward as ak
+import lh5
 import pytest
 from dbetto import AttrsDict
-from lgdo import Array, Struct, Table, VectorOfVectors, lh5
+from lgdo import Array, Struct, Table, VectorOfVectors
 
 from reboost.build_evt import build_evt
 

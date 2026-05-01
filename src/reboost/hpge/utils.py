@@ -4,10 +4,10 @@ from collections.abc import Callable
 from typing import NamedTuple
 
 import lgdo
+import lh5
 import numpy as np
 import pint
 from dbetto import AttrsDict
-from lgdo import lh5
 from scipy.interpolate import RegularGridInterpolator
 
 

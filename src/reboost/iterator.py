@@ -5,8 +5,8 @@ import time
 import typing
 
 import awkward as ak
-from lgdo.lh5 import LH5Store
-from lgdo.types import LGDO, Table
+from lgdo import LGDO, Table
+from lh5 import LH5Store
 
 from . import build_glm
 from .profile import ProfileDict

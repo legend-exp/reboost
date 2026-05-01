@@ -9,8 +9,9 @@ import multiprocessing.sharedctypes
 from collections.abc import Mapping
 from typing import Any, TypeAlias
 
+import lh5
 import numpy as np
-from lgdo import Histogram, Struct, lh5
+from lgdo import Histogram, Struct
 from numpy.typing import NDArray
 
 log = logging.getLogger(__name__)

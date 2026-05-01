@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import awkward as ak
+import lh5
 import numpy as np
 import pytest
-from lgdo import Table, lh5
+from lgdo import Table
 
 from reboost.build_glm import build_glm, get_glm_rows, get_stp_evtids
 from reboost.build_hit import GLMIterator

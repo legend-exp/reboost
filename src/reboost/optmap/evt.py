@@ -5,8 +5,8 @@ from collections import OrderedDict
 from collections.abc import Generator, Sequence
 
 import numpy as np
-from lgdo.lh5 import LH5Iterator
-from lgdo.types import Table
+from lgdo import Table
+from lh5 import LH5Iterator
 
 log = logging.getLogger(__name__)
 
