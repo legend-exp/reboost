@@ -38,7 +38,7 @@ dependencies = [
     "scipy",
     "numba >=0.60",
     "legend-pydataobj >=2.0.1",
-    "legend-lh5io",
+    "legend-lh5io >=0.2",
     "legend-pygeom-optics >=0.15.0",
     "legend-pygeom-tools >=0.0.26",
     "legend-pygeom-hpges",
