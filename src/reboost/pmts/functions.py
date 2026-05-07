@@ -13,28 +13,31 @@ def align_detectors(
 
     Parameters
     ----------
-    data_arr : ak.Array
+    data_arr
         Input array of shape n_detectors * var * {evtid, field, ...}. Needs to contain the field "evtid" and the specified field.
-    field : str
+    field
         Field to extract and align (e.g. "time").
-    return_event_ids : bool
+    return_event_ids
         If True, also return the array of unique event IDs corresponding to axis 1. Required for event building with other detector systems.
+
+    Returns
+    -------
+    Jagged Awkward array [detector][event][hit] with the specified field (default time), with the event axis globally aligned across detectors.
     """
     # --- collect all event IDs ---
     all_evtids = ak.flatten(data_arr["evtid"])
-    unique_evtids = ak.sort(np.unique(all_evtids))
+    unique_evtids = np.unique(all_evtids)
 
     aligned = []
 
-    # Can we avoid this loop?
-    for t in data_arr:
+    for detector in data_arr:
         # Just sorts all hits by evtid
-        t_sorted = t[ak.argsort(t["evtid"])]
+        det_sorted = detector[ak.argsort(detector["evtid"])]
 
         # group by event
         # This runs way quicker than reboost.shape.group.group_by_evtid but could be substituted.
-        run_lengths = ak.run_lengths(t_sorted["evtid"])
-        g = ak.unflatten(t_sorted, run_lengths)
+        event_lengths = ak.run_lengths(det_sorted["evtid"])
+        g = ak.unflatten(det_sorted, event_lengths)
         evtids = ak.firsts(g["evtid"])
 
         grouped_field = g[field]
@@ -48,12 +51,64 @@ def align_detectors(
         aligned.append(aligned_array)
     try:
         aligned = ak.to_regular(aligned, axis=1)
-    except Exception as e:
+    except ValueError as e:
         msg = "Can not convert event axis to regular. This means that not all detectors were correctly aligned to have the same number of events."
         raise ValueError(msg) from e
     if return_event_ids:
         return aligned, unique_evtids
     return aligned
+
+
+def _group_candidate_triggers(group_event_hits, threshold, timegate_ns):
+    """Helper function to find candidate trigger times for one event and subgroup (no deadtime here)."""
+    if threshold <= 0:
+        msg = "Group threshold must be > 0."
+        raise ValueError(msg)
+
+    all_times = []
+    all_det_ids = []
+
+    n_detectors = len(group_event_hits)
+    for det_idx in range(n_detectors):
+        det_hits = np.asarray(ak.to_numpy(group_event_hits[det_idx]), dtype=float)
+        if det_hits.size == 0:
+            continue
+        all_times.append(det_hits)
+        all_det_ids.append(np.full(det_hits.shape, det_idx, dtype=np.int32))
+
+    if not all_times:
+        return np.array([], dtype=float)
+
+    times = np.concatenate(all_times)
+    det_ids = np.concatenate(all_det_ids)
+
+    order = np.argsort(times)
+    times = times[order]
+    det_ids = det_ids[order]
+
+    candidate_times = []
+    i = 0
+    n_hits = len(times)
+
+    while i < n_hits:
+        t_start = times[i]
+        seen_detectors = set()
+        j = i
+
+        while j < n_hits and (times[j] - t_start) <= timegate_ns:
+            seen_detectors.add(int(det_ids[j]))
+            if len(seen_detectors) > threshold:
+                # Trigger is assigned to the time when threshold is reached.
+                candidate_times.append(times[j])
+                i = (
+                    j + 1
+                )  # We do not allow overlaps, so we jump to the next hit after the trigger time.
+                break
+            j += 1
+        else:
+            i += 1
+
+    return np.array(candidate_times, dtype=float)
 
 
 def build_hardware_triggers(
@@ -62,21 +117,22 @@ def build_hardware_triggers(
     timegate: float = 60,
     trigger_deadtime: float = 0,
     trigger_groups: dict | None = None,
-    light_threshold: float = 1,
-    integration_time: float = 4,
 ) -> ak.Array:
-    """Build hardware trigger array based on multiplicity and light thresholds. IT IS ALWAYS > Threshold NOT >= Threshold.
+    """Build hardware trigger array based on multiplicity and light thresholds.
+
+    .. note ::
+        The selection is always strictly greater than the threshold not greater or equal.
 
     Parameters
     ----------
-    data_array : awkward.Array
+    data_array
         Jagged array [detector][event][hit] with hit times. Shape x * y * var.
     multiplicity_threshold : int
         Minimum number of different detectors triggering within timegate to trigger.
         Needs to be defined and > 0 if no trigger groups are defined.
-    timegate : float
+    timegate
         Time window (in ns) to consider for multiplicity trigger.
-    trigger_deadtime : float
+    trigger_deadtime
         Time window (in ns) for which the system is unresponsive after a trigger.
     trigger_groups : dict | None
         Optional dict defining groups of detectors that are evaluated for their multiplicity threshold. Format:
@@ -84,21 +140,13 @@ def build_hardware_triggers(
                       "threshold": (threshold)
                       }
         },. If None, all detectors are treated as one group.
-    light_threshold : float
-        Minimum number of photons required to count as detector trigger. NOT IMPLEMENTED YET.
-    integration_time : float
-        Time window (in ns) for summing photons to determine if detector trigger occurs. NOT IMPLEMENTED YET.
 
     Returns
     -------
-    awkward.Array
-        Trigger timestamps per event (ns), duplicated for each detector along axis 0. Shape x * y * var.
-        The timestamps are the first hit times when the multiplicity threshold condition is satisfied,
-        applying deadtime afterwards and not allowing overlaps in timegate (within the same trigger group.).
+    Awkward array with Trigger timestamps per event (ns), duplicated for each detector along axis 0. Shape x * y * var.
+    The timestamps are the first hit times when the multiplicity threshold condition is satisfied,
+    applying deadtime afterwards and not allowing overlaps in timegate (within the same trigger group.).
     """
-    # Parameters kept for future extension.
-    _ = light_threshold, integration_time
-
     n_events = len(data_array[0])  # All detectors must have the same number of events.
     n_detectors = len(data_array)
 
@@ -119,57 +167,6 @@ def build_hardware_triggers(
         thresholds.append(multiplicity_threshold)
 
     del data_array  # free memory, we will use grouped_data from now on
-
-    def _group_candidate_triggers(group_event_hits, threshold, timegate_ns):
-        """Find candidate trigger times for one event and subgroup (no deadtime here)."""
-        if threshold <= 0:
-            msg = "Group threshold must be > 0."
-            raise ValueError(msg)
-
-        all_times = []
-        all_det_ids = []
-
-        n_detectors = len(group_event_hits)
-        for det_idx in range(n_detectors):
-            det_hits = np.asarray(ak.to_numpy(group_event_hits[det_idx]), dtype=float)
-            if det_hits.size == 0:
-                continue
-            all_times.append(det_hits)
-            all_det_ids.append(np.full(det_hits.shape, det_idx, dtype=np.int32))
-
-        if not all_times:
-            return np.array([], dtype=float)
-
-        times = np.concatenate(all_times)
-        det_ids = np.concatenate(all_det_ids)
-
-        order = np.argsort(times)
-        times = times[order]
-        det_ids = det_ids[order]
-
-        candidate_times = []
-        i = 0
-        n_hits = len(times)
-
-        while i < n_hits:
-            t_start = times[i]
-            seen_detectors = set()
-            j = i
-
-            while j < n_hits and (times[j] - t_start) <= timegate_ns:
-                seen_detectors.add(int(det_ids[j]))
-                if len(seen_detectors) > threshold:
-                    # Trigger is assigned to the time when threshold is reached.
-                    candidate_times.append(times[j])
-                    i = (
-                        j + 1
-                    )  # We do not allow overlaps, so we jump to the next hit after the trigger time.
-                    break
-                j += 1
-            else:
-                i += 1
-
-        return np.array(candidate_times, dtype=float)
 
     trigger_times_per_event: list[list[float]] = []
 
@@ -217,23 +214,22 @@ def build_hits(
 
     Parameters
     ----------
-    data_array : ak.Array
+    data_array
         Jagged array [detector][event][hit] with photon hit times. Shape x * y * var.
-    hardware_triggers : ak.Array
+    hardware_triggers
         Jagged array [event][var] with trigger times. Shape y * var.
-    trace_length : float
+    trace_length
         Length of the trace around the trigger (in ns).
-    ns_per_sample : float, optional
+    ns_per_sample
         Time resolution of the trace (in ns) (bin width).
         If omitted, integration_time can be used as an alias.
-    trigger_position : float
+    trigger_position, optional
         Position of the hardware trigger in the trace (in ns, relative to trace start).
 
     Returns
     -------
-    ak.Array
-        Jagged array [detector][event][var] with the maximum pulse height in p.e. for each hardware trigger.
-        If there are no hardware triggers for an event, the var axis will be empty for that event.
+    Jagged Awkward array [detector][event][var] with the maximum pulse height in p.e. for each hardware trigger.
+    If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if ns_per_sample <= 0:
         msg = "ns_per_sample must be > 0."
@@ -318,22 +314,21 @@ def build_traces(
 
     Parameters
     ----------
-    data_array : ak.Array
+    data_array
         Jagged array [detector][event][hit] with hit times. Shape x * y * var.
-    hardware_triggers : ak.Array
+    hardware_triggers
         Jagged array [event][var] with trigger times. Shape y * var.
-    trace_length : float
+    trace_length
         Length of the trace to build around the trigger (in ns).
-    ns_per_sample : float
+    ns_per_sample
         Time resolution of the trace (in ns) (bin width).
-    trigger_position : float
+    trigger_position
         Position of the hardware trigger in the trace (in ns, relative to trace start).
 
     Returns
     -------
-    ak.Array
-        Jagged array [detector][event][var][sample] with photon hit counts per sample. Shape x * y * var * z.
-        If there are no hardware triggers for an event, the var axis will be empty for that event.
+    Jagged Awkward array [detector][event][var][sample] with photon hit counts per sample. Shape x * y * var * z.
+    If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if ns_per_sample <= 0:
         msg = "ns_per_sample must be > 0."
@@ -383,12 +378,6 @@ def build_traces(
     e_flat = ak.to_numpy(ak.flatten(evt_idx, axis=None))
     t_flat = ak.to_numpy(ak.flatten(trig_idx, axis=None))
 
-    # So det 0 of event 0, trigger 0, sample 0 corresponds to linear_idx = 0.
-    # next sample is shifted by 1
-    # next trigger (same event and det) is shifted by n_samples,
-    # next event is shifted by max_triggers * n_samples,
-    # next detector is shifted by n_events * max_triggers * n_samples.
-    # So the highest possible index is n_detectors * n_events * max_triggers * n_samples
     # This is a projection, so it only tells where each actual hit would be placed in this 1-d array.
     # (Two hits can have the same index, this means they would be placed in the same sample (of the same trace))
     linear_idx = (((d_flat * n_events) + e_flat) * max_triggers + t_flat) * n_samples + s_flat
