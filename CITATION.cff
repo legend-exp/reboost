@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: reboost
+doi: 10.5281/zenodo.15094776
+date-released: 2025-03-27
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Pertoldi
+    given-names: Luigi
+    orcid: https://orcid.org/0000-0002-0467-2571
+  - family-names: Dixon
+    given-names: Toby
+    orcid: https://orcid.org/0000-0001-8787-6336
+  - family-names: Huber
+    given-names: Manuel
+    orcid: https://orcid.org/0009-0000-5212-2999
+  - family-names: William
+    given-names: Quinn
+    orcid: https://orcid.org/0000-0001-9107-8310
+  - family-names: David
+    given-names: Hervas Aguilar
+    orcid: https://orcid.org/0000-0002-9686-0659
+  - family-names: Shailesh
+    given-names: Giri
+    orcid: https://orcid.org/0009-0007-3750-1107
+  - family-names: Yuan-Ru
+    given-names: Lin
+    orcid: https://orcid.org/0000-0003-0864-6693
