@@ -8,7 +8,7 @@ from lgdo import VectorOfVectors
 import reboost.hpge.surface as surface_module
 from reboost import units
 from reboost.hpge import psd, surface
-from reboost.hpge.utils import get_hpge_pulse_shape_library
+from reboost.hpge.utils import HPGePulseShapeLibrary, get_hpge_pulse_shape_library
 from reboost.shape import cluster
 
 
@@ -327,3 +327,40 @@ def test_maximum_current_library(test_pulse_shape_library, compare_numba_vs_pyth
     assert ak.all(curr == curr2)
 
     assert isinstance(curr, ak.Array)
+
+
+def test_maximum_current_library_units_conversion(test_pulse_shape_library):
+    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+
+    scale = 1.0 + 0.01 * np.add.outer(np.arange(len(lib.r)), np.arange(len(lib.z)))
+    waveforms = lib.waveforms * scale[:, :, np.newaxis]
+
+    lib_mm = HPGePulseShapeLibrary(
+        waveforms=waveforms,
+        r_units=lib.r_units,
+        z_units=lib.z_units,
+        t_units=lib.t_units,
+        r=lib.r,
+        z=lib.z,
+        t=lib.t,
+    )
+    lib_scaled = HPGePulseShapeLibrary(
+        waveforms=waveforms,
+        r_units=units.ureg.cm,
+        z_units=units.ureg.cm,
+        t_units=units.ureg.us,
+        r=lib.r / 10.0,
+        z=lib.z / 10.0,
+        t=lib.t / 1000.0,
+    )
+
+    edep = units.attach_units(ak.Array([[500.0]]), "keV")
+    times = units.attach_units(ak.Array([[700.0]]), "ns")
+    r = units.attach_units(ak.Array([[20.0]]), "mm")
+    z = units.attach_units(ak.Array([[40.0]]), "mm")
+
+    curr_mm = psd.maximum_current(edep, times, r=r, z=z, template=lib_mm, times=lib_mm.t)
+    curr_scaled = psd.maximum_current(edep, times, r=r, z=z, template=lib_scaled, times=lib_scaled.t)
+
+    assert curr_scaled[0] > 0
+    assert np.isclose(curr_mm[0], curr_scaled[0])

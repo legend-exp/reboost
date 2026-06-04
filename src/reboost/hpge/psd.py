@@ -804,8 +804,10 @@ def prepare_pulse_shape_library(
     use_library = False
     if isinstance(template, HPGePulseShapeLibrary):
         # convert to a form we can use
-        times = template.t
-        pulse_shape_library = (template.waveforms, template.r, template.z)
+        times = u.Quantity(template.t, template.t_units).to("ns").m
+        r_grid = u.Quantity(template.r, template.r_units).to("mm").m
+        z_grid = u.Quantity(template.z, template.z_units).to("mm").m
+        pulse_shape_library = (template.waveforms, r_grid, z_grid)
         template = np.zeros_like(template.waveforms[0][0])
         use_library = True
 
