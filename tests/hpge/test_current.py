@@ -360,7 +360,9 @@ def test_maximum_current_library_units_conversion(test_pulse_shape_library):
     z = units.attach_units(ak.Array([[40.0]]), "mm")
 
     curr_mm = psd.maximum_current(edep, times, r=r, z=z, template=lib_mm, times=lib_mm.t)
-    curr_scaled = psd.maximum_current(edep, times, r=r, z=z, template=lib_scaled, times=lib_scaled.t)
+    curr_scaled = psd.maximum_current(
+        edep, times, r=r, z=z, template=lib_scaled, times=lib_scaled.t
+    )
 
     assert curr_scaled[0] > 0
     assert np.isclose(curr_mm[0], curr_scaled[0])
