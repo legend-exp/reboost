@@ -110,6 +110,35 @@ def test_maximum_current(test_model, compare_numba_vs_python):
     assert abs(energy[2] - 500.0) < 2
 
 
+@pytest.mark.parametrize(
+    ("low", "high"),
+    [(-1000, 3000), (-1000, 4000), (-500, 3500), (0, 4000)],
+)
+def test_maximum_current_template_axis_invariance(low, high):
+    model, x = psd.get_current_template(
+        low,
+        high,
+        1.0,
+        amax=1,
+        mean_aoe=0.5,
+        mu=0,
+        sigma=100,
+        tau=100,
+        tail_fraction=0.65,
+        high_tail_fraction=0.1,
+        high_tau=10,
+    )
+
+    edep = units.attach_units(ak.Array([[500.0]]), "keV")
+    drift_time = units.attach_units(ak.Array([[700.0]]), "ns")
+
+    current = psd.maximum_current(edep, drift_time, template=model, times=x)
+    max_time = psd.maximum_current(edep, drift_time, template=model, times=x, return_mode="max_time")
+
+    assert np.isclose(current[0], 250.0)
+    assert np.isclose(max_time[0], 700.0)
+
+
 def test_units(test_model, compare_numba_vs_python):
     model, x = test_model
 
