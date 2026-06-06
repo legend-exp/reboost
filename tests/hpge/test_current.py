@@ -148,7 +148,9 @@ def test_maximum_current_template_axis_invariance(low, high):
     drift_time = units.attach_units(ak.Array([[700.0]]), "ns")
 
     current = psd.maximum_current(edep, drift_time, template=model, times=x)
-    max_time = psd.maximum_current(edep, drift_time, template=model, times=x, return_mode="max_time")
+    max_time = psd.maximum_current(
+        edep, drift_time, template=model, times=x, return_mode="max_time"
+    )
 
     assert np.isclose(current[0], 250.0)
     assert np.isclose(max_time[0], 700.0)
