@@ -115,13 +115,28 @@ def test_maximum_current(test_model, compare_numba_vs_python):
     [(-1000, 3000), (-1000, 4000), (-500, 3500), (0, 4000)],
 )
 def test_maximum_current_template_axis_invariance(low, high):
+    rough_model, rough_x = psd.get_current_template(
+        low,
+        high,
+        1.0,
+        amax=1,
+        mean_aoe=1,
+        mu=0,
+        sigma=100,
+        tau=100,
+        tail_fraction=0.65,
+        high_tail_fraction=0.1,
+        high_tau=10,
+    )
+    mu = -rough_x[np.argmax(rough_model)]
+
     model, x = psd.get_current_template(
         low,
         high,
         1.0,
         amax=1,
         mean_aoe=0.5,
-        mu=0,
+        mu=mu,
         sigma=100,
         tau=100,
         tail_fraction=0.65,
