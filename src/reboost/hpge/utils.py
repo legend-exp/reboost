@@ -81,14 +81,14 @@ def get_hpge_pulse_shape_library(
 
     data = AttrsDict(
         {
-            k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
+            k: np.nan_to_num(data[k].view_as("np", with_units=(k != field)), nan=out_of_bounds_val)
             for k in ("r", "z", field)
         }
     )
 
-    times = t0 + np.arange(np.shape(data[field].m)[2]) * dt
+    times = t0 + np.arange(np.shape(data[field])[2]) * dt
 
-    return HPGePulseShapeLibrary(data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+    return HPGePulseShapeLibrary(data[field], data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
 
 
 class HPGeRZField(NamedTuple):
