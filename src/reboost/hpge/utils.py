@@ -85,7 +85,7 @@ def get_hpge_pulse_shape_library(
 
     times = t0 + np.arange(np.shape(data[field])[2]) * dt
 
-    return HPGePulseShapeLibrary(data[field].m, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+    return HPGePulseShapeLibrary(data[field], data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
 
 
 class HPGeRZField(NamedTuple):
