@@ -80,7 +80,7 @@ def get_hpge_pulse_shape_library(
     tu = t0_u
 
     data = AttrsDict(
-        {k: np.nan_to_num(data[k].view_as("np"), nan=out_of_bounds_val) for k in ("r", "z", field)}
+        {k: np.nan_to_num(data[k].view_as("np",with_units = (k!=field)), nan=out_of_bounds_val) for k in ("r", "z", field)}
     )
 
     times = t0 + np.arange(np.shape(data[field])[2]) * dt
