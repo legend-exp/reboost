@@ -12,53 +12,63 @@ def align_detectors(
     field: str = "time",
     return_event_ids: bool = False,
 ) -> ak.Array | tuple[ak.Array, np.ndarray]:
-    """Build jagged array [detector][event][hit], aligning events across detectors. Missing detector-event combinations become empty lists. Shape x * y * var.
+    """Build jagged array [detector][event][hit], aligning events across detectors.
+
+    Missing detector-event combinations become empty lists. Shape n_det * n_events * var.
 
     Parameters
     ----------
     data_arr
-        Input array of shape n_detectors * var * {evtid, field, ...}. Needs to contain the field "evtid" and the specified field.
+        Input array of shape n_detectors * var * {evtid, field, ...}. Must contain
+        the field "evtid" and the specified field.
     field
         Field to extract and align (e.g. "time").
     return_event_ids
-        If True, also return the array of unique event IDs corresponding to axis 1. Required for event building with other detector systems.
-
-
+        If True, also return the array of unique event IDs corresponding to axis 1.
+        Required for event building with other detector systems.
 
     Returns
     -------
-    Jagged Awkward array [detector][event][hit] with the specified field (default time), with the event axis globally aligned across detectors.
-    If units are attached, the units of the specified field of the first detector will be used. It will be assumed that all detectors have the same units.
-    The unit will be re-attached to the top-level output array after alignment.
+    Jagged Awkward array [detector][event][hit] with the specified field, with the
+    event axis globally aligned across detectors. If units are attached, the units of
+    the specified field of the first detector are used (all detectors assumed equal)
+    and re-attached to the top-level output after alignment.
     """
     unit = get_unit_str(data_arr[0][field])
-    # --- collect all event IDs ---
-    all_evtids = ak.ravel(data_arr["evtid"])
-    unique_evtids = np.unique(ak.to_numpy(all_evtids))
 
-    aligned = []
+    n_det = len(data_arr)
+    counts_per_det = ak.to_numpy(ak.num(data_arr["evtid"], axis=1))  # hits per detector
+    flat_evtid = ak.to_numpy(ak.flatten(data_arr["evtid"], axis=1))  # evtid per hit (flat)
+    flat_field = ak.flatten(data_arr[field], axis=1)  # field per hit (flat, awkward)
 
-    for detector in data_arr:
-        # Just sorts all hits by evtid
-        det_sorted = detector[ak.argsort(detector["evtid"])]
+    # global, sorted unique event ids -> axis-1 labels
+    unique_evtids = np.unique(flat_evtid)
+    n_events = unique_evtids.size
 
-        # group by event
-        # This runs way quicker than reboost.shape.group.group_by_evtid but could be substituted.
-        event_lengths = ak.run_lengths(det_sorted["evtid"])
-        g = ak.unflatten(det_sorted, event_lengths)
-        evtids = ak.firsts(g["evtid"])
+    # composite cell id per hit: detector row * n_events + global event column
+    det_idx = np.repeat(np.arange(n_det), counts_per_det)
+    ev_pos = np.searchsorted(unique_evtids, flat_evtid)
+    cell = det_idx.astype(np.int64) * n_events + ev_pos
 
-        grouped_field = g[field]
+    # stable sort groups hits by (detector, event) while preserving original
+    # within-event hit order (matches ak.argsort(..., stable=True))
+    order = np.argsort(cell, kind="stable")
+    cell_counts = np.bincount(cell, minlength=n_det * n_events)
 
-        # Now align detector events correctly to the unique global events.
-        local_map = dict(zip(ak.to_list(evtids), ak.to_list(grouped_field), strict=True))
-        aligned.append(ak.Array([local_map.get(eid, []) for eid in unique_evtids]))
+    lvl1 = ak.unflatten(flat_field[order], cell_counts)  # [n_det*n_events][hit]
+    aligned = ak.unflatten(lvl1, np.full(n_det, n_events))  # [n_det][n_events][hit]
+
+    # regular by construction (each detector has exactly n_events events); this
+    # cannot raise, but the guard is kept for contract safety.
     try:
         aligned = ak.to_regular(aligned, axis=1)
     except ValueError as e:
-        msg = "Can not convert event axis to regular. This means that not all detectors were correctly aligned to have the same number of events."
+        msg = (
+            "Can not convert event axis to regular. This means that not all "
+            "detectors were correctly aligned to have the same number of events."
+        )
         raise ValueError(msg) from e
-    # --- reattach units (if present) ---
+
     if unit is not None:
         aligned = attach_units(aligned, unit)
     if return_event_ids:
@@ -239,10 +249,8 @@ def build_hits(
     ----------
     data_array
         Jagged array [detector][event][hit] with photon hit times. Shape x * y * var. Units need to be attached to the top-level array if unit conversion is desired.
-        If hardware_triggers has units and this array has no units, it will be assumed to have the same units as hardware_triggers.
     hardware_triggers
         Jagged array [event][var] with trigger times. Shape y * var. Units need to be attached to the top-level array if unit conversion is desired.
-        If data_array has units and this array has no units, it will be assumed to have the same units as data_array.
     time_per_sample
         Time resolution of the trace (similar to a bin width). If not a pint Quantity, will be assumed to be in the same units as data.
     trace_length
