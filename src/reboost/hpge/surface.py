@@ -102,7 +102,7 @@ def distance_to_surface(
     else:
         # decide when the calculation needs to be run
         if isinstance(distances_precompute, LGDO):
-            distances_precompute = distances_precompute.view_as("ak")
+            distances_precompute = distances_precompute.view_as("ak", with_units=True)
 
         distances_precompute_flat = ak.flatten(units.units_conv_ak(distances_precompute, "mm"))
 
