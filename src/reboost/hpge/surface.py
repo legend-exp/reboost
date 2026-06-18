@@ -103,8 +103,8 @@ def distance_to_surface(
         # decide when the calculation needs to be run
         if isinstance(distances_precompute, LGDO):
             distances_precompute = distances_precompute.view_as("ak")
-        
-        distances_precompute_flat = ak.flatten(units.units_conv_ak(distances_precompute,"mm"))
+
+        distances_precompute_flat = ak.flatten(units.units_conv_ak(distances_precompute, "mm"))
 
         distances = np.full_like(distances_precompute_flat.to_numpy(), np.nan, dtype=float)
 
