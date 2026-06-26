@@ -44,7 +44,7 @@ dependencies = [
     "legend-pygeom-hpges",
     "hist",
     "dbetto",
-    "particle",
+    "particle <1",
     "pandas",
     "matplotlib",
     "pygama",
