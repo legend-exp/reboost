@@ -189,11 +189,14 @@ def test_basic(test_gen_lh5, tmptestdir):
 
     assert lh5.ls(outfile) == ["hit", "vtx"]
 
+    # hd5plugin 7.0.0 changed the name of the Zstandard filter.
+    zstd_filters = [
+        b"Zstandard compression: http://www.zstd.net",
+        b"HDF5 zstd filter; see https://github.com/HDFGroup/hdf5_plugins/blob/master/docs/RegisteredFilterPlugins.md",
+    ]
+
     with h5py.File(outfile) as h5f:
-        assert (
-            h5f["/hit/det1/energy"].id.get_create_plist().get_filter(0)[3]
-            == b"Zstandard compression: http://www.zstd.net"
-        )
+        assert h5f["/hit/det1/energy"].id.get_create_plist().get_filter(0)[3] in zstd_filters
 
     hits = lh5.read("hit/det1", outfile).view_as("ak", with_units=True)
 
