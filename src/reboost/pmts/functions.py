@@ -7,6 +7,62 @@ import pint
 from ..units import attach_units, get_unit_str, units_conv_ak
 
 
+def group_by_detector(times: ak.Array, table_key: ak.Array, usable_pmts: list) -> ak.Array:
+    """Build jagged array [detector][event][hit], aligning events across all usable detectors.
+
+    Missing detector-event combinations become empty lists. Shape n_det * n_events * var.
+    Same result as align_detectors(), but uses inputs after reading with the tcm.
+
+    Parameters
+    ----------
+    times
+        Result of _read_hits(tcm_ak, "stp", "time")
+    table_key
+        Result of tcm_ak["stp"].table_key
+    usable_pmts
+        List of usable PMT UIDs. These UIDs will be used to filter and match the detectors from the tcm.
+
+    Returns
+    -------
+    Jagged Awkward array [detector][event][hit] with the specified field, with the
+    event axis globally aligned across detectors. If units are attached, the units of
+    the specified field of the first detector are used (all detectors assumed equal)
+    and re-attached to the top-level output after alignment.
+    """
+    usable = np.asarray(usable_pmts)
+    n_events = len(times)
+    n_det = len(usable)
+
+    # flat (event, detector) view; both arrays flatten in the same order
+    counts1 = np.asarray(ak.num(table_key, axis=1))
+    event_idx = np.repeat(np.arange(n_events, dtype=np.int64), counts1)
+    det_uid = ak.to_numpy(ak.flatten(table_key, axis=1)).astype(np.int64)
+    pair_hits = ak.flatten(times, axis=1)  # N_all * var
+
+    # drop detectors not in usable_pmts (HPGe, broken PMTs etc.)
+    keep = np.isin(det_uid, usable)
+    det_uid = det_uid[keep]
+    event_idx = event_idx[keep]
+    pair_hits = pair_hits[keep]
+
+    # uid -> row in usable order (works for unsorted usable_pmts)
+    sorter = np.argsort(usable)
+    det_row = sorter[np.searchsorted(usable, det_uid, sorter=sorter)]
+
+    # row-major destination cell in the n_det x n_events grid
+    cell = det_row.astype(np.int64) * n_events + event_idx
+    order = np.argsort(cell, kind="stable")  # group same-cell pairs
+
+    content = ak.flatten(pair_hits[order], axis=1)  # hits in cell order
+    nhits = np.asarray(ak.num(pair_hits, axis=1))
+    cell_nhits = np.bincount(cell, weights=nhits, minlength=n_det * n_events).astype(np.int64)
+
+    per_cell = ak.unflatten(content, cell_nhits)  # (n_det*n_events) * var
+    return ak.to_regular(
+        ak.unflatten(per_cell, np.full(n_det, n_events)), axis=1
+    )  # n_det * n_events * var
+
+
 def align_detectors(
     data_arr: ak.Array,
     field: str = "time",
@@ -15,6 +71,7 @@ def align_detectors(
     """Build jagged array [detector][event][hit], aligning events across detectors.
 
     Missing detector-event combinations become empty lists. Shape n_det * n_events * var.
+    Same result as group_by_detector(), but uses inputs after manually reading with lh5.read().
 
     Parameters
     ----------
