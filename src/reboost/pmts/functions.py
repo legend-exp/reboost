@@ -29,6 +29,8 @@ def group_by_detector(times: ak.Array, table_key: ak.Array, usable_pmts: list) -
     the specified field of the first detector are used (all detectors assumed equal)
     and re-attached to the top-level output after alignment.
     """
+    unit = get_unit_str(times)
+
     usable = np.asarray(usable_pmts)
     n_events = len(times)
     n_det = len(usable)
@@ -58,9 +60,12 @@ def group_by_detector(times: ak.Array, table_key: ak.Array, usable_pmts: list) -
     cell_nhits = np.bincount(cell, weights=nhits, minlength=n_det * n_events).astype(np.int64)
 
     per_cell = ak.unflatten(content, cell_nhits)  # (n_det*n_events) * var
-    return ak.to_regular(
+    result = ak.to_regular(
         ak.unflatten(per_cell, np.full(n_det, n_events)), axis=1
     )  # n_det * n_events * var
+    if unit is not None:
+        result = attach_units(result, unit)
+    return result
 
 
 def align_detectors(
