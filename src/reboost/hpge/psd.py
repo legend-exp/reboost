@@ -437,7 +437,7 @@ def get_current_waveform(
         time = start + dt * j
         if (time < range_t[0]) or (time > (range_t[1] - dt)):
             continue
-        y[j] = _get_waveform_value(j, edep, drift_time, template, start, dt, range_t)
+        y[j] = _get_waveform_value(j, edep, drift_time, template, start, dt)
 
     return times, y
 
