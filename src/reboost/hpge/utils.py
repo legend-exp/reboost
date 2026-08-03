@@ -65,7 +65,7 @@ def get_hpge_pulse_shape_library(
 
     if not isinstance(data, lgdo.Struct):
         msg = f"{obj} in {filename} is not an LGDO Struct"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     t0 = data["t0"].value
     dt = data["dt"].value
@@ -149,7 +149,7 @@ def get_hpge_rz_field(
 
     if not isinstance(data, lgdo.Struct):
         msg = f"{obj} in {filename} is not an LGDO Struct"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     data = AttrsDict(
         {

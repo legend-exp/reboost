@@ -258,10 +258,10 @@ def get_function_string(expr: str, aliases: dict | None = None) -> tuple[str, di
             globs = globs | {
                 package: importlib.import_module(package_import),
             }
-        except Exception as e:
+        except Exception:
             # for imports of our own package, raise the error back to the user
             if package_import == "reboost":
-                raise e
+                raise
             msg = f"Function {package_import} cannot be imported"
             log.debug(msg)
             continue

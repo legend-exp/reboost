@@ -26,7 +26,7 @@ def pg4_to_pint(obj: pint.Quantity | pg4.gdml.Defines.VectorBase) -> pint.Quanti
     if isinstance(obj, pg4.gdml.Defines.VectorBase):
         return [getattr(obj, field).eval() for field in ("x", "y", "z")] * ureg(obj.unit)
     msg = f"I don't know how to convert object of type {type(obj)} to pint object"
-    raise ValueError(msg)
+    raise TypeError(msg)
 
 
 def units_convfact(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -> float:
@@ -144,7 +144,7 @@ def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, 
     if isinstance(data, ak.Array):
         if library != "ak":
             msg = "cannot unwrap an awkward array as a non-awkward type"
-            raise ValueError(msg)
+            raise TypeError(msg)
 
         if "units" in ak.parameters(data):
             ret_units = ureg(ak.parameters(data)["units"]).u
@@ -171,7 +171,7 @@ def get_unit_str(data: ak.Array | LGDO) -> str | None:
         attrs = data.attrs
     else:
         msg = f"Cannot extract units: {data} is not an LGDO or ak.Array"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     if "units" in attrs:
         return attrs["units"]

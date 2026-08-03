@@ -530,5 +530,5 @@ def _get_scint_params(material: ScintMaterial):
         )
     if isinstance(material, str):
         msg = f"unknown material {material} for scintillation"
-        raise ValueError(msg)
+        raise ValueError(msg)  # noqa: TRY004 (this is not a typy error)
     return sc.precompute_scintillation_params(*material)
