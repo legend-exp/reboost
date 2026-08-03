@@ -203,7 +203,7 @@ def build_hit(
     buffer: int = int(5e6),
     overwrite: bool = False,
     allow_missing_inputs=True,
-) -> None | ak.Array:
+) -> ak.Array | None:
     """Build the hit tier from the remage step files.
 
     Parameters

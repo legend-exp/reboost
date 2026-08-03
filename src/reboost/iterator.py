@@ -133,7 +133,7 @@ class GLMIterator:
 
         if self.n_rows is not None:
             rows_left = self.n_rows - self.n_rows_read
-            n_rows = self.buffer if (self.buffer > rows_left) else rows_left
+            n_rows = max(rows_left, self.buffer)
         else:
             n_rows = self.buffer
 
