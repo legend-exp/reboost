@@ -68,7 +68,7 @@ class OpticalMap:
             h = lh5.read(f"/{group}/{name}", lh5_file=fn)
             if not isinstance(h, Histogram):
                 msg = f"encountered invalid optical map while reading /{group}/{name} in {fn}"
-                raise RuntimeError(msg)
+                raise RuntimeError(msg)  # noqa: TRY004 (keep it in line with the other exceptions)
             return h.weights.nda, h.binning
 
         om.h_vertex, bin_nr_gen = read_hist("_nr_gen", lh5_file, group=group)

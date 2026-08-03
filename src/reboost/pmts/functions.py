@@ -244,7 +244,7 @@ def build_hardware_triggers(
     grouped_data = []
     thresholds = []
     if trigger_groups is not None:
-        for _, group_info in trigger_groups.items():
+        for group_info in trigger_groups.values():
             det_indices = group_info["detector_indices"]
             threshold = group_info["threshold"]
             grouped_data.append(data_array[det_indices])

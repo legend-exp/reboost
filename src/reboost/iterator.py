@@ -7,6 +7,7 @@ import typing
 import awkward as ak
 from lgdo import LGDO, Table
 from lh5 import LH5Store
+from lh5.io.exceptions import LH5DecodeError
 
 from . import build_glm
 from .profile import ProfileDict
@@ -110,7 +111,7 @@ class GLMIterator:
         # get the number of stp rows
         try:
             stp_n_rows = self.sto.read_n_rows(f"{self.stp_field}/{self.lh5_group}", self.stp_file)
-        except Exception:
+        except LH5DecodeError:
             stp_n_rows = 0
 
         # heuristics for a good buffer length
@@ -133,7 +134,7 @@ class GLMIterator:
 
         if self.n_rows is not None:
             rows_left = self.n_rows - self.n_rows_read
-            n_rows = self.buffer if (self.buffer > rows_left) else rows_left
+            n_rows = max(rows_left, self.buffer)
         else:
             n_rows = self.buffer
 

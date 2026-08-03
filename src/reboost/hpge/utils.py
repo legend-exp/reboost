@@ -31,7 +31,7 @@ class HPGePulseShapeLibrary(NamedTuple):
 
 
 def get_hpge_pulse_shape_library(
-    filename: str, obj: str, field: str, out_of_bounds_val: int | float = np.nan
+    filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan
 ) -> HPGePulseShapeLibrary:
     """Create the pulse shape library, holding simulated waveforms.
 
@@ -65,7 +65,7 @@ def get_hpge_pulse_shape_library(
 
     if not isinstance(data, lgdo.Struct):
         msg = f"{obj} in {filename} is not an LGDO Struct"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     t0 = data["t0"].value
     dt = data["dt"].value
@@ -107,7 +107,7 @@ class HPGeRZField(NamedTuple):
 
 
 def get_hpge_rz_field(
-    filename: str, obj: str, field: str, out_of_bounds_val: int | float = np.nan, **kwargs
+    filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan, **kwargs
 ) -> HPGeRZField:
     """Create an interpolator for a gridded HPGe field defined on `(r, z)`.
 
@@ -149,7 +149,7 @@ def get_hpge_rz_field(
 
     if not isinstance(data, lgdo.Struct):
         msg = f"{obj} in {filename} is not an LGDO Struct"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     data = AttrsDict(
         {

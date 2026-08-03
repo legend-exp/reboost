@@ -20,7 +20,7 @@ def test_pg4_to_pint():
         units.pg4_to_pint(pg4.gdml.Defines.Position("boh", 1, 1, 1, unit="m")) == (1, 1, 1) * u.m
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         units.pg4_to_pint({"a": 1})
 
 

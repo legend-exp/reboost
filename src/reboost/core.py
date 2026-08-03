@@ -344,7 +344,7 @@ def get_one_detector_mapping(
         try:
             objs = evaluate_object(expression_tmp, local_dict={"ARGS": args, "OBJECTS": objects})
             out_names.extend(objs)
-        except Exception:
+        except Exception:  # noqa: BLE001
             out_names.append(expression_tmp)
 
     # simple one to one mapping
