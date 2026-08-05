@@ -317,16 +317,19 @@ def _interpolate_pulse_model(
     template: NDArray, time: float, start: float, end: float, dt: float, mu: float
 ) -> float:
     """Interpolate to extract the pulse model given a particular mu."""
-    local_time = time - mu - start
+    sample_f = (time - mu - start) / dt
+    n = len(template)
 
-    if (local_time < start) or (int(local_time) > end):
+    max_sample = min(n - 1, (end - start) / dt)
+
+    if (sample_f < 0.0) or (sample_f >= max_sample):
         return 0.0
 
-    sample = int(local_time / dt)
+    sample = int(sample_f)
     A_before = template[sample]
     A_after = template[sample + 1]
 
-    frac = (local_time - int(local_time)) / dt
+    frac = sample_f - sample
     return A_before + frac * (A_after - A_before)
 
 
