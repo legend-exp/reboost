@@ -162,6 +162,16 @@ def optical_cli() -> None:
     checkmap_parser = subparsers.add_parser("checkmap", help="check optical maps")
     checkmap_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
 
+    # STEP 1e: patch a region of a map with a separately simulated one
+    patch_parser = subparsers.add_parser(
+        "patchmap", help="replace a region of an optical map with a patch map"
+    )
+    patch_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
+    patch_parser.add_argument(
+        "patch", help="patch map LH5 file, replacing the region it covers", metavar="PATCH_MAP"
+    )
+    patch_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
+
     # STEP X: rebin maps
     rebin_parser = subparsers.add_parser("rebin", help="rebin optical maps")
     rebin_parser.add_argument("input", help="input map LH5 files", metavar="INPUT_MAP")
@@ -237,6 +247,14 @@ def optical_cli() -> None:
 
         _check_input_file(parser, args.input)
         check_optical_map(args.input)
+
+    # STEP 1e: patch map
+    if args.command == "patchmap":
+        from .create import patch_optical_maps
+
+        _check_input_file(parser, [args.input, args.patch])
+        _check_output_file(parser, args.output)
+        patch_optical_maps(args.input, args.patch, args.output)
 
     # STEP X: rebin maps
     if args.command == "rebin":

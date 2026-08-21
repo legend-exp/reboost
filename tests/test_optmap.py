@@ -12,6 +12,7 @@ from reboost.optmap.create import (
     create_optical_maps,
     list_optical_maps,
     merge_optical_maps,
+    patch_optical_maps,
     rebin_optical_maps,
 )
 from reboost.optmap.optmap import OpticalMap
@@ -249,3 +250,65 @@ def test_optmap_save_and_load(tmptestdir, tbl_hits):
     assert isinstance(om, OpticalMap)
 
     check_optical_map(map_fn)
+
+
+def _write_count_map(fn, rng, bins, nr_gen, nr_det, group="all"):
+    """Write a single-group optical map with uniform counts."""
+    om = OpticalMap.create_empty(group, {"range_in_m": rng, "bins": bins})
+    om.h_vertex[:] = nr_gen
+    om.h_hits[:] = nr_det
+    om.create_probability()
+    om.write_lh5(lh5_file=str(fn), group=group, wo_mode="overwrite_file")
+    return str(fn)
+
+
+def test_optmap_patch(tmptestdir):
+    base = _write_count_map(tmptestdir / "patch-base.lh5", [[0, 1]] * 3, [10] * 3, 100, 50)
+    # 0.2..0.5 lands exactly on the base grid: bins 2..5 on every axis
+    patch = _write_count_map(tmptestdir / "patch-src.lh5", [[0.2, 0.5]] * 3, [3] * 3, 200, 50)
+
+    out = str(tmptestdir / "patch-out.lh5")
+    patch_optical_maps(base, patch, out)
+
+    nr_gen = lh5.read("/all/_nr_gen", out).weights.nda
+    prob = lh5.read("/all/prob", out).weights.nda
+    region = (slice(2, 5),) * 3
+
+    # counts substituted, not added (a merge would give 300)
+    assert np.all(nr_gen[region] == 200)
+    # probability recomputed from the patched counts
+    assert np.allclose(prob[region], 0.25)
+
+    outside = np.ones_like(prob, dtype=bool)
+    outside[region] = False
+    assert np.all(nr_gen[outside] == 100)
+    assert np.allclose(prob[outside], 0.5)
+
+
+def test_optmap_patch_rejects_misaligned(tmptestdir):
+    base = _write_count_map(tmptestdir / "rej-base.lh5", [[0, 1]] * 3, [10] * 3, 100, 50)
+    # edges at 0.25 do not coincide with the base grid
+    bad = _write_count_map(tmptestdir / "rej-patch.lh5", [[0.25, 0.55]] * 3, [3] * 3, 100, 50)
+
+    with pytest.raises(ValueError, match="does not align"):
+        patch_optical_maps(base, bad, str(tmptestdir / "rej-out.lh5"))
+
+
+def test_optmap_patch_keeps_no_stats_sentinel(tmptestdir):
+    base = _write_count_map(tmptestdir / "sent-base.lh5", [[0, 1]] * 3, [10] * 3, 100, 50)
+
+    om = OpticalMap.create_empty("all", {"range_in_m": [[0.2, 0.5]] * 3, "bins": [3] * 3})
+    om.h_vertex[:] = 100
+    om.h_vertex[0, 0, 0] = 0  # a bin the patch never sampled
+    om.h_hits[:] = 50
+    om.h_hits[0, 0, 0] = 0
+    om.create_probability()
+    patch = str(tmptestdir / "sent-patch.lh5")
+    om.write_lh5(lh5_file=patch, group="all", wo_mode="overwrite_file")
+
+    out = str(tmptestdir / "sent-out.lh5")
+    patch_optical_maps(base, patch, out)
+
+    prob = lh5.read("/all/prob", out).weights.nda
+    assert prob[2, 2, 2] == -1  # sentinel kept, base value not reinstated
+    assert np.allclose(prob[3, 3, 3], 0.5)
