@@ -227,8 +227,12 @@ def number_of_detected_photoelectrons(
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
+    store_expected_pes: bool = False,
 ) -> ak.Array | tuple[ak.Array, NDArray]:
     """Derive the number of detected photoelectrons.
+
+    With ``store_expected_pes``, additionally return the p.e. expectation per row
+    at unit channel efficiency, before truncation.
 
     This processor uses the provided optical map to convert emitted
     scintillation photons into detected photoelectrons for a single
@@ -271,7 +275,13 @@ def number_of_detected_photoelectrons(
     )
 
     return convolve.iterate_stepwise_depositions_numdet(
-        hits, optmap, spm_detector, map_scaling, map_scaling_sigma, max_pes_per_hit
+        hits,
+        optmap,
+        spm_detector,
+        map_scaling,
+        map_scaling_sigma,
+        max_pes_per_hit,
+        store_expected_pes=store_expected_pes,
     )
 
 
