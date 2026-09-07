@@ -18,10 +18,10 @@ hit tier output. These processors convert the "regular" structure of the remage
 output into a jagged structure, where each row corresponds to a "hit" and the
 fields are variable length vectors containing information on the steps in each
 hit.
+
 :::{note}
 
-This is only relevant if the "flat" output structure of _remage_ files is
-used.
+This is only relevant if the "flat" output structure of _remage_ files is used.
 
 :::
 
@@ -44,8 +44,8 @@ hits_by_time = group_by_time(data, window=10)  # unit is us
 
 ## Other processors
 
-Additional _reboost_ processors compute further quantities of interest. This
-can consist of:
+Additional _reboost_ processors compute further quantities of interest. This can
+consist of:
 
 - reduction (e.g. summing over steps),
 - clustering (e.g. grouping steps within one hit into various clusters thus
@@ -53,18 +53,18 @@ can consist of:
 - computing other quantities (eg. PSD heuristics etc.).
 
 The only prescription for a _reboost_ processor is that the function should
-return an {class}`awkward.Array`. These
-processors should not change the length of the object, i.e. they should only act
-on axes more than 1.
+return an {class}`awkward.Array`. These processors should not change the length
+of the object, i.e. they should only act on axes more than 1.
 
 The input parameters for processors should also be accepted as
 {class}`lgdo.LGDO` objects, or as {class}`awkward.Array` instances.
 
-Physical units can be attached to the attributes of the {class}`awkward.Array` or
-{class}`lgdo.LGDO` following the LEGEND dataformat specification [link](https://legend-exp.github.io/legend-data-format-specs/dev/hdf5/#Values-with-physical-units).
+Physical units can be attached to the attributes of the {class}`awkward.Array`
+or {class}`lgdo.LGDO` following the LEGEND dataformat specification
+[link](https://legend-exp.github.io/legend-data-format-specs/dev/hdf5/#Values-with-physical-units).
 
-The {mod}`reboost.units` module contains various functionalities to extract, set and
-manipulate these units.
+The {mod}`reboost.units` module contains various functionalities to extract, set
+and manipulate these units.
 
 Documentation describing the various processors is contained in the API
 documentation. You can then import these functions and use them in your python

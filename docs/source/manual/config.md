@@ -66,7 +66,8 @@ syntax allows the user to include any arbitrary input parameters or objects.
 
 ```yaml
 detector_objects:
-  meta: dbetto.AttrsDict(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,
+  meta:
+    dbetto.AttrsDict(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,
     OBJECTS.user_pars[DETECTOR].name ))
   pyobj:
     pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,OBJECTS.user_pars[DETECTOR].name),
@@ -92,9 +93,9 @@ If the "outputs" key is not present all fields will be included!
 
 :::
 
-In case the flat output file option for _remage_ was used we need to
-define the step grouping function (i.e. we create our hits). Here
-"STEPS" is a special keyword corresponding to the remage data.
+In case the flat output file option for _remage_ was used we need to define the
+step grouping function (i.e. we create our hits). Here "STEPS" is a special
+keyword corresponding to the remage data.
 
 ```yaml
 hit_table_layout: reboost.shape.group.group_by_evtid(STEPS)

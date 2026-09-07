@@ -43,8 +43,8 @@ Package API reference <api/modules>
   application for HPGe and LAr experiments,
 - [legend-pygeom-hpges](https://legend-pygeom-hpges.readthedocs.io/en/latest/):
   Package for handling HPGe detector geometry in python,
-- [pyg4ometry](https://pyg4ometry.readthedocs.io/en/stable/): Package to
-  create simulation geometry in python,
+- [pyg4ometry](https://pyg4ometry.readthedocs.io/en/stable/): Package to create
+  simulation geometry in python,
 - [legend-pygeom-optics](https://legend-pygeom-optics.readthedocs.io/en/stable/):
   Package to handle optical properties in python,
 - [legend-pygeom-tools](https://legend-pygeom-tools.readthedocs.io/en/stable/):

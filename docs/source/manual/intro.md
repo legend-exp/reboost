@@ -10,8 +10,8 @@ _reboost_ contains both:
 {ref}`processors` describes _reboost_ processors and how to use these for a
 simple simulation post-processing in a python script.
 
-Next {ref}`config` explains how to run the full "hit-tier" (more details
-later) post-processing with a configuration file, in a way very similar to data
+Next {ref}`config` explains how to run the full "hit-tier" (more details later)
+post-processing with a configuration file, in a way very similar to data
 processing with pygama. This provides a method to make a generic and customised
 simulation post-processing. This depends on generic and efficient iteration over
 the remage files described in {ref}`iteration`. Finally, the information from

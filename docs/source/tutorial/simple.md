@@ -1,11 +1,11 @@
 # Basic reboost post-processing in a python script
 
-Simple post-processing of _remage_ simulations can be done in a python script
-or notebook. This has some limitations but is very useful for simple tasks.
-For more complicated tasks we have created a config file interface (see the
-next tutorial). This tutorial builds on the
-[_remage_ tutorial](inv:remage#basic-tutorial) of two germanium detectors in
-a liquid-argon (LAr) orb with a source. It describes how to run a simple
+Simple post-processing of _remage_ simulations can be done in a python script or
+notebook. This has some limitations but is very useful for simple tasks. For
+more complicated tasks we have created a config file interface (see the next
+tutorial). This tutorial builds on the
+[_remage_ tutorial](inv:remage#basic-tutorial) of two germanium detectors in a
+liquid-argon (LAr) orb with a source. It describes how to run a simple
 post-processing with reboost tools, and explains the usual steps.
 
 For this example we simulate $^{228}$Th in the source. We use the following
@@ -73,23 +73,23 @@ plt.rcParams.update({"font.size": 12})
 ## Extract useful objects
 
 Additional information is needed (for example details of the detector geometry)
-to perform our post-processing. Fortunately for us integration with the
-detector geometry GDML file makes this easy! Similarly to how
-[pyg4ometry](inv:pyg4ometry#index) was used to write the detector
-geometry GDML file it can also be used to read this back into python. This GDML
-file can also contain additional metadata useful for us, which can be extracted
-using the [legend-pygeom-tools](inv:pygeomtools#index) package.
+to perform our post-processing. Fortunately for us integration with the detector
+geometry GDML file makes this easy! Similarly to how
+[pyg4ometry](inv:pyg4ometry#index) was used to write the detector geometry GDML
+file it can also be used to read this back into python. This GDML file can also
+contain additional metadata useful for us, which can be extracted using the
+[legend-pygeom-tools](inv:pygeomtools#index) package.
 
 This metadata can be used to create a python object describing the HPGe
-detectors using the [legend-pygeom-hpges](inv:pygeomhpges#index) package.
-Among other things, the HPGe object from this package has methods to compute
-detector properties (mass, surface area etc.) and to compute the distance of
-points from the detector surface.
+detectors using the [legend-pygeom-hpges](inv:pygeomhpges#index) package. Among
+other things, the HPGe object from this package has methods to compute detector
+properties (mass, surface area etc.) and to compute the distance of points from
+the detector surface.
 
 In this example we extract the {class}`pyg4ometry.geant4.Registry` object
 describing the geometry, the _legend-pygeom-hpges_
-{class}`pygeomhpges.base.HPGe` python object and finally we extract the
-position of the BEGe detector (which we focus on for this analysis).
+{class}`pygeomhpges.base.HPGe` python object and finally we extract the position
+of the BEGe detector (which we focus on for this analysis).
 
 ```python
 reg = pyg4ometry.gdml.Reader("geometry.gdml").getRegistry()
@@ -104,14 +104,14 @@ Next we can read the data using the [lgdo](inv:lgdo#index) package.
 :::{warning}
 
 If the simulations files are large this approach can cause memory issues, in
-that case it is possible to iterate over the files instead using the
-GLMIterator (see the next tutorial).
+that case it is possible to iterate over the files instead using the GLMIterator
+(see the next tutorial).
 
 :::
 
-We use the [awkward](inv:awkward#index) package to view the
-data, ideal for working with data with a "jagged" structure, i.e. many vectors
-of different lengths.
+We use the [awkward](inv:awkward#index) package to view the data, ideal for
+working with data with a "jagged" structure, i.e. many vectors of different
+lengths.
 
 ```python
 stp = lh5.read_as("stp/det001", "stp_out.lh5", "ak", with_units=True)
@@ -121,13 +121,13 @@ stp = lh5.read_as("stp/det001", "stp_out.lh5", "ak", with_units=True)
 
 :::{note}
 
-If the _remage_ flat output file is used an additional step of "step-grouping" is required.
+If the _remage_ flat output file is used an additional step of "step-grouping"
+is required.
 
-:::
-Now we can compute some quantities based on our simulation. This is based on
-"processors" (see the User manual for more details). This is just any
-(generic) python function computing a new (post-processed) quantity (i.e. a new
-row of the output table).
+::: Now we can compute some quantities based on our simulation. This is based on
+"processors" (see the User manual for more details). This is just any (generic)
+python function computing a new (post-processed) quantity (i.e. a new row of the
+output table).
 
 The only requirements are:
 
@@ -136,7 +136,8 @@ The only requirements are:
   i.e. the processors act on every row but they cannot add, remove or merge
   rows.
 
-{ref}`More details (how to deal with physical units etc.) <processors-contract>` can be found in the manual.
+{ref}`More details (how to deal with physical units etc.) <processors-contract>`
+can be found in the manual.
 
 ### Active energy
 
@@ -145,9 +146,9 @@ correction for the inactive regions at the surface of the detector.
 
 A common heuristic approach consists of computing the distance of each energy
 deposition from the detector surface and then weighting the deposited energy by
-an "activeness" function. One complication of this approach is that the
-various surfaces (electrodes) of a Germanium detector do not have the same
-thickness of inactive (commonly called "dead" layer).
+an "activeness" function. One complication of this approach is that the various
+surfaces (electrodes) of a Germanium detector do not have the same thickness of
+inactive (commonly called "dead" layer).
 
 _reboost_ contains a function to compute the distance of points to the surface
 ({func}` reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
@@ -177,7 +178,8 @@ we also need to track the units along our mathematical expressions.
 
 :::
 
-We make a plot of the distance of the steps to the n+ electrode compared to the `r,z` coordinates.
+We make a plot of the distance of the steps to the n+ electrode compared to the
+`r,z` coordinates.
 
 ```python
 # extract r and z
@@ -291,9 +293,9 @@ energy (due to interactions in the dead-layer).
 
 ### Energy resolution smearing
 
-The remage simulations do not include the effect of the energy resolution. To
-do this there is the reboost processor {func}`.math.stats.gaussian_sample`
-to sample from a Gaussian distribution.
+The remage simulations do not include the effect of the energy resolution. To do
+this there is the reboost processor {func}`.math.stats.gaussian_sample` to
+sample from a Gaussian distribution.
 
 We demonstrate this with a sigma of 0.5 keV.
 
@@ -319,9 +321,9 @@ This introduces a Gaussian spread to the energy spectrum.
 
 ### PSD heuristics - r90
 
-Another area of HPGe post-processing involves the calculation of PSD
-heuristics. These are quantities which help estimate if an event would have a
-single or multi-site event topology.
+Another area of HPGe post-processing involves the calculation of PSD heuristics.
+These are quantities which help estimate if an event would have a single or
+multi-site event topology.
 
 One simple example is the `r90`, or the radius of a sphere (centered on the
 event energy weighted center of mass), containing at-least 90% of the energy.
