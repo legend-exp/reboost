@@ -4,7 +4,6 @@ import awkward as ak
 import numpy as np
 from lgdo import Array, Table
 
-import reboost
 from reboost import units
 from reboost.shape import cluster, group
 
@@ -27,17 +26,6 @@ def test_evtid_group():
     out_ak = out.view_as("ak")
     assert ak.all(out_ak.evtid == [[1, 1, 1], [2, 2], [10, 10], [11], [12, 12, 12]])
     assert ak.all(out_ak.time == [[0, 0, 0], [0, 0], [0, 0], [0], [0, 0, 0]])
-
-    # test the eval in build hit also
-    out_eval = reboost.core.evaluate_hit_table_layout(
-        in_tab,
-        "reboost.shape.group.group_by_evtid(STEPS)",
-    )
-
-    out_eval_ak = out_eval.view_as("ak")
-
-    assert ak.all(out_ak.evtid == out_eval_ak.evtid)
-    assert ak.all(out_ak.time == out_eval_ak.time)
 
 
 def test_time_group():

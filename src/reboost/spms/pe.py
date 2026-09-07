@@ -254,11 +254,6 @@ def number_of_detected_photoelectrons(
         Maximum number of photoelectrons to generate for a single scintillation
         hit. Use ``-1`` to disable this limit.
 
-    Warning
-    -------
-    The `max_pes_per_hit` argument cannot be used in a ``build_hit()`` config
-    file, since a tuple is returned in this case.
-
     Returns
     -------
     Awkward array of integer p.e. counts with the same nested list structure

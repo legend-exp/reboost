@@ -22,9 +22,7 @@ _Geant4_ simulations to ''boost" them allowing comparison to data.
 _reboost_ provides tools to:
 
 - apply a HPGe detector response model to the simulations,
-- dedicated tools to generate optical maps,
-- functionality to control the full post-processing chain with configuration
-  files.
+- dedicated tools to generate optical maps.
 
 For more information see our dedicated
 [documentation](https://reboost.readthedocs.io/en/stable/)!

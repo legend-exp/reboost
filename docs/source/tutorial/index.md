@@ -4,6 +4,5 @@
 :maxdepth: 2
 
 simple
-config
 pmts
 ```

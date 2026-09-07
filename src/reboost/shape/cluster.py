@@ -210,13 +210,6 @@ def step_lengths(
     thus the input arrays should already be clustered (have dimension 3). The output
     will have a similar shape to the input with one less entry in the outermost dimension.
 
-    Example config (assuming that the clustered positions are obtained already):
-
-    .. code-block:: yaml
-
-        step_lengths:
-          reboost.shape.cluster.step_lengths(HITS.cluster_x, HITS.cluster_y, HITS.cluster_z)
-
     Parameters
     ----------
     x_cluster

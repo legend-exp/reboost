@@ -1,12 +1,10 @@
 # Basic reboost post-processing in a python script
 
-Simple post-processing of _remage_ simulations can be done in a python script or
-notebook. This has some limitations but is very useful for simple tasks. For
-more complicated tasks we have created a config file interface (see the next
-tutorial). This tutorial builds on the
-[_remage_ tutorial](inv:remage#basic-tutorial) of two germanium detectors in a
-liquid-argon (LAr) orb with a source. It describes how to run a simple
-post-processing with reboost tools, and explains the usual steps.
+Post-processing of _remage_ simulations is done in a python script or notebook.
+This tutorial builds on the [_remage_ tutorial](inv:remage#basic-tutorial) of
+two germanium detectors in a liquid-argon (LAr) orb with a source. It describes
+how to run a simple post-processing with reboost tools, and explains the usual
+steps.
 
 For this example we simulate $^{228}$Th in the source. We use the following
 macro file (saved as `th228.mac`):
@@ -104,8 +102,8 @@ Next we can read the data using the [lgdo](inv:lgdo#index) package.
 :::{warning}
 
 If the simulations files are large this approach can cause memory issues, in
-that case it is possible to iterate over the files instead using the GLMIterator
-(see the next tutorial).
+that case it is possible to iterate over the file in chunks with
+{class}`lh5.LH5Iterator` instead.
 
 :::
 
