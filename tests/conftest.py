@@ -28,8 +28,19 @@ def tmptestdir_global():
 @pytest.fixture(scope="session")
 def legendtestdata():
     ldata = LegendTestData()
-    ldata.checkout("0a56ff3")
+    ldata.checkout("076def0")
     return ldata
+
+
+@pytest.fixture(scope="session")
+def remage_stp_file(legendtestdata):
+    """Post-processed (reshaped) output of a remage v0.13 simulation.
+
+    Contains the germanium detectors ``det1`` and ``det2``, the scintillators
+    ``scint1`` and ``scint2``, the optical detectors ``optdet1`` and
+    ``optdet2``, the ``vtx`` table and a ``tcm``.
+    """
+    return legendtestdata["remage/th228-full-optional-v0_13.lh5"]
 
 
 @pytest.fixture(scope="module")
