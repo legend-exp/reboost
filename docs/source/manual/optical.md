@@ -6,8 +6,9 @@
 
 ### 1. Running remage simulations to get an stp file
 
-The map generation is performed directly with _remage_ (_reboost_ is not involved
-in this step). An example macro to showcase the required settings (`map.mac`):
+The map generation is performed directly with _remage_ (_reboost_ is not
+involved in this step). An example macro to showcase the required settings
+(`map.mac`):
 
 ```geant4
 /RMG/Processes/OpticalPhysics true
@@ -127,13 +128,13 @@ geometry of the base map does not contain:
 $ reboost-optical patchmap full-map.lh5 source-map.lh5 patched-map.lh5
 ```
 
-The patch is substituted, not merged. It has to sit on the grid of the base map (matching bin widths,
-coinciding bin edges) and is copied in by index -- never resampled, as
-interpolating a ratio of counts per bin would report probabilities for volumes
-that were never simulated. Use `rebin` first if the patch was simulated with
-finer bins. The counts are what get substituted and the probabilities are
-recomputed from them, so the output is a valid map; bins that the patch never
-sampled keep the "no statistics" sentinel.
+The patch is substituted, not merged. It has to sit on the grid of the base map
+(matching bin widths, coinciding bin edges) and is copied in by index -- never
+resampled, as interpolating a ratio of counts per bin would report probabilities
+for volumes that were never simulated. Use `rebin` first if the patch was
+simulated with finer bins. The counts are what get substituted and the
+probabilities are recomputed from them, so the output is a valid map; bins that
+the patch never sampled keep the "no statistics" sentinel.
 
 ## Applying optical maps to physics simulations
 

@@ -13,9 +13,9 @@ The fixture calls the function twice — once through the JIT-compiled path and
 once via `.py_func` — asserts that the results are numerically equal, and
 returns the JIT result so it can be used directly in assertions. Equality
 checking uses `np.testing.assert_allclose`, so all function outputs must be
-numpy arrays or array-like values that can be converted with `np.asarray`
-(e.g. scalars, lists, or awkward arrays). Pass `check_equal=False` for
-functions with non-array outputs:
+numpy arrays or array-like values that can be converted with `np.asarray` (e.g.
+scalars, lists, or awkward arrays). Pass `check_equal=False` for functions with
+non-array outputs:
 
 ```python
 def test_my_numba_func(compare_numba_vs_python):

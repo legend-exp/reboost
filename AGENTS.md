@@ -6,12 +6,12 @@ Python package. See `pyproject.toml` for dependencies and build config.
 
 ## Common Commands
 
-- Configure local dev environment: `uv venv` - run only if the local
-  environment does not exist yet (`.venv/`)
+- Configure local dev environment: `uv venv` - run only if the local environment
+  does not exist yet (`.venv/`)
 - Install (dev): `uv pip install -e ".[all]"` — run once after cloning or after
   dependency changes
-- Test: `pytest` — run all tests before committing; single Python test: `pytest
-tests/test_foo.py::test_bar`
+- Test: `pytest` — run all tests before committing; single Python test:
+  `pytest tests/test_foo.py::test_bar`
 - Lint/format: `pre-commit run --all-files` — run before committing; every
   commit must pass
 - Build docs: `cd docs && make` — verify after any documentation change

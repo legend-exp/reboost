@@ -4,8 +4,8 @@
 
 :::{note}
 
-This step is only relevant for applications involving large simulation
-files, or where the reboost configuration file option is used.
+This step is only relevant for applications involving large simulation files, or
+where the reboost configuration file option is used.
 
 :::
 

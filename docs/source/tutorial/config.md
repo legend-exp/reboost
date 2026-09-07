@@ -1,8 +1,8 @@
 # Full post-processing chain with config files
 
-The previous tutorial showed how to perform a basic post-processing with a Python
-script using _reboost_ tools. This is effective for small files, however it has
-some limitations.
+The previous tutorial showed how to perform a basic post-processing with a
+Python script using _reboost_ tools. This is effective for small files, however
+it has some limitations.
 
 - need to constantly modify source code,
 - memory issues for large files,
@@ -10,7 +10,8 @@ some limitations.
 
 An alternative approach to handle this is to use configuration files. This is
 very similar to how the `pygama` and `dspeed` data processing software works.
-For example see [the _dspeed_ tutorial](https://dspeed.readthedocs.io/en/stable/notebooks/IntroToDSP.html#Introduction-to-Digital-Signal-Processing).
+For example see
+[the _dspeed_ tutorial](https://dspeed.readthedocs.io/en/stable/notebooks/IntroToDSP.html#Introduction-to-Digital-Signal-Processing).
 
 The processing from a config file follows all the same steps as from the
 previous tutorial. However, it is generalised to allow larger scale processing.
@@ -18,8 +19,8 @@ This tutorial describes only the `hit` tier processing (i.e. extraction of
 information relating to a single detector channel). Building "events", which
 combine information from multiple detectors, is handled in the next tutorial.
 
-We will process the same data as last time, but for both germanium detectors
-and also the liquid argon table!
+We will process the same data as last time, but for both germanium detectors and
+also the liquid argon table!
 
 ## Setup the environment
 
@@ -50,12 +51,12 @@ logger.setLevel(logging.INFO)
 We are now almost ready to start our post-processing. However, we need some
 configuration files to describe the post-processing we want to perform.
 
-In principle, only a single file is needed [manual](../manual/config.md). However,
-the generalised approach of the _reboost_ processing means other files can be
-used, for example to supply parameters. There is also the possibility to supply
-some additional arguments, this is split from the main configuration file since
-it is intended for parameters changing more often. For example the path to the
-inputs on a given system.
+In principle, only a single file is needed [manual](../manual/config.md).
+However, the generalised approach of the _reboost_ processing means other files
+can be used, for example to supply parameters. There is also the possibility to
+supply some additional arguments, this is split from the main configuration file
+since it is intended for parameters changing more often. For example the path to
+the inputs on a given system.
 
 The config file can be supplied as a YAML, JSON file or a python dictionary. We
 take the former approach and use a YAML file.
@@ -172,8 +173,8 @@ objects:
   user_pars: dbetto.AttrsDict(dbetto.utils.load_dict(ARGS.pars))
 ```
 
-Here the keys to the dictionary are just python expressions. _reboost_ will
-take care of importing all packages and evaluating Python expressions. These
+Here the keys to the dictionary are just python expressions. _reboost_ will take
+care of importing all packages and evaluating Python expressions. These
 expressions can depend on arguments we will pass to _reboost_, as discussed
 above.
 
@@ -182,18 +183,18 @@ above.
 Our config file lets us apply a different post-processing to each detector (or
 each LH5 table). We split the processing up into "processing groups", these are
 sets of detectors (LH5 tables), which should have the same post-processing
-chain. However, each detector may have its own objects or parameters.
-For example, this functionality can be used to apply a different processing to
-SiPM detectors, or to HPGe detectors of different types. Our config
-specifies a list of processing groups, which should each have a name:
+chain. However, each detector may have its own objects or parameters. For
+example, this functionality can be used to apply a different processing to SiPM
+detectors, or to HPGe detectors of different types. Our config specifies a list
+of processing groups, which should each have a name:
 
 ```yaml
 processing_groups:
   - name: geds
 ```
 
-For each processing group you can specify which "lh5_group" in the
-input file the tables belong to with the "lh5_group" key.
+For each processing group you can specify which "lh5_group" in the input file
+the tables belong to with the "lh5_group" key.
 
 - if this is not set it defaults to `stp`,
 - if set to `null` the base group (`\`) is used.
@@ -201,9 +202,9 @@ input file the tables belong to with the "lh5_group" key.
 ### Detector mapping
 
 Next we need to define our list of detectors to process. However, in general it
-is not sufficient to provide a list but we also need to specify the mapping
-from the input to the output detector table. An example where this is needed is
-for the SiPM channels, where the input is the LAr volume but the output is an
+is not sufficient to provide a list but we also need to specify the mapping from
+the input to the output detector table. An example where this is needed is for
+the SiPM channels, where the input is the LAr volume but the output is an
 individual SiPM.
 
 The `detector_mapping` key allows us to do this in a generic way, our example
@@ -236,9 +237,9 @@ Other options:
 
 ### Detector objects
 
-Similar to the "global objects" defined earlier it is often useful to have
-some objects related to one particular detector. This functionality could be
-useful to extract:
+Similar to the "global objects" defined earlier it is often useful to have some
+objects related to one particular detector. This functionality could be useful
+to extract:
 
 - the description of the detector geometry,
 - parameters for a given detector,
@@ -250,8 +251,12 @@ python expressions to evaluate. For example:
 ```yaml
 detector_objects:
   name: pygeomtools.detectors.get_sensvol_by_uid(OBJECTS.geometry,int(DETECTOR[3:]))[0]
-  meta: dbetto.AttrsDict(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR_OBJECTS.name))
-  pyobj: pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,DETECTOR_OBJECTS.name), registry=None)
+  meta:
+    dbetto.AttrsDict(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,
+    DETECTOR_OBJECTS.name))
+  pyobj:
+    pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry,DETECTOR_OBJECTS.name),
+    registry=None)
   phyvol: OBJECTS.geometry.physicalVolumeDict[DETECTOR_OBJECTS.name]
   det_pars: OBJECTS.user_pars[DETECTOR]
 ```
@@ -261,19 +266,18 @@ evaluating the expressions. These can depend on several special keywords:
 
 - `OBJECTS`: the global objects defined earlier.
 - `DETECTOR`: the name of the detector.
-- `DETECTOR_OBJECTS`: previously defined detector objects, since this
-  dictionary is evaluated sequentially one object can be used in the
-  computation of the next. This feature is used with the detector name in the
-  example above. This does mean we have to be careful of the ordering of the
-  dictionary!
+- `DETECTOR_OBJECTS`: previously defined detector objects, since this dictionary
+  is evaluated sequentially one object can be used in the computation of the
+  next. This feature is used with the detector name in the example above. This
+  does mean we have to be careful of the ordering of the dictionary!
 
 In our example, we extract the name of the detector, its metadata block, a
-python object describing its geometry (with some useful methods), the
-pyg4ometry physical volume and some parameters.
+python object describing its geometry (with some useful methods), the pyg4ometry
+physical volume and some parameters.
 
 This section of our processing highlights the benefits of integration of the
-post-processing with the rest of the remage and LEGEND python infrastructure
-and tools.
+post-processing with the rest of the remage and LEGEND python infrastructure and
+tools.
 
 ### Output fields
 
@@ -301,22 +305,21 @@ If the "outputs" key is not present all fields will be saved!
 
 :::{note}
 
-For the default _remage_ output the files are already reshaped and this
-is not necessary!
+For the default _remage_ output the files are already reshaped and this is not
+necessary!
 
 :::
 
-If remage is run with the "flat output" option it is necessary to reshape
-the tables so they are oriented by the "hits" in the detector.
-To do this we perform a step called the "hit-table
-layout". This name is chosen since this step defines the shape of the hit
-table, while all following processors act on this table without changing its
-shape.
+If remage is run with the "flat output" option it is necessary to reshape the
+tables so they are oriented by the "hits" in the detector. To do this we perform
+a step called the "hit-table layout". This name is chosen since this step
+defines the shape of the hit table, while all following processors act on this
+table without changing its shape.
 
 Again we have the possibility to evaluate an arbitrary Python expression to
 perform this step. As mentioned in the previous tutorial, currently two
-functions are implemented in _reboost_ ({mod}`reboost.shape.group`). However, the
-user is free to implement their own function, or use something else!
+functions are implemented in _reboost_ ({mod}`reboost.shape.group`). However,
+the user is free to implement their own function, or use something else!
 
 The config block just provides the expression to evaluate:
 
@@ -329,29 +332,35 @@ here `STEPS` is an alias for the input stp table from _remage_.
 ### Processors
 
 Now we finally get to the interesting part of the processing chain! Computing
-post-processed quantities. This is handled by the block called "operations".
-Our example is below:
+post-processed quantities. This is handled by the block called "operations". Our
+example is below:
 
 ```yaml
 operations:
   t0: ak.fill_none(ak.firsts(HITS.time, axis=-1), np.nan)
   first_evtid: ak.fill_none(ak.firsts(HITS.evtid, axis=-1), np.nan)
   truth_energy: ak.sum(HITS.edep, axis=-1)
-  distance_to_nplus: reboost.hpge.surface.distance_to_surface(HITS.xloc, HITS.yloc, HITS.zloc, DETECTOR_OBJECTS.pyobj, DETECTOR_OBJECTS.phyvol.position.eval(), surface_type='nplus')
-  activeness: reboost.math.functions.piecewise_linear_activeness(HITS.distance_to_nplus,fccd_in_mm=DETECTOR_OBJECTS.det_pars.fccd_in_mm, dlf=DETECTOR_OBJECTS.det_pars.dlf)
+  distance_to_nplus:
+    reboost.hpge.surface.distance_to_surface(HITS.xloc, HITS.yloc, HITS.zloc,
+    DETECTOR_OBJECTS.pyobj, DETECTOR_OBJECTS.phyvol.position.eval(),
+    surface_type='nplus')
+  activeness:
+    reboost.math.functions.piecewise_linear_activeness(HITS.distance_to_nplus,fccd_in_mm=DETECTOR_OBJECTS.det_pars.fccd_in_mm,
+    dlf=DETECTOR_OBJECTS.det_pars.dlf)
   active_energy: ak.sum(HITS.edep*HITS.activeness, axis=-1)
   smeared_energy: reboost.math.stats.gaussian_sample(HITS.active_energy,DETECTOR_OBJECTS.det_pars.reso_fwhm_in_keV/2.355)
   r90: reboost.hpge.psd.r90(HITS.edep,HITS.xloc*1000,HITS.yloc*1000,HITS.zloc*1000)
 ```
 
-Each key gives a field to compute and a Python expression to evaluate. These
-can either be _reboost_ functions, or functions from another package. The only
+Each key gives a field to compute and a Python expression to evaluate. These can
+either be _reboost_ functions, or functions from another package. The only
 requirement is on the output type (as described in the
 [manual](../manual/processors.md). The processors can reference:
 
 - `OBJECTS`: the global objects,
 - `DETECTOR_OBJECTS`: the detector objects,
-- `HITS`: the table of hits after "hit-table-layout", which will be constantly updated
+- `HITS`: the table of hits after "hit-table-layout", which will be constantly
+  updated
 
 Every expression is evaluated and a new column is added to the `HITS` table,
 this allows us to chain together processors, this is used in a number of places
@@ -359,20 +368,22 @@ in the processing chain. Our example:
 
 - extracts the first time of each hit and the event id,
 - computes the total energy (before dead-layer correction),
-- computes the distance of steps to the n+ surface, the activeness and then the corrected energy,
+- computes the distance of steps to the n+ surface, the activeness and then the
+  corrected energy,
 - smears this with a Gaussian energy resolution,
 - computes the `r90` PSD heuristic.
 
-In our config file these blocks are repeated for the LAr table, so you will see the same steps again.
+In our config file these blocks are repeated for the LAr table, so you will see
+the same steps again.
 
 ## Running the post-processing
 
 Now (at last) we are ready to run the post-processing. This is done with
 {func}`~.build_hit.build_hit`.
 
-There are many options to this function, for example selecting just some
-events, changing the buffers etc. For now we just process the full file.
-Our config file should have been saved in a YAML file called `config.yaml`.
+There are many options to this function, for example selecting just some events,
+changing the buffers etc. For now we just process the full file. Our config file
+should have been saved in a YAML file called `config.yaml`.
 
 ```python
 build_hit(
@@ -427,9 +438,9 @@ You can look at the file structure with:
 lh5.show("hit_out.lh5")
 ```
 
-You can read this data with LGDO and then try making the plots from the
-previous section (or others). As an example let's try comparing the energy
-spectra for the two detectors.
+You can read this data with LGDO and then try making the plots from the previous
+section (or others). As an example let's try comparing the energy spectra for
+the two detectors.
 
 ```python
 hits_det001 = lh5.read("hit/det001", "hit_out.lh5")
