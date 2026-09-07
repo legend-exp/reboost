@@ -49,10 +49,11 @@ def distance_to_surface(
     hpge
         HPGe object.
     det_pos
-        position of the detector origin, must be a 3 component array corresponding to `(x,y,z)`. If no units
-        are specified mm is assumed.
+        position of the detector origin, must be a 3 component array corresponding to `(x,y,z)`.
+        If no units are specified mm is assumed.
     surface_type
-        string of which surface to use, can be `nplus`, `pplus` `passive` or None (in which case the distance to any surface is calculated).
+        string of which surface to use, can be `nplus`, `pplus` `passive` or None (in which case
+        the distance to any surface is calculated).
     unit
         unit for the hit tier positions table.
     distances_precompute
@@ -261,7 +262,8 @@ def get_surface_response(
 
     Returns
     -------
-    2D array of the amount of charge arriving at the p-n junction as a function of time for each depth.
+    2D array of the amount of charge arriving at the p-n junction as a function of time for each
+    depth.
     """
     # number of position steps
     nx = int(fccd / delta_x)

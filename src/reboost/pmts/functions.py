@@ -20,7 +20,8 @@ def group_by_detector(times: ak.Array, table_key: ak.Array, usable_pmts: list) -
     table_key
         Result of tcm_ak["stp"].table_key
     usable_pmts
-        List of usable PMT UIDs. These UIDs will be used to filter and match the detectors from the tcm.
+        List of usable PMT UIDs. These UIDs will be used to filter and match the detectors from
+        the tcm.
 
     Returns
     -------
@@ -139,7 +140,7 @@ def align_detectors(
 
 
 def _group_candidate_triggers(group_event_hits, threshold, timegate_ns):
-    """Helper function to find candidate trigger times for one event and subgroup (no deadtime here)."""
+    """Find candidate trigger times for one event and subgroup (no deadtime applied here)."""
     if threshold <= 0:
         msg = "Group threshold must be > 0."
         raise ValueError(msg)
@@ -205,16 +206,22 @@ def build_hardware_triggers(
     Parameters
     ----------
     data_array
-        Jagged array [detector][event][hit] with hit times. Shape x * y * var. Units need to be attached to the top-level array if unit conversion is desired for timegate and trigger_deadtime. If no units are attached, timegate and trigger_deadtime need to be provided in the same units as the data array (as floats).
+        Jagged array [detector][event][hit] with hit times. Shape x * y * var. Units need to be
+        attached to the top-level array if unit conversion is desired for timegate and
+        trigger_deadtime. If no units are attached, timegate and trigger_deadtime need to be
+        provided in the same units as the data array (as floats).
     multiplicity_threshold : int
         Minimum number of different detectors triggering within timegate to trigger.
         Needs to be defined and > 0 if no trigger groups are defined.
     timegate
-        Time window to consider for multiplicity trigger. If not a pint Quantity, will be assumed to be in same units as data.
+        Time window to consider for multiplicity trigger. If not a pint Quantity, will be assumed
+        to be in same units as data.
     trigger_deadtime
-        Time window for which the system is unresponsive after a trigger. If not a pint Quantity, will be assumed to be in same units as data.
+        Time window for which the system is unresponsive after a trigger. If not a pint Quantity,
+        will be assumed to be in same units as data.
     trigger_groups : dict | None
-        Optional dict defining groups of detectors that are evaluated for their multiplicity threshold. Format:
+        Optional dict defining groups of detectors that are evaluated for their multiplicity
+        threshold. Format:
         {group_name: {"detector_indices": (detector_indices),
                       "threshold": (threshold)
                       }
@@ -222,10 +229,11 @@ def build_hardware_triggers(
 
     Returns
     -------
-    Awkward array with Trigger timestamps per event, duplicated for each detector along axis 0. Shape x * y * var.
-    The timestamps are the first hit times when the multiplicity threshold condition is satisfied,
-    applying deadtime afterwards and not allowing overlaps in timegate (within the same trigger group.).
-    If the top-level input data_array has units, the output top-level array will have the same units.
+    Awkward array with Trigger timestamps per event, duplicated for each detector along axis 0.
+    Shape x * y * var. The timestamps are the first hit times when the multiplicity threshold
+    condition is satisfied, applying deadtime afterwards and not allowing overlaps in timegate
+    (within the same trigger group). If the top-level input data_array has units, the output
+    top-level array will have the same units.
     """
     # Handle units
     unit = get_unit_str(data_array)
@@ -305,16 +313,21 @@ def build_hits(
     trace_length: float,
     trigger_position: float = 0,
 ) -> ak.Array:
-    """Build hits based on hardware triggers. Gives the pulse height in p.e. for each hardware trigger.
+    """Build hits based on hardware triggers.
+
+    Gives the pulse height in p.e. for each hardware trigger.
 
     Parameters
     ----------
     data_array
-        Jagged array [detector][event][hit] with photon hit times. Shape x * y * var. Units need to be attached to the top-level array if unit conversion is desired.
+        Jagged array [detector][event][hit] with photon hit times. Shape x * y * var. Units need to
+        be attached to the top-level array if unit conversion is desired.
     hardware_triggers
-        Jagged array [event][var] with trigger times. Shape y * var. Units need to be attached to the top-level array if unit conversion is desired.
+        Jagged array [event][var] with trigger times. Shape y * var. Units need to be attached to
+        the top-level array if unit conversion is desired.
     time_per_sample
-        Time resolution of the trace (similar to a bin width). If not a pint Quantity, will be assumed to be in the same units as data.
+        Time resolution of the trace (similar to a bin width). If not a pint Quantity, will be
+        assumed to be in the same units as data.
     trace_length
         Length of the trace around the trigger in samples.
     trigger_position, optional
@@ -322,8 +335,8 @@ def build_hits(
 
     Returns
     -------
-    Jagged Awkward array [detector][event][var] with the maximum pulse height in p.e. for each hardware trigger.
-    The pulse height is simply calculated with np.max() on the samples.
+    Jagged Awkward array [detector][event][var] with the maximum pulse height in p.e. for each
+    hardware trigger. The pulse height is simply calculated with np.max() on the samples.
     If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if time_per_sample <= 0:
@@ -339,10 +352,12 @@ def build_hits(
     # unit conversions
     unit = get_unit_str(data_array)
     if unit is not None:
-        # If data_array has units, we convert hardware_triggers to those units if it has different units.
+        # If data_array has units, we convert hardware_triggers to those units if it has
+        # different units.
         hardware_triggers = units_conv_ak(hardware_triggers, unit)
     else:
-        # If data_array has no units, we assume the dimensions of data_array is the same as hardware_triggers (if any)
+        # If data_array has no units, we assume the dimensions of data_array is the same as
+        # hardware_triggers (if any)
         unit = get_unit_str(hardware_triggers)
 
     # If any of the inputs had units, this is our reference unit now.
@@ -424,18 +439,25 @@ def build_traces(
     time_per_sample: float,
     trigger_position: float,
 ) -> ak.Array:
-    """Build detector traces around hardware triggers. This will inflate the input data adding a lot of empty samples, so only use if you need the full trace information.
+    """Build detector traces around hardware triggers.
+
+    This will inflate the input data adding a lot of empty samples, so only use if you need the
+    full trace information.
 
     Parameters
     ----------
     data_array
-        Jagged array [detector][event][hit] with hit times. Shape x * y * var. Units need to be attached to the top-level array if unit conversion is desired.
-        If hardware_triggers has units and this array has no units, it will be assumed to have the same units as hardware_triggers.
+        Jagged array [detector][event][hit] with hit times. Shape x * y * var. Units need to be
+        attached to the top-level array if unit conversion is desired. If hardware_triggers has
+        units and this array has no units, it will be assumed to have the same units as
+        hardware_triggers.
     hardware_triggers
-        Jagged array [event][var] with trigger times. Shape y * var. Units need to be attached to the top-level array if unit conversion is desired.
-        If data_array has units and this array has no units, it will be assumed to have the same units as data_array.
+        Jagged array [event][var] with trigger times. Shape y * var. Units need to be attached to
+        the top-level array if unit conversion is desired. If data_array has units and this array
+        has no units, it will be assumed to have the same units as data_array.
     time_per_sample
-        Time resolution of the trace (similar to a bin width). If not a pint Quantity, will be assumed to be in the same units as data.
+        Time resolution of the trace (similar to a bin width). If not a pint Quantity, will be
+        assumed to be in the same units as data.
     trace_length
         Length of the trace around the trigger in samples.
     trigger_position, optional
@@ -443,7 +465,8 @@ def build_traces(
 
     Returns
     -------
-    Jagged Awkward array [detector][event][var][sample] with photon hit counts per sample. Shape x * y * var * z.
+    Jagged Awkward array [detector][event][var][sample] with photon hit counts per sample.
+    Shape x * y * var * z.
     If there are no hardware triggers for an event, the var axis will be empty for that event.
     """
     if time_per_sample <= 0:
@@ -459,10 +482,12 @@ def build_traces(
     # unit conversions
     unit = get_unit_str(data_array)
     if unit is not None:
-        # If data_array has units, we convert hardware_triggers to those units if it has different units.
+        # If data_array has units, we convert hardware_triggers to those units if it has
+        # different units.
         hardware_triggers = units_conv_ak(hardware_triggers, unit)
     else:
-        # If data_array has no units, we assume the dimensions of data_array is the same as hardware_triggers (if any)
+        # If data_array has no units, we assume the dimensions of data_array is the same as
+        # hardware_triggers (if any)
         unit = get_unit_str(hardware_triggers)
 
     # If any of the inputs had units, this is our reference unit now.
@@ -498,7 +523,8 @@ def build_traces(
         data_array[:, :, None, :] - hardware_triggers[None, :, :, None] + trigger_position_time
     )
     mask = (rel_times >= 0) & (rel_times < trace_length_time)
-    # Only keep the relevant times for which we will build the traces, and convert to sample indices.
+    # Only keep the relevant times for which we will build the traces, and convert to sample
+    # indices.
     sample_idx = ak.values_astype(np.floor(rel_times[mask] / time_per_sample), np.int16)
 
     # Build flattened detector/event/trigger/sample coordinates and count with one bincount.
@@ -506,19 +532,22 @@ def build_traces(
     evt_idx = ak.broadcast_arrays(ak.local_index(sample_idx, axis=1), sample_idx)[0]
     trig_idx = ak.broadcast_arrays(ak.local_index(sample_idx, axis=2), sample_idx)[0]
 
-    # Flatt 1-D arrays just telling the indice for each of our four dimensions (detector, event, trigger, sample) for each hit.
+    # Flat 1-D arrays just telling the index for each of our four dimensions (detector, event,
+    # trigger, sample) for each hit.
     # So the length is total number of hits across all events and detectors.
     s_flat = ak.to_numpy(ak.flatten(sample_idx, axis=None))
     d_flat = ak.to_numpy(ak.flatten(det_idx, axis=None))
     e_flat = ak.to_numpy(ak.flatten(evt_idx, axis=None))
     t_flat = ak.to_numpy(ak.flatten(trig_idx, axis=None))
 
-    # This is a projection, so it only tells where each actual hit would be placed in this 1-d array.
-    # (Two hits can have the same index, this means they would be placed in the same sample (of the same trace))
+    # This is a projection, so it only tells where each actual hit would be placed in this 1-d
+    # array. (Two hits can have the same index, this means they would be placed in the same sample
+    # of the same trace)
     linear_idx = (((d_flat * n_events) + e_flat) * max_triggers + t_flat) * trace_length + s_flat
 
     total_bins = n_detectors * n_events * max_triggers * trace_length
-    # Doing the bincount now on the "where each hit would be" array gives us the correctly binned counts, just in a flattened form.
+    # Doing the bincount now on the "where each hit would be" array gives us the correctly binned
+    # counts, just in a flattened form.
     counts = np.bincount(linear_idx, minlength=total_bins).astype(np.int16)
     # Now we need to restore our 4-D structure (detector x event x trigger x sample).
     counts = counts.reshape(n_detectors * n_events, max_triggers, trace_length)

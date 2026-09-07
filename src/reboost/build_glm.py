@@ -129,7 +129,8 @@ def get_stp_evtids(
 
     Returns
     -------
-         a tuple of the updated `start_row`, the first row for the chunk and an awkward Array of the steps.
+         a tuple of the updated `start_row`, the first row for the chunk and an awkward Array of
+         the steps.
     """
     # make a LH5Store
     store = LH5Store()

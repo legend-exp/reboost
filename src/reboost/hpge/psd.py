@@ -266,8 +266,10 @@ def _current_pulse_model(
 
       \begin{align}
       A(t) = \; &A_\text{max} \times (1-p-p_h) \times \text{Gauss}(t;\mu,\sigma) \\
-        &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
-        &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right) \times \frac{1}{2}e^{-t/\tau}
+        &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right)
+        \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
+        &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right)
+        \times \frac{1}{2}e^{-t/\tau}
       \end{align}
 
     Parameters
@@ -337,7 +339,8 @@ def make_convolved_surface_library(
 
     This convolves every row of the surface_library with the template and reshapes the output
     to match the initial template. It returns a 2D array with one more row than the surface_library
-    and each row the same length as the template. The final row is the bulk_template for easier interpolation.
+    and each row the same length as the template. The final row is the bulk_template for easier
+    interpolation.
 
     Parameters
     ----------
@@ -554,7 +557,10 @@ def _get_template_idx(
     r_grid: NDArray,
     z_grid: NDArray,
 ) -> tuple[int, int]:
-    """Extract the closest template to a given (r,z) point with uniform grid, apart from the first and last point."""
+    """Extract the closest template to a given (r,z) point on a uniform grid.
+
+    The first and last grid points are excluded.
+    """
     if r < r_grid[1]:
         ri = 0
     elif r > r_grid[-2]:
@@ -856,8 +862,9 @@ def maximum_current(
         Value of the full-charge-collection depth, if `None` no surface corrections are performed.
     templates_surface
         2D array (distance, time) of the rate of charge arriving at the p-n junction. Each row
-        should be an array of length 10000 giving the charge arriving at the p-n junction for each timestep
-        (in ns). This is produced by :func:`.hpge.surface.get_surface_response` or other libraries.
+        should be an array of length 10000 giving the charge arriving at the p-n junction for each
+        timestep (in ns). This is produced by :func:`.hpge.surface.get_surface_response` or other
+        libraries.
     activeness_surface
         An array of the activeness at each surface point.
     surface_step_in_um

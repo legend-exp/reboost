@@ -273,7 +273,8 @@ def _merge_optical_maps_process(
             raise ValueError(msg)
         all_edges = nr_det.binning
 
-        # now that we validated that the map dimensions are equal, add up the actual data (in counts).
+        # now that we validated that the map dimensions are equal, add up the actual data
+        # (in counts).
         merged_nr_det += nr_det.weights.nda
         merged_nr_gen += nr_gen.weights.nda
 

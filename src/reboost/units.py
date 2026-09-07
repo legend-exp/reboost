@@ -90,7 +90,7 @@ def move_units_to_flattened_data(data: LGDO) -> None:
 def units_conv_ak(
     data: ArrayLike | LGDO | ak.Array | None, target_units: pint.Unit | str
 ) -> ak.Array | None:
-    """Calculate numeric conversion factor to reach `target_units`, and apply to data converted to ak.
+    """Convert `data` to an awkward array and rescale it to `target_units`.
 
     Parameters
     ----------
