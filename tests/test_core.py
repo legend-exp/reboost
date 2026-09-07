@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import awkward as ak
+import dbetto
 import lh5
 import numpy as np
 import pyg4ometry as pg4
@@ -11,23 +9,20 @@ import pygeomhpges
 import pygeomtools
 import pytest
 from dbetto import AttrsDict
-from legendtestdata import LegendTestData
 from lgdo import Array, Struct, Table, VectorOfVectors
 
 import reboost
 
 
 @pytest.fixture(scope="session")
-def test_data_configs():
-    ldata = LegendTestData()
-    ldata.checkout("5f9b368")
-    return ldata.get_path("legend/metadata/hardware/detectors/germanium/diodes")
+def test_data_configs(legendtestdata):
+    return legendtestdata.get_path("legend/metadata/hardware/detectors/germanium/diodes")
 
 
 @pytest.fixture(scope="session")
 def make_gdml(test_data_configs):
     reg = pg4.geant4.Registry()
-    meta = f"{test_data_configs}/C99000A.json"
+    meta = f"{test_data_configs}/C99000A.yaml"
     hpge = pygeomhpges.make_hpge(meta, registry=reg)
 
     world_s = pg4.geant4.solid.Orb("World_s", 20, registry=reg, lunit="cm")
@@ -38,13 +33,10 @@ def make_gdml(test_data_configs):
     hpge_p = pg4.geant4.PhysicalVolume(
         [0, 0, 0], [5, 0, 0, "cm"], hpge, "HPGE", world_l, registry=reg
     )
-    with Path(meta).open() as file:
-        metadata = json.load(file)
-
     hpge_p.pygeom_active_detector = pygeomtools.RemageDetectorInfo(
         "germanium",
         1,
-        metadata,
+        dbetto.utils.load_dict(meta),
     )
     pygeomtools.detectors.write_detector_auxvals(reg)
 
@@ -130,7 +122,7 @@ def test_get_objects(test_data_configs, make_gdml):
     # get legend-test data
     # check if we can make a HPGe
     path = test_data_configs + r"/{DETECTOR}"
-    expression = f"pygeomhpges.make_hpge(f'{path}.json',registry = OBJECTS.reg)"
+    expression = f"pygeomhpges.make_hpge(f'{path}.yaml',registry = OBJECTS.reg)"
     assert reboost.core.evaluate_object(expression, {"DETECTOR": "C99000A", "OBJECTS": objects})
 
     # test construction of the global objects

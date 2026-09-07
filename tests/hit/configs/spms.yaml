@@ -7,7 +7,7 @@ processing_groups:
 
     detector_mapping:
       - output: OBJECTS.spms
-        input: det001
+        input: scint1
 
     outputs:
       - t0

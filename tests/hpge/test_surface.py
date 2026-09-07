@@ -4,7 +4,6 @@ import awkward as ak
 import numpy as np
 import pyg4ometry
 import pytest
-from legendtestdata import LegendTestData
 from pygeomhpges import make_hpge
 
 import reboost.hpge.surface as surface_module
@@ -14,14 +13,12 @@ from reboost.units import ureg as u
 
 
 @pytest.fixture(scope="session")
-def test_data_configs():
-    ldata = LegendTestData()
-    ldata.checkout("5f9b368")
-    return ldata.get_path("legend/metadata/hardware/detectors/germanium/diodes")
+def test_data_configs(legendtestdata):
+    return legendtestdata.get_path("legend/metadata/hardware/detectors/germanium/diodes")
 
 
 def test_distance_to_surface(test_data_configs):
-    gedet = make_hpge(test_data_configs + "/V99000A.json", registry=pyg4ometry.geant4.Registry())
+    gedet = make_hpge(test_data_configs + "/V99000A.yaml", registry=pyg4ometry.geant4.Registry())
     dist = [100, 0, 0] * u.mm
 
     pos = ak.Array(
@@ -71,7 +68,7 @@ def test_distance_to_surface(test_data_configs):
 
 
 def test_units(test_data_configs):
-    gedet = make_hpge(test_data_configs + "/V99000A.json", registry=pyg4ometry.geant4.Registry())
+    gedet = make_hpge(test_data_configs + "/V99000A.yaml", registry=pyg4ometry.geant4.Registry())
     dist = [100, 0, 0] * u.mm
 
     pos = ak.Array(
