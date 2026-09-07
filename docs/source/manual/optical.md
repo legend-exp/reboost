@@ -171,6 +171,13 @@ map-based production of the optical response is divided into multiple steps:
 3. (optional) sampling of the photon arrival times. This is implemented in the
    processor {func}`reboost.spms.pe.photoelectron_times`.
 
+4. (optional) modeling of the detector response to the individual
+   photoelectrons: photoelectrons arriving within the time resolution of the
+   detector are merged into a single pulse by
+   {func}`reboost.spms.pe.cluster_photoelectrons`, and their amplitudes can be
+   smeared according to the single-photoelectron resolution with
+   {func}`reboost.spms.pe.smear_photoelectrons`.
+
 The used statistical model are developed and described in more detail in M.
 Huber's master thesis.
 
