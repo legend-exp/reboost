@@ -49,9 +49,7 @@ drift_time_map = reboost.hpge.utils.get_rz_field(...)
 # extract drift time
 drift_time = reboost.hpge.psd.drift_time(xloc, yloc, zloc, dt_map, ...)
 
-a_max = reboost.hpge.psd.maximum_current(
-    edep, drift_time, template=template, times=times
-)
+a_max = reboost.hpge.psd.maximum_current(edep, drift_time, template=template, times=times)
 
 # finally compute a/e
 aoe = a_max / ak.sum(edep, axis=-1)

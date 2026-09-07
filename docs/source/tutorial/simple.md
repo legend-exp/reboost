@@ -181,9 +181,7 @@ We make a plot of the distance of the steps to the n+ electrode compared to the
 
 ```python
 # extract r and z
-r = ak.flatten(
-    np.sqrt((stp.xloc * 1000 - position[0]) ** 2 + (stp.yloc * 1000 - position[1]) ** 2)
-)
+r = ak.flatten(np.sqrt((stp.xloc * 1000 - position[0]) ** 2 + (stp.yloc * 1000 - position[1]) ** 2))
 z = ak.flatten(stp.zloc * 1000 - position[2])
 rng = np.random.default_rng()
 r = rng.choice([-1, 1], p=[0.5, 0.5], size=len(r)) * r
@@ -250,9 +248,7 @@ corrected energies, summing over the steps.
 We then plot the energy spectra:
 
 ```python
-activeness = reboost.math.functions.piecewise_linear_activeness(
-    dist_all, fccd_in_mm=1, dlf=0.4
-)
+activeness = reboost.math.functions.piecewise_linear_activeness(dist_all, fccd_in_mm=1, dlf=0.4)
 
 # compute the energy
 total_energy = ak.sum(stp.edep, axis=-1)
@@ -301,11 +297,7 @@ We demonstrate this with a sigma of 0.5 keV.
 energy_smeared = reboost.math.stats.gaussian_sample(corr_energy, sigma=0.5)
 
 fig, ax = plt.subplots(figsize=(12, 4))
-h_smear = (
-    hist.new.Reg(200, 2615 - 50, 2615 + 50, name="energy [keV]")
-    .Double()
-    .fill(energy_smeared)
-)
+h_smear = hist.new.Reg(200, 2615 - 50, 2615 + 50, name="energy [keV]").Double().fill(energy_smeared)
 ax.set_title("$^{228}$-Th simulation")
 h_smear.plot(yerr=False, fill=True, alpha=0.5, label="Total energy")
 
@@ -368,15 +360,9 @@ def _make_plot(energy, cut, xrange, bins, scale="log"):
 
 
 _make_plot(energy_smeared, r90 < 2, xrange=(0, 3500), bins=350)
-_make_plot(
-    energy_smeared, r90 < 2, xrange=(2615 - 50, 2615 + 50), bins=100, scale="linear"
-)
-_make_plot(
-    energy_smeared, r90 < 2, xrange=(1590 - 50, 1590 + 50), bins=100, scale="linear"
-)
-_make_plot(
-    energy_smeared, r90 < 2, xrange=(2104 - 50, 2104 + 50), bins=100, scale="linear"
-)
+_make_plot(energy_smeared, r90 < 2, xrange=(2615 - 50, 2615 + 50), bins=100, scale="linear")
+_make_plot(energy_smeared, r90 < 2, xrange=(1590 - 50, 1590 + 50), bins=100, scale="linear")
+_make_plot(energy_smeared, r90 < 2, xrange=(2104 - 50, 2104 + 50), bins=100, scale="linear")
 ```
 
 ![png](simple_files/simple_29_0.png)
