@@ -117,6 +117,24 @@ $ reboost-optical mergemap --settings map-settings.yaml map.map*.lh5 final-outpu
 
 :::
 
+### 3. Patch a region of the map
+
+A region of a finished map can be replaced by a separately simulated one, for
+example a volume containing a calibration source and its absorber, which the
+geometry of the base map does not contain:
+
+```console
+$ reboost-optical patchmap full-map.lh5 source-map.lh5 patched-map.lh5
+```
+
+The patch is substituted, not merged. It has to sit on the grid of the base map (matching bin widths,
+coinciding bin edges) and is copied in by index -- never resampled, as
+interpolating a ratio of counts per bin would report probabilities for volumes
+that were never simulated. Use `rebin` first if the patch was simulated with
+finer bins. The counts are what get substituted and the probabilities are
+recomputed from them, so the output is a valid map; bins that the patch never
+sampled keep the "no statistics" sentinel.
+
 ## Applying optical maps to physics simulations
 
 ### Integration into build-hit

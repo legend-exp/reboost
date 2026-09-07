@@ -12,6 +12,8 @@ from reboost.optmap.create import (
     create_optical_maps,
     list_optical_maps,
     merge_optical_maps,
+    patch_optical_map,
+    patch_optical_map_lh5,
     rebin_optical_maps,
 )
 from reboost.optmap.optmap import OpticalMap
@@ -249,3 +251,79 @@ def test_optmap_save_and_load(tmptestdir, tbl_hits):
     assert isinstance(om, OpticalMap)
 
     check_optical_map(map_fn)
+
+
+def _write_count_map(fn, rng, bins, nr_gen, nr_det, group="all"):
+    """Write a single-group optical map with uniform counts."""
+    om = OpticalMap.create_empty(group, {"range_in_m": rng, "bins": bins})
+    om.h_vertex[:] = nr_gen
+    om.h_hits[:] = nr_det
+    om.create_probability()
+    om.write_lh5(lh5_file=str(fn), group=group, wo_mode="overwrite_file")
+    return str(fn)
+
+
+def test_patch_optical_map_lh5(tmptestdir):
+    base = _write_count_map(tmptestdir / "patch-base.lh5", [[0, 1]] * 3, [10] * 3, 100, 50)
+    # 0.2..0.5 lands exactly on the base grid: bins 2..5 on every axis
+    patch = _write_count_map(tmptestdir / "patch-src.lh5", [[0.2, 0.5]] * 3, [3] * 3, 200, 50)
+
+    out = str(tmptestdir / "patch-out.lh5")
+    patch_optical_map_lh5(base, patch, out)
+
+    nr_gen = lh5.read("/all/_nr_gen", out).weights.nda
+    prob = lh5.read("/all/prob", out).weights.nda
+    region = (slice(2, 5),) * 3
+
+    # counts substituted, not added (a merge would give 300)
+    assert np.all(nr_gen[region] == 200)
+    # probability recomputed from the patched counts
+    assert np.allclose(prob[region], 0.25)
+
+    outside = np.ones_like(prob, dtype=bool)
+    outside[region] = False
+    assert np.all(nr_gen[outside] == 100)
+    assert np.allclose(prob[outside], 0.5)
+
+
+def _count_map(rng, bins, nr_gen, nr_det, group="all"):
+    """An in-memory map carrying only counts."""
+    om = OpticalMap.create_empty(group, {"range_in_m": rng, "bins": bins})
+    om.h_vertex[:] = nr_gen
+    om.h_hits[:] = nr_det
+    return om
+
+
+def test_patch_optical_map():
+    """Counts are substituted, probabilities recomputed, inputs left alone."""
+    base = _count_map([[0, 1]] * 3, [10] * 3, 100, 50)
+    patch = _count_map([[0.2, 0.5]] * 3, [3] * 3, 200, 50)
+    # a bin the patch never sampled keeps the "no statistics" sentinel
+    patch.h_vertex[0, 0, 0] = 0
+    patch.h_hits[0, 0, 0] = 0
+
+    out = patch_optical_map(base, patch)
+    region = (slice(2, 5),) * 3
+
+    # substituted, not added (a merge would give 300)
+    assert np.all(out.h_vertex[3:5, 3:5, 3:5] == 200)
+    assert np.allclose(out.h_prob[3:5, 3:5, 3:5], 0.25)
+    # the unsampled bin keeps the "no statistics" sentinel
+    assert out.h_vertex[2, 2, 2] == 0
+    assert out.h_prob[2, 2, 2] == -1
+
+    outside = np.ones_like(out.h_vertex, dtype=bool)
+    outside[region] = False
+    assert np.all(out.h_vertex[outside] == 100)
+    assert np.allclose(out.h_prob[outside], 0.5)
+
+    assert np.all(base.h_vertex == 100)
+
+
+def test_patch_optical_map_rejects_misaligned():
+    base = _count_map([[0, 1]] * 3, [10] * 3, 100, 50)
+    # edges at 0.25 do not coincide with the base grid
+    bad = _count_map([[0.25, 0.55]] * 3, [3] * 3, 100, 50)
+
+    with pytest.raises(ValueError, match="does not align"):
+        patch_optical_map(base, bad)

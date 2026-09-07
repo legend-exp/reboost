@@ -395,6 +395,69 @@ def check_optical_map(map_l5_file: str):
             all_binning = om.binning
 
 
+def patch_optical_map(base: OpticalMap, patch: OpticalMap) -> OpticalMap:
+    """Replace a region of an optical map with a separately simulated one.
+
+    The patch is substituted, not merged, and has to sit on the grid of the base
+    map: bin widths must match and bin edges must coincide. Only the counts are
+    used; the probabilities of the result are computed from them. Returns a new
+    map, leaving both inputs untouched.
+    """
+    assert base.binning is not None
+    assert patch.binning is not None
+
+    axis_slices = []
+    for axis, (b, pb) in enumerate(zip(base.binning, patch.binning, strict=True)):
+        be, pe = b.edges, pb.edges
+        nbins = len(pe) - 1
+        start = int(np.argmin(np.abs(be - pe[0])))
+        # bin edges are positions in metres, so compare them with an absolute
+        # tolerance: 1 nm is far looser than the ~1e-16 that float64 edges
+        # achieve, and far tighter than any real misalignment.
+        if start + nbins >= len(be) or not np.allclose(
+            be[start : start + nbins + 1], pe, rtol=0, atol=1e-9
+        ):
+            msg = (
+                f"patch map does not align with the base map on axis {axis}: "
+                "bin widths have to match and edges have to coincide"
+            )
+            raise ValueError(msg)
+        axis_slices.append(slice(start, start + nbins))
+    slices = tuple(axis_slices)
+
+    out = OpticalMap.create_empty(base.name, base.get_settings())
+    assert isinstance(out.h_vertex, np.ndarray)
+    assert isinstance(out.h_hits, np.ndarray)
+    out.h_vertex[:] = base.h_vertex
+    out.h_hits[:] = base.h_hits
+    out.h_vertex[slices] = patch.h_vertex
+    out.h_hits[slices] = patch.h_hits
+    out.create_probability()
+
+    return out
+
+
+def patch_optical_map_lh5(
+    map_l5_file: str,
+    patch_l5_file: str,
+    output_lh5_file: str,
+) -> None:
+    """Write a copy of a map with a separately simulated region substituted in."""
+    submaps = list_optical_maps(map_l5_file)
+    if submaps != list_optical_maps(patch_l5_file):
+        msg = "available optical maps in base and patch file differ"
+        raise ValueError(msg)
+
+    for submap in submaps:
+        log.info("patching optical map group: %s", submap)
+
+        patched = patch_optical_map(
+            OpticalMap.load_from_file(map_l5_file, submap),
+            OpticalMap.load_from_file(patch_l5_file, submap),
+        )
+        patched.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")
+
+
 def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
     """Rebin the optical map by an integral factor.
 
