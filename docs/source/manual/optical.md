@@ -138,7 +138,7 @@ the patch never sampled keep the "no statistics" sentinel.
 
 ## Applying optical maps to physics simulations
 
-### Integration into build-hit
+### Integration into the hit-tier processing
 
 _reboost-optical_ is integrated with the remaining _reboost_ stack. The
 map-based production of the optical response is divided into multiple steps:
@@ -173,8 +173,3 @@ map-based production of the optical response is divided into multiple steps:
 
 The used statistical model are developed and described in more detail in M.
 Huber's master thesis.
-
-An example using all these processors can be seen in the documentation of
-{mod}`reboost.build_hit`. Especially note the usage of `pre_operations` and
-`detector_mapping` to convert a single input table of type scintillator to
-multiple optical output tables.
