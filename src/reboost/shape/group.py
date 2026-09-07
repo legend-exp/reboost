@@ -84,8 +84,8 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
     """Simple grouping by evtid.
 
     Takes the input `stp` :class:`lgdo.Table` from remage and defines groupings of steps (i.e the
-    `cumulative_length` for a vector of vectors). This then defines the output table (also :class:`lgdo.Table`),
-    on which processors can add fields.
+    `cumulative_length` for a vector of vectors). This then defines the output table (also
+    :class:`lgdo.Table`), on which processors can add fields.
 
     Parameters
     ----------
@@ -142,11 +142,11 @@ def group_by_time(
     """Grouping of steps by `evtid` and `time`.
 
     Takes the input `stp` :class:`lgdo.Table` from remage and defines groupings of steps (i.e the
-    `cumulative_length` for a vector of vectors). This then defines the output table (also :class:`lgdo.Table`),
-    on which processors can add fields.
+    `cumulative_length` for a vector of vectors). This then defines the output table (also
+    :class:`lgdo.Table`), on which processors can add fields.
 
-    The windowing is based on defining a new group when the `evtid` changes or when the time increases by `> window`,
-    which is in units of us.
+    The windowing is based on defining a new group when the `evtid` changes or when the time
+    increases by `> window`, which is in units of us.
 
     Parameters
     ----------

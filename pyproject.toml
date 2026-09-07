@@ -143,6 +143,7 @@ extend-select = [
   "NPY",      # NumPy specific rules
   "PD",       # pandas-vet
   "D",        # Docstrings
+  "W505",     # Doc line too long
 ]
 ignore = [
   "PLR09",    # Too many <...>
@@ -159,6 +160,7 @@ ignore = [
 isort.required-imports = ["from __future__ import annotations"]
 # see also napoleon config in docs/source/conf.py
 pydocstyle.convention = "numpy"
+pycodestyle.max-doc-length = 100
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]

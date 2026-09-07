@@ -52,7 +52,8 @@ def cluster_by_step_length(
     Steps are clustered based on distance, if either:
      - a step is in a new track,
      - a step moves from surface to bulk region (or visa versa),
-     - the distance between the current step and the first step of the current cluster is above a threshold.
+     - the distance between the current step and the first step of the current cluster is above
+       a threshold.
 
     Then a new cluster is started. The surface region is defined as the volume
     less than surf_cut distance to the surface. This allows for a fine tuning of the
@@ -69,7 +70,8 @@ def cluster_by_step_length(
     pos_z
         z position of the steps.
     dist
-        distance to the detector surface. Can be `None` in which case all steps are treated as being in the "bulk".
+        distance to the detector surface. Can be `None` in which case all steps are treated as
+        being in the "bulk".
     surf_cut
         Size of the surface region (in mm), if `None` no selection is applied (default).
     threshold_in_mm
@@ -133,7 +135,8 @@ def _cluster_by_distance_numba(
     pos
         `(n,3)` size array of the positions
     dist_to_surf
-        1D array of the distance to the detector surface. Can be `None` in which case all steps are treated as being in the bulk.
+        1D array of the distance to the detector surface. Can be `None` in which case all steps
+        are treated as being in the bulk.
     surf_cut
         Size of the surface region (in mm), if `None` no selection is applied.
     threshold
@@ -211,7 +214,8 @@ def step_lengths(
 
     .. code-block:: yaml
 
-        step_lengths: reboost.shape.cluster.step_lengths(HITS.cluster_x,HITS.cluster_y,HITS.cluster_z))
+        step_lengths:
+          reboost.shape.cluster.step_lengths(HITS.cluster_x, HITS.cluster_y, HITS.cluster_z)
 
     Parameters
     ----------

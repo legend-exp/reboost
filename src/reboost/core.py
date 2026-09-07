@@ -183,8 +183,8 @@ def evaluate_object(
 ) -> Any:
     """Evaluate an expression returning any object.
 
-    The expression should be a function call. It can depend on any objects contained in the local dict.
-    In addition, the expression can use packages which are then imported.
+    The expression should be a function call. It can depend on any objects contained in the local
+    dict. In addition, the expression can use packages which are then imported.
 
     Parameters
     ----------
@@ -285,8 +285,8 @@ def get_one_detector_mapping(
     This expression can depend on any objects in the objects dictionary, referred to by the keyword
     "OBJECTS".
 
-    The function produces a dictionary mapping input detectors to output detectors with the following
-    format:
+    The function produces a dictionary mapping input detectors to output detectors with the
+    following format:
 
     .. code-block:: python
 

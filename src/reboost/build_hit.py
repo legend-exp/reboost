@@ -42,7 +42,8 @@ A :func:`build_hit` to parse the following configuration file:
           # iteration of the for loop over input tables (i.e. detectors)
           detector_objects:
              # The following assumes that the detector metadata is stored in the GDML file
-             pyobj: pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
+             pyobj:
+               pygeomhpges.make_hpge(pygeomtools.get_sensvol_metadata(OBJECTS.geometry, DETECTOR))
              phyvol: OBJECTS.geometry.physical_volume_dict[DETECTOR]
              drift_time_map: lh5.read(DETECTOR, ARGS.dtmap_file)
 
@@ -96,7 +97,8 @@ A :func:`build_hit` to parse the following configuration file:
             energy_clustered: ak.sum(ak.unflatten(HITS.edep, HITS.clusters_lengths), axis=-1)
 
             # example of using a reboost helper
-            steps_clustered: reboost.shape.reduction.energy_weighted_average(HITS, HITS.clusters_lengths)
+            steps_clustered:
+              reboost.shape.reduction.energy_weighted_average(HITS, HITS.clusters_lengths)
 
             r90: reboost.hpge.psd.r90(HITS.steps_clustered)
 
@@ -130,7 +132,8 @@ A :func:`build_hit` to parse the following configuration file:
           hit_table_layout: reboost.shape.group_by_time(STEPS, window=10)
 
           pre_operations:
-            num_scint_ph_lar: reboost.spms.emitted_scintillation_photons(HITS.edep, HITS.particle, "lar")
+            num_scint_ph_lar:
+              reboost.spms.emitted_scintillation_photons(HITS.edep, HITS.particle, "lar")
             # num_scint_ph_pen: ...
 
           outputs:

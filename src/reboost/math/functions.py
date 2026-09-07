@@ -85,12 +85,12 @@ def vectorised_active_energy(
     fccd: float | list,
     dlf: float | list,
 ) -> VectorOfVectors | Array:
-    r"""Energy after piecewise linear HPGe activeness model vectorised over FCCD or dead layer fraction.
+    r"""Energy after the piecewise linear HPGe activeness model, vectorised over FCCD or DLF.
 
     Based on the same linear activeness function as :func:`piecewise_linear_activeness`. However,
-    this function vectorises the calculation to provide a range of output energies varying the fccd or
-    dead layer fraction. Either fccd or dlf can be a list. This adds an extra dimension to the
-    output, with the same length as the input fccd or dlf list.
+    this function vectorises the calculation to provide a range of output energies varying the
+    fccd or dead layer fraction. Either fccd or dlf can be a list. This adds an extra dimension to
+    the output, with the same length as the input fccd or dlf list.
 
     .. warning:
         It is not currently implemented to vary both dlf and fccd.
@@ -175,7 +175,8 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
 
         f(d) =
         \begin{cases}
-        \mathrm{exp\_norm} * \left(e^{d/\beta} - 1\right) & \text{if } 0 \leq d < \mathrm{trans\_pt}, \\
+        \mathrm{exp\_norm} * \left(e^{d/\beta} - 1\right)
+          & \text{if } 0 \leq d < \mathrm{trans\_pt}, \\
         1 + \frac{d - f}{\alpha} & \text{if } \mathrm{trans\_pt} \leq d \leq f, \\
         1 & \text{if } d > f
         \end{cases}
@@ -184,19 +185,30 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
 
     - `d`: Distance to surface,
     - `f`: Full charge collection depth (FCCD).
-    - `alpha`: the slope of the linear part of the function, which controls how quickly the activeness increases in the linear region. A smaller alpha results in a steeper increase, while a larger alpha results in a more gradual increase.
-    - `beta`: the characteristic length scale of the exponential part of the function, which controls how quickly the activeness increases in the exponential region. A smaller beta results in a steeper increase, while a larger beta results in a more gradual increase.
-    - `trans_pt`: the transition point between the exponential and linear parts of the function, which is determined by the parameters fccd, alpha, and beta. It is calculated by matching the functions and the derivatives at the transition point, which ensures a smooth transition between the two regions. The transition point is found by solving the equation:
+    - `alpha`: the slope of the linear part of the function, which controls how quickly the
+      activeness increases in the linear region. A smaller alpha results in a steeper increase,
+      while a larger alpha results in a more gradual increase.
+    - `beta`: the characteristic length scale of the exponential part of the function, which
+      controls how quickly the activeness increases in the exponential region. A smaller beta
+      results in a steeper increase, while a larger beta results in a more gradual increase.
+    - `trans_pt`: the transition point between the exponential and linear parts of the function,
+      which is determined by the parameters fccd, alpha, and beta. It is calculated by matching the
+      functions and the derivatives at the transition point, which ensures a smooth transition
+      between the two regions. The transition point is found by solving the equation:
 
       .. math::
 
          \alpha + \mathrm{trans\_pt} -f + \beta e^{-\mathrm{trans\_pt}/\beta} - \beta = 0
 
-    - `exp_norm`: the normalization factor for the exponential part of the function, which is determined by the parameters alpha and beta. It is calculated by ensuring that the exponential part of the function matches the linear part at the transition point, which ensures a smooth transition between the two regions.
+    - `exp_norm`: the normalization factor for the exponential part of the function, which is
+      determined by the parameters alpha and beta. It is calculated by ensuring that the
+      exponential part of the function matches the linear part at the transition point, which
+      ensures a smooth transition between the two regions.
 
         .. math::
 
-           \mathrm{exp\_norm} = \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
+           \mathrm{exp\_norm} =
+           \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
 
     Parameters
     ----------
@@ -207,9 +219,12 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
     fccd_in_mm
         the value of the FCCD
     alpha
-        the slope parameter for the linear part of the function, which controls how quickly the activeness increases in the linear region. 1 / alpha is the slope of the linear part of the function.
+        the slope parameter for the linear part of the function, which controls how quickly the
+        activeness increases in the linear region. 1 / alpha is the slope of the linear part of the
+        function.
     beta
-        the characteristic length scale for the exponential part of the function, which controls how quickly the activeness increases in the exponential region.
+        the characteristic length scale for the exponential part of the function, which controls
+        how quickly the activeness increases in the exponential region.
 
     Returns
     -------
@@ -253,7 +268,10 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
             return alpha + trans_pt - fccd + beta * np.exp(-trans_pt / beta) - beta
 
         # using brentq solver. #Matching this solver with the one used by the Majorana
-        # The transition point is between 0 and FCCD, but it must be greater than fccd - alpha to ensure the continuity and differentiability of the function. This is because the linear part starts at fccd - alpha, so the transition point must be greater than this value to ensure a smooth transition between the exponential and linear parts.
+        # The transition point is between 0 and FCCD, but it must be greater than fccd - alpha to
+        # ensure the continuity and differentiability of the function. This is because the linear
+        # part starts at fccd - alpha, so the transition point must be greater than this value to
+        # ensure a smooth transition between the exponential and linear parts.
         trans_pt = brentq(f, max(0.0, fccd - alpha), fccd)
 
         # Compute normalization factor for the exponential part of the function

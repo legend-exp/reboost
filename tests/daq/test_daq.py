@@ -259,7 +259,7 @@ def test_impl_post_pulse(compare_numba_vs_python):
 
 
 def test_impl_dead_time(compare_numba_vs_python):
-    """An event inside the dead-time window (after post-trigger, before next waveform) is skipped."""
+    """An event in the dead-time window (after post-trigger, before next waveform) is skipped."""
     # event 0 triggers at t=100; event 1 at t=170 is in dead zone (50 < dt=70 < 100);
     # event 2 at t=400 is free to trigger again
     evt = _make_impl_evt(
