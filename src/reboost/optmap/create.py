@@ -395,7 +395,7 @@ def check_optical_map(map_l5_file: str):
             all_binning = om.binning
 
 
-def apply_map_patch(base: OpticalMap, patch: OpticalMap) -> OpticalMap:
+def patch_optical_map(base: OpticalMap, patch: OpticalMap) -> OpticalMap:
     """Replace a region of an optical map with a separately simulated one.
 
     The patch is substituted, not merged, and has to sit on the grid of the base
@@ -437,7 +437,7 @@ def apply_map_patch(base: OpticalMap, patch: OpticalMap) -> OpticalMap:
     return out
 
 
-def patch_optical_maps(
+def patch_optical_map_lh5(
     map_l5_file: str,
     patch_l5_file: str,
     output_lh5_file: str,
@@ -451,7 +451,7 @@ def patch_optical_maps(
     for submap in submaps:
         log.info("patching optical map group: %s", submap)
 
-        patched = apply_map_patch(
+        patched = patch_optical_map(
             OpticalMap.load_from_file(map_l5_file, submap),
             OpticalMap.load_from_file(patch_l5_file, submap),
         )

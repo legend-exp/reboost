@@ -250,11 +250,11 @@ def optical_cli() -> None:
 
     # STEP 1e: patch map
     if args.command == "patchmap":
-        from .create import patch_optical_maps
+        from .create import patch_optical_map_lh5
 
         _check_input_file(parser, [args.input, args.patch])
         _check_output_file(parser, args.output)
-        patch_optical_maps(args.input, args.patch, args.output)
+        patch_optical_map_lh5(args.input, args.patch, args.output)
 
     # STEP X: rebin maps
     if args.command == "rebin":

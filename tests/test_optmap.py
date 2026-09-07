@@ -8,12 +8,12 @@ import pytest
 from lgdo import Array, Table
 
 from reboost.optmap.create import (
-    apply_map_patch,
     check_optical_map,
     create_optical_maps,
     list_optical_maps,
     merge_optical_maps,
-    patch_optical_maps,
+    patch_optical_map,
+    patch_optical_map_lh5,
     rebin_optical_maps,
 )
 from reboost.optmap.optmap import OpticalMap
@@ -263,13 +263,13 @@ def _write_count_map(fn, rng, bins, nr_gen, nr_det, group="all"):
     return str(fn)
 
 
-def test_optmap_patch(tmptestdir):
+def test_patch_optical_map_lh5(tmptestdir):
     base = _write_count_map(tmptestdir / "patch-base.lh5", [[0, 1]] * 3, [10] * 3, 100, 50)
     # 0.2..0.5 lands exactly on the base grid: bins 2..5 on every axis
     patch = _write_count_map(tmptestdir / "patch-src.lh5", [[0.2, 0.5]] * 3, [3] * 3, 200, 50)
 
     out = str(tmptestdir / "patch-out.lh5")
-    patch_optical_maps(base, patch, out)
+    patch_optical_map_lh5(base, patch, out)
 
     nr_gen = lh5.read("/all/_nr_gen", out).weights.nda
     prob = lh5.read("/all/prob", out).weights.nda
@@ -294,7 +294,7 @@ def _count_map(rng, bins, nr_gen, nr_det, group="all"):
     return om
 
 
-def test_apply_map_patch():
+def test_patch_optical_map():
     """Counts are substituted, probabilities recomputed, inputs left alone."""
     base = _count_map([[0, 1]] * 3, [10] * 3, 100, 50)
     patch = _count_map([[0.2, 0.5]] * 3, [3] * 3, 200, 50)
@@ -302,7 +302,7 @@ def test_apply_map_patch():
     patch.h_vertex[0, 0, 0] = 0
     patch.h_hits[0, 0, 0] = 0
 
-    out = apply_map_patch(base, patch)
+    out = patch_optical_map(base, patch)
     region = (slice(2, 5),) * 3
 
     # substituted, not added (a merge would give 300)
@@ -320,10 +320,10 @@ def test_apply_map_patch():
     assert np.all(base.h_vertex == 100)
 
 
-def test_apply_map_patch_rejects_misaligned():
+def test_patch_optical_map_rejects_misaligned():
     base = _count_map([[0, 1]] * 3, [10] * 3, 100, 50)
     # edges at 0.25 do not coincide with the base grid
     bad = _count_map([[0.25, 0.55]] * 3, [3] * 3, 100, 50)
 
     with pytest.raises(ValueError, match="does not align"):
-        apply_map_patch(base, bad)
+        patch_optical_map(base, bad)
