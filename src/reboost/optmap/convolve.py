@@ -222,11 +222,7 @@ def iterate_stepwise_depositions_numdet(
 
     out = ak.unflatten(output_array, counts)
     if return_pes_expectation_value:
-        return (
-            (out, max_ph_reached, exp_pes_array)
-            if max_pes_per_hit > 0
-            else (out, exp_pes_array)
-        )
+        return (out, max_ph_reached, exp_pes_array) if max_pes_per_hit > 0 else (out, exp_pes_array)
     if max_pes_per_hit > 0:
         return out, max_ph_reached
     return out
