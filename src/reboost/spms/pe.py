@@ -227,11 +227,11 @@ def number_of_detected_photoelectrons(
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
-    store_expected_pes: bool = False,
+    return_pes_expectation_value: bool = False,
 ) -> ak.Array | tuple[ak.Array, NDArray]:
     """Derive the number of detected photoelectrons.
 
-    With ``store_expected_pes``, additionally return the p.e. expectation per row
+    With ``return_pes_expectation_value``, additionally return the p.e. expectation per row
     at unit channel efficiency, before truncation.
 
     This processor uses the provided optical map to convert emitted
@@ -281,7 +281,7 @@ def number_of_detected_photoelectrons(
         map_scaling,
         map_scaling_sigma,
         max_pes_per_hit,
-        store_expected_pes=store_expected_pes,
+        return_pes_expectation_value=return_pes_expectation_value,
     )
 
 

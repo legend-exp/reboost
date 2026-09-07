@@ -197,7 +197,7 @@ def iterate_stepwise_depositions_numdet(
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
     rng: np.random.Generator | None = None,
-    store_expected_pes: bool = False,
+    return_pes_expectation_value: bool = False,
 ) -> ak.Array | tuple[ak.Array, NDArray]:
     if edep_hits.xloc.ndim == 1:
         msg = "the pe processors only support already reshaped output"
@@ -215,13 +215,13 @@ def iterate_stepwise_depositions_numdet(
         optmap.weights,
         ak.sum(counts),
         max_pes_per_hit,
-        store_expected_pes,
+        return_pes_expectation_value,
     )
 
     _warn_deposition_stats(res)
 
     out = ak.unflatten(output_array, counts)
-    if store_expected_pes:
+    if return_pes_expectation_value:
         return (
             (out, max_ph_reached, exp_pes_array)
             if max_pes_per_hit > 0
@@ -402,14 +402,14 @@ def _iterate_stepwise_depositions_numdet(
     optmap_weights,
     output_length: int,
     max_pes_per_hit: int = -1,
-    store_expected_pes: bool = False,
+    return_pes_expectation_value: bool = False,
 ):
     oob = ib = det_no_stats = 0
     vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
     # p.e. expectation per row, at unit efficiency and before truncation
     expected_pes = np.empty(
-        shape=len(edep_hits) if store_expected_pes else 0, dtype=np.float64
+        shape=len(edep_hits) if return_pes_expectation_value else 0, dtype=np.float64
     )
     has_max_ph_hit = np.full(shape=len(edep_hits), fill_value=False, dtype=np.bool)
 
@@ -426,7 +426,7 @@ def _iterate_stepwise_depositions_numdet(
         expected_pes_row = 0.0
         for si in range(len(hit.xloc)):
             capped = max_pes_per_hit > 0 and photons_in_hit >= max_pes_per_hit
-            if capped and not store_expected_pes:
+            if capped and not return_pes_expectation_value:
                 output[output_index] = 0
                 output_index += 1
                 has_max_ph_hit[rowid] = True
@@ -463,7 +463,7 @@ def _iterate_stepwise_depositions_numdet(
                     vuv_primary_inb += vuv_step
                 ib += 1
 
-            if store_expected_pes:
+            if return_pes_expectation_value:
                 expected_pes_row += 0.0 if mapw <= 0.0 else vuv_step * mapw
                 if capped:
                     has_max_ph_hit[rowid] = True
@@ -479,7 +479,7 @@ def _iterate_stepwise_depositions_numdet(
             output[output_index] = pois_cnt
             output_index += 1
 
-        if store_expected_pes:
+        if return_pes_expectation_value:
             expected_pes[rowid] = expected_pes_row
 
     assert output_index == output_length
