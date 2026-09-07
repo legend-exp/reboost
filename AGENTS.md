@@ -41,6 +41,20 @@ Sphinx-based. Build: `cd docs && make`. Config in `docs/source/conf.py`. See
   docstrings.
 - All new pages must appear in a toctree — orphan pages cause build warnings
 - API reference is auto-generated; do not write it by hand
+- Italicize package names in prose: _reboost_, _remage_, _pygama_, _awkward_.
+  Plain text inside code, paths and headings
+- Introduce a domain term in quotes with a one-line definition, and expand an
+  acronym on first use: the "drift time".
+- Motivation first, code after. Snippets are short (5 to 15 lines), use `...`
+  for arguments that do not matter here, and carry an inline comment for units
+  (`# unit is us`)
+- Define every symbol right after the formula where it appears
+- Cite the source of a method (paper, thesis, external docs) instead of
+  re-deriving it in the manual
+- Back a resource claim with a worked number: the memory formula, the number of
+  cores, the number of input files
+- Isotopes and symbols in math, `$^{228}$Th`. Link to other projects with
+  intersphinx (`inv:remage#basic-tutorial`)
 
 ## Python docstring conventions
 
@@ -72,10 +86,13 @@ comments. The audience is physicists, not software engineers.
   "furthermore", "moreover". Do not close every section with a summary sentence
 - Never use em dashes. Use commas, parentheses, colons or separate sentences
 - Prose for explanations, bullet lists only for actual lists
-- Reuse the vocabulary of the manual (step, hit, event, tieri, optical map). Do
+- Reuse the vocabulary of the manual (step, hit, event, tier, optical map). Do
   not invent synonyms
 - Spell out units, coordinate conventions and physical assumptions. This is what
   a reader needs and the code cannot state it
+- "we" for what _reboost_ and its authors do, "you" for what the reader does
+- State the contract when a function has one: "the only prescription for a
+  processor is that it returns an awkward.Array"
 
 ## Git Workflow
 
