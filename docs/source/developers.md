@@ -25,9 +25,7 @@ def test_my_numba_func(compare_numba_vs_python):
 
 # skip automatic equality check for non-array outputs
 def test_my_numba_func_no_check(compare_numba_vs_python):
-    result = compare_numba_vs_python(
-        my_module._my_njit_func, arg1, arg2, check_equal=False
-    )
+    result = compare_numba_vs_python(my_module._my_njit_func, arg1, arg2, check_equal=False)
     assert result == expected
 ```
 
