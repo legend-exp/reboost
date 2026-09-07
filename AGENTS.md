@@ -50,6 +50,32 @@ Sphinx-based. Build: `cd docs && make`. Config in `docs/source/conf.py`. See
 - Reference Python methods with Sphinx RST cross-reference roles
 - Cross-reference methods from other packages via Intersphinx (mappings in
   `docs/source/conf.py`)
+- The summary line says what the function computes, not how it is implemented
+- Document units, conventions and assumptions in the docstring; leave
+  implementation details to comments in the code
+
+## Writing style
+
+Applies to documentation, docstrings, commit messages, PR descriptions and issue
+comments. The audience is physicists, not software engineers.
+
+- Plain language. Prefer the physics term to the CS term: "energy deposition",
+  not "payload"; "detector table", not "data structure"
+- Avoid CS jargon that has an everyday equivalent: leverage, instantiate,
+  orchestrate, performant, seamless, robust, utilize, boilerplate. Say what
+  happens to the data instead
+- An unavoidable technical term is introduced once, with a short definition in
+  parentheses
+- Short sentences, active voice, present tense. Split sentences above ~30 words
+- No hype, no unquantified claims. "Faster" needs a number, otherwise drop it
+- No filler: "it is worth noting", "in order to", chains of "additionally",
+  "furthermore", "moreover". Do not close every section with a summary sentence
+- Never use em dashes. Use commas, parentheses, colons or separate sentences
+- Prose for explanations, bullet lists only for actual lists
+- Reuse the vocabulary of the manual (step, hit, event, tieri, optical map). Do
+  not invent synonyms
+- Spell out units, coordinate conventions and physical assumptions. This is what
+  a reader needs and the code cannot state it
 
 ## Git Workflow
 
@@ -64,6 +90,11 @@ Sphinx-based. Build: `cd docs && make`. Config in `docs/source/conf.py`. See
 - PRs require passing CI
 - Make sure to include a concise description of the changes in a PR and link the
   relevant related PRs or issues
+- Commit subject in the imperative, max 72 characters; the body explains why,
+  not what the diff already shows
+- A PR description says what changed and why, plus any change in behavior or API
+  and how to update calling code. Do not narrate the diff file by file
+- State plainly what was verified (tests, linting, docs build) and what was not
 
 ## Boundaries
 
