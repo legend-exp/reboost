@@ -229,10 +229,12 @@ def build_glm(
         log.debug(msg)
 
         # loop over the lh5_tables
+        # skip the __by_uid__ group, it only contains soft links to the detector tables
         lh5_table_list = [
             det
             for det in lh5.ls(stp_file, "stp/")
-            if lh5_groups is None or det.split("/")[1] in lh5_groups
+            if not det.endswith("__by_uid__")
+            and (lh5_groups is None or det.split("/")[1] in lh5_groups)
         ]
 
         # get rows in the table
