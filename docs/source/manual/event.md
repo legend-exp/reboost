@@ -24,14 +24,16 @@ The mapping from table keys to detector names is contained in the links of the
 {func}`reboost.utils.get_remage_detector_uids`.
 
 Since version 0.12.0 _remage_ can compute the TCM directly and store it in the
-output file. However, in case a custom TCM is desired or an older version of
-reboost is used this can be computed with {func}`pygama.evt.build_tcm`.
+output file. After writing a hit tier file with
+{func}`reboost.io.write_hit_table_chunk`, the TCM of the new file is built with
+{func}`reboost.tcm.build_remage_tcm`, which uses the same coincidence settings
+as _remage_.
 
 ## Gathering data from other fields
 
 The first step of event building is to gather data from the various tiers. This
-can be done with {func}`reboost.core.read_data_at_channel_as_ak`. This will
-return the data as a {class}`awkward.Array` with the same shape as the TCM.
+can be done with {func}`reboost.io.read_hit_field_by_tcm`. This will return the
+data as a {class}`awkward.Array` with the same shape as the TCM.
 
 From this more manipulation can be applied using awkward manipulations, or
 custom written processors.

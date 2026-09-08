@@ -6,19 +6,8 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import h5py
-from lgdo.types import VectorOfVectors
 
 log = logging.getLogger(__name__)
-
-
-def get_table_names(tcm: VectorOfVectors) -> dict:
-    """Extract table names from tcm.attrs['tables'] and return them as a dictionary."""
-    raw = tcm.attrs["tables"]
-    cleaned = raw.strip("[]").replace(" ", "").replace("'", "")
-    tables = cleaned.split(",")
-    tables = [tab.split("/")[-1] for tab in tables]
-
-    return {name: idx for idx, name in enumerate(tables)}
 
 
 def _check_input_file(parser, file: str | Iterable[str], descr: str = "input") -> None:
@@ -65,18 +54,21 @@ def get_remage_detector_uids(h5file: str | Path, *, lh5_table: str = "stp") -> d
          11: 'det1',
          12: 'det2',
          101: 'optdet1',
-         102: 'optdet2'g
+         102: 'optdet2'}
 
     Parameters
     ----------
     h5file
         path to remage output file.
+    lh5_table
+        name of the tier group to inspect.
     """
     if isinstance(h5file, Path):
         h5file = h5file.as_posix()
 
     out = {}
-    with h5py.File(h5file, "r") as f:
+    # no file locking: some filesystems do not support it (e.g. CFS at NERSC)
+    with h5py.File(h5file, "r", locking=False) as f:
         g = f[f"/{lh5_table}/__by_uid__"]
         # loop over links
         for key in g:
