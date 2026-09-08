@@ -20,7 +20,7 @@ can be used to compute the "drift time", or the time for charges to drift until
 reaching the contact, for each point in the HPGe detector.
 
 _reboost_ defines a common input format for these mappings as described in
-{func}`reboost.hpge.utils.get_rz_field`.
+{func}`reboost.hpge.utils.get_hpge_rz_field`.
 
 ## Drift time heuristic
 

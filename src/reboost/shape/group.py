@@ -83,9 +83,10 @@ def _sort_data(obj: ak.Array, *, time_name: str = "time", evtid_name: str = "evt
 def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Table:
     """Simple grouping by evtid.
 
-    Takes the input `stp` :class:`lgdo.Table` from remage and defines groupings of steps (i.e the
+    Takes the input `stp` :class:`~lgdo.types.table.Table` from remage and defines
+    groupings of steps (i.e the
     `cumulative_length` for a vector of vectors). This then defines the output table (also
-    :class:`lgdo.Table`), on which processors can add fields.
+    :class:`~lgdo.types.table.Table`), on which processors can add fields.
 
     Parameters
     ----------
@@ -96,7 +97,7 @@ def group_by_evtid(data: Table | ak.Array, *, evtid_name: str = "evtid") -> Tabl
 
     Returns
     -------
-    LGDO table of :class:`VectorOfVector` for each field.
+    LGDO table of :class:`~lgdo.types.vectorofvectors.VectorOfVectors` for each field.
 
     Note
     ----
@@ -141,9 +142,10 @@ def group_by_time(
 ) -> Table:
     """Grouping of steps by `evtid` and `time`.
 
-    Takes the input `stp` :class:`lgdo.Table` from remage and defines groupings of steps (i.e the
+    Takes the input `stp` :class:`~lgdo.types.table.Table` from remage and defines
+    groupings of steps (i.e the
     `cumulative_length` for a vector of vectors). This then defines the output table (also
-    :class:`lgdo.Table`), on which processors can add fields.
+    :class:`~lgdo.types.table.Table`), on which processors can add fields.
 
     The windowing is based on defining a new group when the `evtid` changes or when the time
     increases by `> window`, which is in units of us.
@@ -151,7 +153,8 @@ def group_by_time(
     Parameters
     ----------
     data
-        :class:`lgdo.Table` or `ak.Array` which must contain the time_name and evtid_name fields
+        :class:`~lgdo.types.table.Table` or `ak.Array` which must contain the
+        time_name and evtid_name fields
     window
         time window in us used to search for coincident hits.
     time_name
@@ -163,7 +166,7 @@ def group_by_time(
 
     Returns
     -------
-    LGDO table of :class:`VectorOfVector` for each field.
+    LGDO table of :class:`~lgdo.types.vectorofvectors.VectorOfVectors` for each field.
 
     Note
     ----

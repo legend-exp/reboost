@@ -131,7 +131,7 @@ def get_hpge_rz_field(
 
     NaN values are interpreted as points outside the detector profile in the `(r, z)` plane.
 
-    Before returning a :class:`HPGeScalarRZField`, the gridded field is fed to
+    Before returning a :class:`~reboost.hpge.utils.HPGeRZField`, the gridded field is fed to
     :class:`scipy.interpolate.RegularGridInterpolator`.
 
     Parameters
