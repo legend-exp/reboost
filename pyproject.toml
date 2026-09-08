@@ -49,6 +49,7 @@ dependencies = [
     "matplotlib",
     "pygama",
     "pyg4ometry",
+    "psutil",
 ]
 dynamic = [
     "version",
