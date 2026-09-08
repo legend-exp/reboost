@@ -13,8 +13,8 @@ The basis of event building is the time-coincidence map or (TCM).
 The TCM tells us which hits in the various subsystems happened close enough in
 time to be considered part of the same "event".
 
-The TCM is a {class}`lgdo.Table` with two fields, both of which are
-{class}`lgdo.VectorOfVectors`:
+The TCM is a {class}`~lgdo.types.table.Table` with two fields, both of which are
+{class}`~lgdo.types.vectorofvectors.VectorOfVectors`:
 
 - row_in_table: which row of the file contains this hit
 - table_key: which channel was the hit in.

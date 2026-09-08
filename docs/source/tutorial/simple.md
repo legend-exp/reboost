@@ -84,10 +84,10 @@ other things, the HPGe object from this package has methods to compute detector
 properties (mass, surface area etc.) and to compute the distance of points from
 the detector surface.
 
-In this example we extract the {class}`pyg4ometry.geant4.Registry` object
-describing the geometry, the _legend-pygeom-hpges_
-{class}`pygeomhpges.base.HPGe` python object and finally we extract the position
-of the BEGe detector (which we focus on for this analysis).
+In this example we extract the `pyg4ometry.geant4.Registry` object describing
+the geometry, the _legend-pygeom-hpges_ {class}`pygeomhpges.base.HPGe` python
+object and finally we extract the position of the BEGe detector (which we focus
+on for this analysis).
 
 ```python
 reg = pyg4ometry.gdml.Reader("geometry.gdml").getRegistry()
@@ -103,7 +103,7 @@ Next we can read the data using the [lgdo](inv:lgdo#index) package.
 
 If the simulations files are large this approach can cause memory issues, in
 that case it is possible to iterate over the file in chunks with
-{class}`lh5.LH5Iterator` instead.
+{class}`~lh5.io.iterator.LH5Iterator` instead.
 
 :::
 
@@ -149,7 +149,7 @@ surfaces (electrodes) of a Germanium detector do not have the same thickness of
 inactive (commonly called "dead" layer).
 
 _reboost_ contains a function to compute the distance of points to the surface
-({func}` reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
+({func}`reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
 
 ```python
 dist_all = reboost.hpge.surface.distance_to_surface(

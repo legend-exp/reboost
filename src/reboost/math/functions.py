@@ -49,7 +49,8 @@ def piecewise_linear_activeness(distances: ak.Array, fccd_in_mm: float, dlf: flo
 
     Returns
     -------
-    a :class:`VectorOfVectors` or :class:`Array` of the activeness
+    a :class:`~lgdo.types.vectorofvectors.VectorOfVectors` or
+    :class:`~lgdo.types.array.Array` of the activeness
     """
     # convert to ak
     distances_ak = units.units_conv_ak(distances, "mm")
@@ -228,7 +229,7 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
 
     Returns
     -------
-    activeness: :class::`ak.Array` of the activeness per step
+    the activeness of each step, as an :class:`ak.Array`
     """
     # Convert to ak
     distances_ak = units.units_conv_ak(distances, "mm")

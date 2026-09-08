@@ -35,7 +35,7 @@ def units_convfact(data: Any | LGDO | ak.Array, target_units: pint.Unit | str) -
     Parameters
     ----------
     data
-        starting data structure. If an :class:`LGDO` or :class:`ak.Array`, try to
+        starting data structure. If an :class:`~lgdo.types.lgdo.LGDO` or :class:`ak.Array`, try to
         determine units by peeking into its attributes. Otherwise, just return 1.
     target_units
         units you wish to convert data to.
@@ -95,7 +95,7 @@ def units_conv_ak(
     Parameters
     ----------
     data
-        starting data structure. If an :class:`LGDO` or :class:`ak.Array`, try to
+        starting data structure. If an :class:`~lgdo.types.lgdo.LGDO` or :class:`ak.Array`, try to
         determine units by peeking into its attributes. Otherwise, return the data
         converted to a plain :class:`ak.Array` (without units). If ``None``, the
         function will also return ``None``.
@@ -125,10 +125,10 @@ def unwrap_lgdo(data: Any | LGDO | ak.Array, library: str = "ak") -> tuple[Any, 
     Parameters
     ----------
     data
-        the data container. If not an :class:`LGDO` or :class:`ak.Array`, it will be
-        returned as is with ``None`` units.
+        the data container. If not an :class:`~lgdo.types.lgdo.LGDO` or :class:`ak.Array`,
+        it will be returned as is with ``None`` units.
     library
-        forwarded to :meth:`LGDO.view_as`.
+        forwarded to :meth:`~lgdo.types.lgdo.LGDO.view_as`.
 
     Returns
     -------
