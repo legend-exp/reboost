@@ -104,8 +104,9 @@ def generate_optmap_evt(
 
 
 def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:
-    import pyg4ometry
-    import pygeomtools
+    # importing these takes seconds, do it only if this function is called
+    import pyg4ometry  # noqa: PLC0415
+    import pygeomtools  # noqa: PLC0415
 
     geom_registry = pyg4ometry.gdml.Reader(geom_fn).getRegistry()
     detectors = pygeomtools.get_all_sensvols(geom_registry, type_filter="optical")

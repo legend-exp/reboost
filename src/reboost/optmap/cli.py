@@ -183,9 +183,12 @@ def optical_cli() -> None:
     log_level = (None, logging.INFO, logging.DEBUG)[min(args.verbose, 2)]
     setup_log(log_level)
 
+    # the subcommand modules are imported here, so that a subcommand does not pay
+    # the import cost of the others
+
     # STEP 1a: build map file from evt tier
     if args.command == "createmap":
-        from .create import create_optical_maps
+        from .create import create_optical_maps  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
         _check_output_file(parser, args.output)
@@ -212,7 +215,7 @@ def optical_cli() -> None:
 
     # STEP 1b: view maps
     if args.command == "viewmap":
-        from .mapview import view_optmap
+        from .mapview import view_optmap  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
         if args.divide is not None:
@@ -229,7 +232,7 @@ def optical_cli() -> None:
 
     # STEP 1c: merge maps
     if args.command == "mergemap":
-        from .create import merge_optical_maps
+        from .create import merge_optical_maps  # noqa: PLC0415
 
         # load settings for binning from config file.
         _check_input_file(parser, args.input, "settings")
@@ -243,14 +246,14 @@ def optical_cli() -> None:
 
     # STEP 1d: check maps
     if args.command == "checkmap":
-        from .create import check_optical_map
+        from .create import check_optical_map  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
         check_optical_map(args.input)
 
     # STEP 1e: patch map
     if args.command == "patchmap":
-        from .create import patch_optical_map_lh5
+        from .create import patch_optical_map_lh5  # noqa: PLC0415
 
         _check_input_file(parser, [args.input, args.patch])
         _check_output_file(parser, args.output)
@@ -258,7 +261,7 @@ def optical_cli() -> None:
 
     # STEP X: rebin maps
     if args.command == "rebin":
-        from .create import rebin_optical_maps
+        from .create import rebin_optical_maps  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
         _check_output_file(parser, args.output)
