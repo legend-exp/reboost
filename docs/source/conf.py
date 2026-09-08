@@ -35,6 +35,8 @@ language = "python"
 
 # Furo theme
 html_theme = "furo"
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 html_theme_options = {
     "source_repository": "https://github.com/legend-exp/reboost",
     "source_branch": "main",
@@ -73,6 +75,7 @@ intersphinx_mapping = {
     "remage": ("https://remage.readthedocs.io/en/stable/", None),
     "pygeomhpges": ("https://legend-pygeom-hpges.readthedocs.io/en/stable/", None),
     "pygeomtools": ("https://legend-pygeom-tools.readthedocs.io/en/stable/", None),
+    "pygeomoptics": ("https://legend-pygeom-optics.readthedocs.io/en/stable/", None),
 }  # add new intersphinx mappings here
 
 # sphinx-autodoc
@@ -116,3 +119,23 @@ class Geant4MacroLexer(RegexLexer):
 
 def setup(app):
     app.add_lexer("geant4", Geant4MacroLexer)
+
+
+# fail the build on cross references that do not resolve, except for type
+# annotations that have no documentation target
+nitpicky = True
+nitpick_ignore_regex = [
+    ("py:class", r"(numpy\.typing\.)?(NDArray|ArrayLike)"),
+    ("py:class", r"'(NDArray|ArrayLike)'"),
+    ("py:class", r"TypeAliasForwardRef"),
+    ("py:class", r"'awkward\..*'"),
+    ("py:class", r"numpy\._typing\..*"),
+    ("py:class", r"multiprocessing\..*"),
+    ("py:class", r"pyg4ometry\..*"),
+    ("py:class", r"pygeomoptics\.scintillate\.(ComputedScintParams|ParticleIndex)"),
+]
+autodoc_type_aliases = {
+    "ak.Array": "awkward.Array",
+    "ak.contents.Content": "awkward.contents.Content",
+    "ak.contents.NumpyArray": "awkward.contents.NumpyArray",
+}
