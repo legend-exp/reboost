@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from math import erf, exp
 
 import awkward as ak
@@ -137,6 +138,79 @@ def drift_time(
         zloc,
     )
     return units.attach_units(ak.Array(dt_values), units.unit_to_lh5_attr(dt_map.φ_units))
+
+
+def drift_time_crystal_axes(
+    xloc: ak.Array | VectorOfVectors,
+    yloc: ak.Array | VectorOfVectors,
+    zloc: ak.Array | VectorOfVectors,
+    dt_maps: Mapping[int, HPGeRZField],
+    coord_offset: pint.Quantity | pyg4ometry.gdml.Position = (0, 0, 0) * u.m,
+) -> ak.Array:
+    r"""Drift time of each step, corrected for the orientation of the crystal axes.
+
+    The drift velocity in germanium depends on the direction of the electric
+    field with respect to the crystal axes, so a map in the `(r, z)` plane alone
+    does not describe the drift time. Two maps are used instead, one for steps
+    lying on the :math:`\langle 100 \rangle` axis and one for steps on the
+    :math:`\langle 110 \rangle` axis, and the drift time in between is
+    interpolated with the four-fold symmetry of the crystal:
+
+    .. math::
+
+        t_d(\varphi) = t_{100} + (t_{110} - t_{100})\,\frac{1 - \cos 4\varphi}{2}
+
+    where :math:`\varphi` is the azimuth of the step around the detector axis
+    and :math:`t_{100}` and :math:`t_{110}` are the drift times read from the map
+    at 0 and at 45 degrees. The interpolation returns the map keyed by an angle
+    at that same azimuth, so `xloc` and `yloc` must be given in the frame in
+    which the maps were computed, with the :math:`\langle 100 \rangle` axis along
+    `x`.
+
+    The output carries the units of the maps.
+
+    Parameters
+    ----------
+    xloc
+        array of x coordinate position.
+    yloc
+        array of y coordinate position.
+    zloc
+        array of z coordinate position.
+    dt_maps
+        the drift time maps along the two crystal axes, keyed by the angle in
+        degrees, as returned by :func:`reboost.hpge.load_hpge_drift_time_maps`.
+        The keys ``0`` and ``45`` must both be present.
+    coord_offset
+        this `(x, y, z)` coordinates will be subtracted to `(xloc, yloc, zloc)`
+        before drift time computation. The length units must be the same as
+        `xloc`, `yloc` and `zloc`.
+    """
+    missing = [angle for angle in (0, 45) if angle not in dt_maps]
+    if missing:
+        msg = f"drift-time maps at {missing} degrees are missing from dt_maps"
+        raise KeyError(msg)
+
+    # sanitize coord_offset
+    coord_offset = units.pg4_to_pint(coord_offset)
+
+    # azimuth of each step around the detector axis
+    xu, yu = [units.units_convfact(data, coord_offset.units) for data in (xloc, yloc)]
+    x, y = [units.unwrap_lgdo(data)[0] for data in (xloc, yloc)]
+
+    phi = np.arctan2(yu * y - coord_offset[1].m, xu * x - coord_offset[0].m)
+
+    # drift time along the two crystal axes, brought to a common unit
+    dt_units = dt_maps[0].φ_units
+    dt_100 = drift_time(xloc, yloc, zloc, dt_maps[0], coord_offset)
+    dt_110 = drift_time(xloc, yloc, zloc, dt_maps[45], coord_offset)
+    dt_110 = dt_110 * units.units_convfact(dt_110, dt_units)
+
+    # arithmetic on awkward arrays drops the units, so attach them again
+    return units.attach_units(
+        dt_100 + (dt_110 - dt_100) * (1 - np.cos(4 * phi)) / 2,
+        units.unit_to_lh5_attr(dt_units),
+    )
 
 
 def drift_time_heuristic(

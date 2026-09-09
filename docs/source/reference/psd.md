@@ -17,8 +17,13 @@ choose between them.
 
 ## Drift time
 
+The drift velocity in germanium depends on the orientation of the crystal axes.
+A single map in the `(r, z)` plane ignores that dependence; two maps, one per
+crystal axis, let the drift time be interpolated in the azimuth.
+
 ```{eval-rst}
 .. autofunction:: reboost.hpge.drift_time
+.. autofunction:: reboost.hpge.drift_time_crystal_axes
 ```
 
 ## Current pulses and A/E
@@ -46,14 +51,18 @@ convolved with the bulk pulse.
 ## Field and pulse shape libraries
 
 The drift time and the pulse shape at each point of the detector are read from
-files precomputed on a grid in the cylindrical `(r, z)` plane.
+files precomputed on a grid in the cylindrical `(r, z)` plane. One file holds
+one grid per crystal-axis angle, and the plural loaders read several of them at
+once.
 
 ```{eval-rst}
-.. autofunction:: reboost.hpge.get_hpge_rz_field
+.. autofunction:: reboost.hpge.load_hpge_rz_field
 .. autoclass:: reboost.hpge.HPGeRZField
    :members:
-.. autofunction:: reboost.hpge.get_hpge_pulse_shape_library
+.. autofunction:: reboost.hpge.load_hpge_drift_time_maps
+.. autofunction:: reboost.hpge.load_hpge_pulse_shape_library
 .. autoclass:: reboost.hpge.HPGePulseShapeLibrary
    :members:
+.. autofunction:: reboost.hpge.load_hpge_pulse_shape_libraries
 .. autofunction:: reboost.hpge.prepare_pulse_shape_library
 ```
