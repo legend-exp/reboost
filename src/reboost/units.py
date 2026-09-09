@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import awkward as ak
 import pint
-import pyg4ometry as pg4
 from lgdo import LGDO
 from lgdo.types import VectorOfVectors
 from numpy.typing import ArrayLike
+
+if TYPE_CHECKING:
+    import pyg4ometry
 
 log = logging.getLogger(__name__)
 
@@ -19,11 +21,16 @@ ureg = pint.get_application_registry()
 ureg.formatter.default_format = "~P"
 
 
-def pg4_to_pint(obj: pint.Quantity | pg4.gdml.Defines.VectorBase) -> pint.Quantity:
+def pg4_to_pint(obj: pint.Quantity | pyg4ometry.gdml.Defines.VectorBase) -> pint.Quantity:
     """Convert pyg4ometry object to pint Quantity."""
     if isinstance(obj, pint.Quantity):
         return obj
-    if isinstance(obj, pg4.gdml.Defines.VectorBase):
+
+    # pyg4ometry is slow to import and only needed here, so importing it at the top of the
+    # file would slow down every reboost import by seconds
+    import pyg4ometry  # noqa: PLC0415
+
+    if isinstance(obj, pyg4ometry.gdml.Defines.VectorBase):
         return [getattr(obj, field).eval() for field in ("x", "y", "z")] * ureg(obj.unit)
     msg = f"I don't know how to convert object of type {type(obj)} to pint object"
     raise TypeError(msg)
