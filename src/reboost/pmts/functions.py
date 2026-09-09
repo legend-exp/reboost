@@ -210,7 +210,7 @@ def build_hardware_triggers(
         attached to the top-level array if unit conversion is desired for timegate and
         trigger_deadtime. If no units are attached, timegate and trigger_deadtime need to be
         provided in the same units as the data array (as floats).
-    multiplicity_threshold : int
+    multiplicity_threshold
         Minimum number of different detectors triggering within timegate to trigger.
         Needs to be defined and > 0 if no trigger groups are defined.
     timegate
@@ -219,13 +219,11 @@ def build_hardware_triggers(
     trigger_deadtime
         Time window for which the system is unresponsive after a trigger. If not a pint Quantity,
         will be assumed to be in same units as data.
-    trigger_groups : dict | None
+    trigger_groups
         Optional dict defining groups of detectors that are evaluated for their multiplicity
-        threshold. Format:
-        {group_name: {"detector_indices": (detector_indices),
-                      "threshold": (threshold)
-                      }
-        },. If None, all detectors are treated as one group.
+        threshold. If ``None``, all detectors are treated as one group. The format is::
+
+            {group_name: {"detector_indices": (detector_indices), "threshold": (threshold)}}
 
     Returns
     -------

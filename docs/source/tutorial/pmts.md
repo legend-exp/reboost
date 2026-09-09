@@ -97,7 +97,7 @@ entries for this or previous events. For this we use
 `reboost.pmts.align_detectors`.
 
 ```python
-from reboost.pmts.functions import align_detectors
+from reboost.pmts import align_detectors
 
 re_shaped_arr, unique_evtids = align_detectors(
     input_arr,
@@ -148,7 +148,7 @@ accordingly. This is the slowest part of the processing, except for the optional
 trace building.
 
 ```python
-from reboost.pmts.functions import build_hardware_triggers
+from reboost.pmts import build_hardware_triggers
 
 channels_pill = list(range(0, 10))  # detectors 0-9 are pillbox PMTs
 channels_floor = list(range(10, 30))  # detectors 10-30 are floor PMTs
@@ -199,7 +199,7 @@ is computationally expensive, so it is best used for a few selected events
 rather than the full dataset.
 
 ```python
-from reboost.pmts.functions import build_traces
+from reboost.pmts import build_traces
 
 triggers = triggers[0]  # remove the decorative axis
 trace = build_traces(
@@ -251,7 +251,7 @@ returns the reconstructed number of photoelectrons seen by each detector for
 each hardware trigger.
 
 ```python
-from reboost.pmts.functions import build_hits
+from reboost.pmts import build_hits
 
 hits = build_hits(
     re_shaped_arr,
@@ -331,7 +331,7 @@ _legend-simflow_, but is planned to move to _reboost_. This section will be
 updated once that function is implemented.
 
 ```python
-from reboost.pmts.functions import group_by_detector
+from reboost.pmts import group_by_detector
 
 re_shaped_arr = group_by_detector(times, tcm_ak["stp"].table_key, usable_pmts)
 print(ak.type(re_shaped_arr))
