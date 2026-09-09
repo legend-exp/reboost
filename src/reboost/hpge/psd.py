@@ -264,13 +264,11 @@ def _current_pulse_model(
 
     .. math::
 
-      \begin{align}
       A(t) = \; &A_\text{max} \times (1-p-p_h) \times \text{Gauss}(t;\mu,\sigma) \\
         &+ A \times p \; \left(1 - \text{erf}\left(\frac{t-\mu}{\sigma_i}\right)\right)
         \times \frac{e^{t/\tau}}{2e^{\mu/\tau}} \\
         &+ A \times p_h \; \left(1 - \text{erf}\left(-\frac{t-\mu}{\sigma_i}\right)\right)
         \times \frac{1}{2}e^{-t/\tau}
-      \end{align}
 
     Parameters
     ----------
