@@ -2,45 +2,52 @@
 
 # Building events
 
-Event building is the process of combining the information from various
-subsystems. This also includes splitting simulated files into subsections
-corresponding to different runs or periods in data taking.
+Event building combines what the different detectors recorded into events. It
+also covers splitting a simulated file into the runs or the periods of a data
+taking campaign.
 
 ## Time-coincidence map (TCM)
 
-The basis of event building is the time-coincidence map or (TCM).
+Event building starts from the time-coincidence map (TCM), the table that says
+which hits happened close enough in time to be read out as one event.
 
-The TCM tells us which hits in the various subsystems happened close enough in
-time to be considered part of the same "event".
+The TCM is a {class}`~lgdo.types.table.Table` with two fields, both
+{class}`~lgdo.types.vectorofvectors.VectorOfVectors` holding one list per event:
 
-The TCM is a {class}`~lgdo.types.table.Table` with two fields, both of which are
-{class}`~lgdo.types.vectorofvectors.VectorOfVectors`:
+- `table_key`: the {term}`uid` of the detector each hit is in,
+- `row_in_table`: the row of that detector table where the hit sits.
 
-- row_in_table: which row of the file contains this hit
-- table_key: which channel was the hit in.
+The links of the LH5 file map the uids to the detector table names.
+{func}`reboost.utils.get_remage_detector_uids` reads them into a Python
+dictionary.
 
-The mapping from table keys to detector names is contained in the links of the
-`lh5` file. This can be converted to a python dictionary with the function
-{func}`reboost.utils.get_remage_detector_uids`.
+_remage_ writes the TCM in its output by default, and it usually serves for the
+hit tier too. Processors do not change the number of hits, so row `i` of a hit
+table is the same hit as row `i` of the step table it was computed from, and the
+map still points at the right rows.
 
-Since version 0.12.0 _remage_ can compute the TCM directly and store it in the
-output file. After writing a hit tier file with
-{func}`reboost.io.write_hit_table_chunk`, the TCM of the new file is built with
-{func}`reboost.tcm.build_remage_tcm`, which uses the same coincidence settings
-as _remage_.
+It has to be rebuilt with {func}`reboost.tcm.build_remage_tcm` when this stops
+holding:
 
-## Gathering data from other fields
+- the hits are no longer the same: rows were dropped, reordered, or the steps
+  were regrouped into different hits,
+- detectors were added that _remage_ did not write, for instance the SiPM
+  detectors that {ref}`applying an optical map <optics>` creates from the
+  scintillator hits,
+- several files were put together,
+- a coincidence window other than the one used by _remage_ is wanted.
 
-The first step of event building is to gather data from the various tiers. This
-can be done with {func}`reboost.io.read_hit_field_by_tcm`. This will return the
-data as a {class}`awkward.Array` with the same shape as the TCM.
+## Reading fields event by event
 
-From this more manipulation can be applied using awkward manipulations, or
-custom written processors.
+{func}`reboost.io.read_hit_field_by_tcm` reads one field from every detector
+table and arranges it like the TCM: one list per event, one value per hit. The
+result is an {class}`awkward.Array`, on which the usual _awkward_ operations and
+your own processors apply.
 
-## Filtering channels
+## Selecting groups of detectors
 
-One useful functionality is to select groups of channels. To do this the
-function {func}`reboost.shape.group.get_isin_group` can be used. This will
-return an awkward array with the same shape as the channels input of booleans
-indicating if a given channel was part of the group.
+{func}`reboost.shape.group.get_isin_group` says which hits belong to a given
+group of detectors, the ones switched off in a run for example. It takes the
+uids of the hits, a mapping from detector name to group and the mapping between
+names and uids, and returns booleans with the shape of the uids given. Use them
+as a mask on any field read through the TCM.

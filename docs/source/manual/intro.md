@@ -26,14 +26,15 @@ other data structures.
 step
   A discrete energy deposition simulated by Geant4, with a position, a time, an
   energy and the particle that produced it. Steps are the raw output of
-  _remage_.
+  _remage_, but not always one row per Geant4 step: _remage_ can merge nearby
+  depositions and reassign the energy of low-energy tracks before writing them,
+  and {mod}`reboost.shape.cluster` can group them further.
 
 hit
   The group of steps that make up one physical interaction in a detector. Steps
   belong to the same hit when they occur in the same detector, in the same
   Geant4 event and within the time resolution of the detector. Each hit has a
-  time `t0`, the time of its first step. A quantity such as the energy is
-  measured per hit, not per step.
+  time `t0`, the time of its first step.
 
 hit grouping
   The operation that groups steps into hits. _remage_ [does it by default](inv:remage#manual-output) and
@@ -47,10 +48,10 @@ detector table
 
 uid
   The unique identifier of a detector, an integer assigned to each sensitive
-  detector when registering it in the geometry. _remage_ names the links to the
-  detector tables after it and the time-coincidence map refers to detectors by
-  it. {func}`reboost.utils.get_remage_detector_uids` reads the mapping between
-  uids and detector table names from a file.
+  detector when registering it in the geometry. The output labels detectors by
+  their uid, an integer being cheaper to store and to compare than a name.
+  {func}`reboost.utils.get_remage_detector_uids` reads the mapping between uids
+  and detector table names from a file.
 
 time-coincidence map
 TCM
