@@ -1,15 +1,8 @@
 # Welcome to reboost's documentation!
 
 _reboost_ is a python package for the post-processing of
-[remage](https://remage.readthedocs.io/en/stable/) Monte-Carlo simulations.
-
-## Getting started
-
-_reboost_ can be installed with _pip_:
-
-```console
-$ pip install reboost
-```
+[remage](https://remage.readthedocs.io/en/stable/) Monte-Carlo simulations,
+Available on PyPI and conda-forge.
 
 ## Next steps
 
@@ -32,9 +25,15 @@ tutorial/index
 ```
 
 ```{toctree}
+:maxdepth: 2
+
+reference/index
+```
+
+```{toctree}
 :maxdepth: 1
 
-Package API reference <api/modules>
+API documentation <api/modules>
 ```
 
 ## See also

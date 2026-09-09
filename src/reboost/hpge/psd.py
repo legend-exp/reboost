@@ -145,7 +145,7 @@ def drift_time_heuristic(
 ) -> ak.Array:
     """HPGe drift-time-based pulse-shape heuristic.
 
-    See :func:`_drift_time_heuristic_impl` for a description of the algorithm.
+    See :func:`~reboost.hpge.psd._drift_time_heuristic_impl` for a description of the algorithm.
 
     Parameters
     ----------
@@ -581,7 +581,9 @@ def _get_template_idx(
 def get_current_template(
     low: float = -1000, high: float = 4000, step: float = 1, mean_aoe: float = 1, **kwargs
 ) -> tuple[NDArray, NDArray]:
-    """Build the current template from the analytic model, defined by :func:`_current_pulse_model`.
+    """Build the current template from the analytic current pulse model.
+
+    The model is defined by :func:`~reboost.hpge.psd._current_pulse_model`.
 
     Parameters
     ----------
@@ -594,7 +596,7 @@ def get_current_template(
     mean_aoe
         The mean AoE value for this detector (to normalise current pulses).
     **kwargs
-        Other keyword arguments passed to :func:`_current_pulse_model`.
+        Other keyword arguments passed to :func:`~reboost.hpge.psd._current_pulse_model`.
 
     Returns
     -------
@@ -838,7 +840,9 @@ def maximum_current(
     surface_step_in_um: float = 10,
     return_mode: str = "current",
 ) -> ak.Array:
-    """Estimate the maximum current in the HPGe detector based on :func:`_estimate_current_impl`.
+    """Estimate the maximum current in the HPGe detector.
+
+    The estimate is computed by :func:`~reboost.hpge.psd._estimate_current_impl`.
 
     Parameters
     ----------
