@@ -165,3 +165,7 @@ cython_debug/
 
 .aider*
 uv.lock
+
+# files written by the tutorial notebooks at docs build time
+/docs/source/tutorial/*.lh5
+/docs/source/tutorial/*.gdml
