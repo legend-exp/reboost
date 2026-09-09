@@ -206,10 +206,10 @@ def ex_lin_activeness(distances: ak.Array, fccd: float, alpha: float, beta: floa
       exponential part of the function matches the linear part at the transition point, which
       ensures a smooth transition between the two regions.
 
-        .. math::
+      .. math::
 
-           \mathrm{exp\_norm} =
-           \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
+         \mathrm{exp\_norm} =
+         \left(\frac{\beta}{\alpha}\right)\exp\left(-\frac{\mathrm{trans\_pt}}{\beta}\right)
 
     Parameters
     ----------
