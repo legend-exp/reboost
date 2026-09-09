@@ -1,5 +1,23 @@
 # Developers guide
 
+## Writing a processor
+
+{ref}`processors-contract` states what a processor must do: return an
+{class}`awkward.Array` of the same length as its inputs, take data fields as
+separate arguments, and carry physical units as attributes. Follow it, so that a
+new processor composes with the existing ones.
+
+Two steps make a processor part of the public interface:
+
+- export it from the `__init__.py` of its subpackage and list it in `__all__`,
+  so that it is importable as `from reboost.hpge import drift_time` and not only
+  from the module it is defined in,
+- add an `autofunction` entry to the page of the {doc}`reference/index` it
+  belongs to, if it is a function users call. Use the short name
+  (`reboost.hpge.drift_time`). The generated
+  {doc}`API documentation <api/modules>` picks up every function on its own, so
+  a helper needs no entry.
+
 ## Testing
 
 ### Numba-JIT functions
