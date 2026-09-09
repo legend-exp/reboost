@@ -31,7 +31,7 @@ source_suffix = {
     ".md": "markdown",
 }
 master_doc = "index"
-language = "python"
+language = "en"
 
 # Furo theme
 html_theme = "furo"
