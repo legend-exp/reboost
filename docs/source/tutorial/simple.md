@@ -54,16 +54,12 @@ from pygeomhpges import make_hpge, draw
 import pygeomhpges
 import pyg4ometry
 import awkward as ak
-from reboost.math.stats import gaussian_sample
+from reboost.math import gaussian_sample
 import hist
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 import reboost
-from reboost import hpge
-from reboost.hpge import surface, psd
-from reboost.shape import group
-from reboost.math import functions
 
 plt.rcParams.update({"font.size": 12})
 ```
@@ -152,11 +148,9 @@ _reboost_ contains a function to compute the distance of points to the surface
 ({func}`reboost.hpge.surface.distance_to_surface`) of the HPGe detector.
 
 ```python
-dist_all = reboost.hpge.surface.distance_to_surface(
-    stp.xloc, stp.yloc, stp.zloc, hpge_pyobj, position
-)
+dist_all = reboost.hpge.distance_to_surface(stp.xloc, stp.yloc, stp.zloc, hpge_pyobj, position)
 
-dist_nplus = reboost.hpge.surface.distance_to_surface(
+dist_nplus = reboost.hpge.distance_to_surface(
     stp.xloc,
     stp.yloc,
     stp.zloc,
@@ -230,9 +224,7 @@ fig, ax = plt.subplots(figsize=(8, 4))
 
 ax.plot(
     np.linspace(0, 2, 1000),
-    reboost.math.functions.piecewise_linear_activeness(
-        np.linspace(0, 2, 1000), fccd_in_mm=1, dlf=0.2
-    ),
+    reboost.math.piecewise_linear_activeness(np.linspace(0, 2, 1000), fccd_in_mm=1, dlf=0.2),
 )
 ax.set_xlabel("Distance to n-plus surface [mm]")
 ax.set_ylabel("Charge collection efficiency ")
@@ -248,7 +240,7 @@ corrected energies, summing over the steps.
 We then plot the energy spectra:
 
 ```python
-activeness = reboost.math.functions.piecewise_linear_activeness(dist_all, fccd_in_mm=1, dlf=0.4)
+activeness = reboost.math.piecewise_linear_activeness(dist_all, fccd_in_mm=1, dlf=0.4)
 
 # compute the energy
 total_energy = ak.sum(stp.edep, axis=-1)
@@ -294,7 +286,7 @@ sample from a Gaussian distribution.
 We demonstrate this with a sigma of 0.5 keV.
 
 ```python
-energy_smeared = reboost.math.stats.gaussian_sample(corr_energy, sigma=0.5)
+energy_smeared = reboost.math.gaussian_sample(corr_energy, sigma=0.5)
 
 fig, ax = plt.subplots(figsize=(12, 4))
 h_smear = hist.new.Reg(200, 2615 - 50, 2615 + 50, name="energy [keV]").Double().fill(energy_smeared)
@@ -321,7 +313,7 @@ event energy weighted center of mass), containing at-least 90% of the energy.
 This can be computed with a simple `reboost` processor: {func}`.hpge.psd.r90`.
 
 ```python
-r90 = reboost.hpge.psd.r90(stp.edep, stp.xloc, stp.yloc, stp.zloc)
+r90 = reboost.hpge.r90(stp.edep, stp.xloc, stp.yloc, stp.zloc)
 
 # make a plot
 fig, ax = plt.subplots(figsize=(8, 4))

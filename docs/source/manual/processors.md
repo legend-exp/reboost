@@ -36,17 +36,16 @@ the active energy of a HPGe detector:
 ```python
 import awkward as ak
 import lh5
-import reboost.hpge.surface
-import reboost.math.functions
+import reboost
 
 steps = lh5.read("stp/det001", "stp.lh5").view_as("ak", with_units=True)
 
 # distance of each step to the n+ surface, in mm
-dist = reboost.hpge.surface.distance_to_surface(
+dist = reboost.hpge.distance_to_surface(
     steps.xloc, steps.yloc, steps.zloc, hpge, det_pos, surface_type="nplus"
 )
 # fraction of charge collected at each step
-activeness = reboost.math.functions.piecewise_linear_activeness(dist, fccd_in_mm=1.0, dlf=0.5)
+activeness = reboost.math.piecewise_linear_activeness(dist, fccd_in_mm=1.0, dlf=0.5)
 # active energy of each hit, in keV
 energy = ak.sum(steps.edep * activeness, axis=-1)
 ```
@@ -123,7 +122,7 @@ processors that change the number of rows.
 
 ```python
 steps = lh5.read("stp/det001", "stp_flat.lh5").view_as("ak")
-hits = reboost.shape.group.group_by_time(steps, window=10)  # unit is us
+hits = reboost.shape.group_by_time(steps, window=10)  # unit is us
 ```
 
 :::

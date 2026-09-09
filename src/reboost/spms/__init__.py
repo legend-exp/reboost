@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .pe import (
     cluster_photoelectrons,
+    corrected_photoelectrons,
     detected_photoelectrons,
     emitted_scintillation_photons,
     load_optmap,
@@ -13,6 +14,7 @@ from .pe import (
 
 __all__ = [
     "cluster_photoelectrons",
+    "corrected_photoelectrons",
     "detected_photoelectrons",
     "emitted_scintillation_photons",
     "load_optmap",
