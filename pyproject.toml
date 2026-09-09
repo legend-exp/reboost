@@ -79,7 +79,9 @@ all = [
 ]
 docs = [
     "furo",
+    "jupyter",
     "myst-parser",
+    "nbsphinx",
     "sphinx",
     "sphinx-copybutton",
 ]
@@ -164,6 +166,8 @@ pycodestyle.max-doc-length = 100
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
+# notebooks show results by printing them and do not need __future__ imports
+"docs/source/tutorial/*.ipynb" = ["T20", "I002"]
 
 [tool.docformatter]
 black = true

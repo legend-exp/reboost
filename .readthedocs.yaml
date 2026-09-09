@@ -5,6 +5,9 @@ sphinx:
 
 build:
   os: "ubuntu-22.04"
+  apt_packages:
+    # needed by nbsphinx
+    - pandoc
   tools:
     python: "3.12"
   jobs:

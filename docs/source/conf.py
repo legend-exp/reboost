@@ -24,6 +24,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
     "myst_parser",
+    "nbsphinx",
 ]
 
 source_suffix = {
@@ -31,6 +32,7 @@ source_suffix = {
     ".md": "markdown",
 }
 master_doc = "index"
+exclude_patterns = ["**.ipynb_checkpoints"]
 language = "en"
 
 # Furo theme
@@ -77,6 +79,18 @@ intersphinx_mapping = {
     "pygeomtools": ("https://legend-pygeom-tools.readthedocs.io/en/stable/", None),
     "pygeomoptics": ("https://legend-pygeom-optics.readthedocs.io/en/stable/", None),
 }  # add new intersphinx mappings here
+
+# nbsphinx
+nbsphinx_epilog = """
+----
+
+This page has been generated from a Jupyter_ notebook, which lives in the
+`reboost repository
+<https://github.com/legend-exp/reboost/tree/main/docs/source/tutorial>`_ and can
+be run interactively.
+
+.. _Jupyter: https://jupyter.org/
+"""
 
 # sphinx-autodoc
 # Include __init__() docstring in class docstring

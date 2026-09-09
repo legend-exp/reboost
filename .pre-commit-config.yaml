@@ -52,6 +52,17 @@ repos:
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
+  - repo: https://github.com/kynan/nbstripout
+    rev: "0.9.1"
+    hooks:
+      - id: nbstripout
+        args:
+          [
+            "--drop-empty-cells",
+            "--extra-keys",
+            "metadata.kernelspec metadata.language_info",
+          ]
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: "v2.3.1"
     hooks:
