@@ -147,3 +147,32 @@ def compare_numba_vs_python():
 
 
 patch_numba_for_tests()
+
+
+@pytest.fixture(scope="module")
+def hpge_crystal_axes_file(tmptestdir):
+    """File holding drift-time maps and pulse shape libraries for two crystal axes.
+
+    The maps of detector ``V01`` are linear in `r` and `z`, so that the
+    interpolated drift time at `(r, z)` is ``r + z`` (in ns) on the 0 degrees
+    axis and twice that on the 45 degrees one. The waveforms are constant, one
+    on the 0 degrees axis and two on the 45 degrees one.
+    """
+    r = z = np.linspace(0, 100, 11)
+    dt_000 = r[:, np.newaxis] + z[np.newaxis, :]
+
+    data = {
+        "r": Array(r, attrs={"units": "mm"}),
+        "z": Array(z, attrs={"units": "mm"}),
+        "drift_time_000_deg": Array(dt_000, attrs={"units": "ns"}),
+        "drift_time_045_deg": Array(2 * dt_000, attrs={"units": "ns"}),
+        "waveform_000_deg": Array(np.ones((11, 11, 5)), attrs={"units": ""}),
+        "waveform_045_deg": Array(2 * np.ones((11, 11, 5)), attrs={"units": ""}),
+        "dt": Scalar(1, attrs={"units": "ns"}),
+        "t0": Scalar(0, attrs={"units": "ns"}),
+    }
+
+    outfile = f"{tmptestdir}/hpge_crystal_axes.lh5"
+    lh5.write(Struct(data), "V01", outfile, wo_mode="of")
+
+    return outfile

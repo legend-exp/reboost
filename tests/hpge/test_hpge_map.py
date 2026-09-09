@@ -7,14 +7,14 @@ from scipy.interpolate import RegularGridInterpolator
 from reboost.hpge.utils import (
     HPGePulseShapeLibrary,
     HPGeRZField,
-    get_hpge_pulse_shape_library,
-    get_hpge_rz_field,
+    load_hpge_pulse_shape_library,
+    load_hpge_rz_field,
 )
 from reboost.units import ureg as u
 
 
 def test_read_hpge_map(legendtestdata):
-    dt_map = get_hpge_rz_field(
+    dt_map = load_hpge_rz_field(
         legendtestdata["lh5/hpge-drift-time-maps.lh5"],
         "V99000A",
         "drift_time",
@@ -38,7 +38,7 @@ def test_read_hpge_map(legendtestdata):
 
 def test_read_pulse_shape_library(test_pulse_shape_library):
     # check th reading works
-    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+    lib = load_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
     assert isinstance(lib, HPGePulseShapeLibrary)
 
     assert np.shape(lib.waveforms) == (200, 200, 4001)

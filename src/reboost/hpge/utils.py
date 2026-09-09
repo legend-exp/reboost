@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 import lgdo
@@ -8,6 +8,7 @@ import lh5
 import numpy as np
 import pint
 from dbetto import AttrsDict
+from numpy.typing import DTypeLike
 from scipy.interpolate import RegularGridInterpolator
 
 
@@ -30,8 +31,12 @@ class HPGePulseShapeLibrary(NamedTuple):
     "Times used to define the waveforms"
 
 
-def get_hpge_pulse_shape_library(
-    filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan
+def load_hpge_pulse_shape_library(
+    filename: str,
+    obj: str,
+    field: str,
+    out_of_bounds_val: float = np.nan,
+    dtype: DTypeLike | None = None,
 ) -> HPGePulseShapeLibrary:
     """Create the pulse shape library, holding simulated waveforms.
 
@@ -45,7 +50,7 @@ def get_hpge_pulse_shape_library(
             ├── t0 · real ── {'units': 'UNITS'}
             └── FIELD · array<3>{real} ── {'units': 'UNITS'}
 
-    The conventions follow those used for :func:`get_hpge_rz_field`.
+    The conventions follow those used for :func:`load_hpge_rz_field`.
     For the FIELD the first and second dimensions are `r` and `z`, respectively, with the last
     dimension representing the waveform. dt and t0 define the timestamps for the waveforms.
 
@@ -60,6 +65,10 @@ def get_hpge_pulse_shape_library(
         name of the HDF5 dataset holding the waveforms.
     out_of_bounds_val
         value to use to replace NaNs in the field values.
+    dtype
+        if not ``None``, the waveforms are cast to this data type after reading.
+        ``float32`` halves the memory taken by the library and is enough for a
+        A/E estimate at the percent level.
     """
     data = lh5.read(obj, filename)
 
@@ -88,7 +97,55 @@ def get_hpge_pulse_shape_library(
 
     times = t0 + np.arange(np.shape(data[field])[2]) * dt
 
-    return HPGePulseShapeLibrary(data[field], data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+    waveforms = data[field] if dtype is None else np.asarray(data[field], dtype=dtype)
+
+    return HPGePulseShapeLibrary(waveforms, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+
+
+def load_hpge_pulse_shape_libraries(
+    filename: str,
+    obj: str,
+    angles: Sequence[int] = (0,),
+    out_of_bounds_val: float = np.nan,
+    dtype: DTypeLike | None = None,
+) -> dict[int, HPGePulseShapeLibrary]:
+    """Read the pulse shape libraries of a detector for several crystal-axis angles.
+
+    The drift velocity in germanium depends on the orientation of the crystal
+    axes, so the waveforms are simulated on the `(r, z)` grid separately for a
+    few azimuthal angles. They are stored in the same LH5 struct, in the fields
+    ``waveform_000_deg``, ``waveform_045_deg`` and so on, with the angle in
+    degrees padded to three digits.
+
+    Each library is read by :func:`load_hpge_pulse_shape_library`. The returned
+    mapping is keyed by the angle in degrees.
+
+    Parameters
+    ----------
+    filename
+        name of the LH5 file containing the libraries.
+    obj
+        name of the HDF5 dataset where the data is saved, usually the detector
+        name.
+    angles
+        crystal-axis angles, in degrees, to read. The waveforms dominate the
+        size of the file (tens of gigabytes for a full detector), so only the
+        angles that are actually used should be read.
+    out_of_bounds_val
+        value to use to replace NaNs in the waveform values.
+    dtype
+        if not ``None``, the waveforms are cast to this data type after reading.
+    """
+    return {
+        angle: load_hpge_pulse_shape_library(
+            filename,
+            obj,
+            f"waveform_{angle:03d}_deg",
+            out_of_bounds_val=out_of_bounds_val,
+            dtype=dtype,
+        )
+        for angle in angles
+    }
 
 
 class HPGeRZField(NamedTuple):
@@ -106,7 +163,7 @@ class HPGeRZField(NamedTuple):
     "Number of dimensions for the field"
 
 
-def get_hpge_rz_field(
+def load_hpge_rz_field(
     filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan, **kwargs
 ) -> HPGeRZField:
     """Create an interpolator for a gridded HPGe field defined on `(r, z)`.
@@ -163,3 +220,49 @@ def get_hpge_rz_field(
     )
 
     return HPGeRZField(interpolator, data.r.u, data.z.u, data[field].u, ndim)
+
+
+def load_hpge_drift_time_maps(
+    filename: str,
+    obj: str,
+    angles: Sequence[int] = (0, 45),
+    out_of_bounds_val: float = np.nan,
+    **kwargs,
+) -> dict[int, HPGeRZField]:
+    """Read the drift-time maps of a detector for several crystal-axis angles.
+
+    The drift velocity in germanium depends on the orientation of the crystal
+    axes, so the drift time is mapped on the `(r, z)` grid separately for a few
+    azimuthal angles. The maps are stored in the same LH5 struct, in the fields
+    ``drift_time_000_deg``, ``drift_time_045_deg`` and so on, with the angle in
+    degrees padded to three digits.
+
+    Each map is read by :func:`load_hpge_rz_field`. The returned mapping is keyed
+    by the angle in degrees and can be passed to
+    :func:`reboost.hpge.drift_time_crystal_axes`.
+
+    Parameters
+    ----------
+    filename
+        name of the LH5 file containing the maps.
+    obj
+        name of the HDF5 dataset where the data is saved, usually the detector
+        name.
+    angles
+        crystal-axis angles, in degrees, to read.
+    out_of_bounds_val
+        value to use to replace NaNs in the field values.
+    **kwargs
+        further keyword arguments forwarded to :func:`load_hpge_rz_field`, and
+        from there to :class:`scipy.interpolate.RegularGridInterpolator`.
+    """
+    return {
+        angle: load_hpge_rz_field(
+            filename,
+            obj,
+            f"drift_time_{angle:03d}_deg",
+            out_of_bounds_val=out_of_bounds_val,
+            **kwargs,
+        )
+        for angle in angles
+    }

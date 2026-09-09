@@ -20,7 +20,16 @@ can be used to compute the "drift time", or the time for charges to drift until
 reaching the contact, for each point in the HPGe detector.
 
 _reboost_ defines a common input format for these mappings as described in
-{func}`reboost.hpge.utils.get_hpge_rz_field`.
+{func}`reboost.hpge.utils.load_hpge_rz_field`.
+
+The drift velocity depends on the direction of the electric field with respect
+to the crystal axes, so the drift time is not a function of $(r, z)$ alone. One
+map is therefore computed per crystal axis, conventionally at an azimuth of
+0$^\circ$ (the $\langle 100 \rangle$ axis) and 45$^\circ$ (the
+$\langle 110 \rangle$ axis). Both are read from the same file by
+{func}`reboost.hpge.utils.load_hpge_drift_time_maps` and combined by
+{func}`reboost.hpge.psd.drift_time_crystal_axes`, which interpolates between
+them with the four-fold symmetry of the crystal.
 
 ## Drift time heuristic
 
@@ -43,8 +52,8 @@ and estimate the A/E.
 
 ```python
 # extract the necessary inputs
-template, times = reboost.hpge.get_hpge_pulse_shape_library(...)
-drift_time_map = reboost.hpge.get_hpge_rz_field(...)
+template, times = reboost.hpge.load_hpge_pulse_shape_library(...)
+drift_time_map = reboost.hpge.load_hpge_rz_field(...)
 
 # extract drift time
 drift_time = reboost.hpge.drift_time(xloc, yloc, zloc, dt_map, ...)
@@ -57,7 +66,7 @@ aoe = a_max / ak.sum(edep, axis=-1)
 
 Or instead a template per point of the HPGe detector can be employed, _reboost_
 employs a similar input file format as described in
-{func}`reboost.hpge.utils.get_hpge_pulse_shape_library`. In this case this
+{func}`reboost.hpge.utils.load_hpge_pulse_shape_library`. In this case this
 library can be passed to {func}`reboost.hpge.psd.maximum_current`.
 
 ## n+ surface effects

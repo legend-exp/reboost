@@ -8,7 +8,7 @@ from lgdo import VectorOfVectors
 import reboost.hpge.surface as surface_module
 from reboost import units
 from reboost.hpge import psd, surface
-from reboost.hpge.utils import HPGePulseShapeLibrary, get_hpge_pulse_shape_library
+from reboost.hpge.utils import HPGePulseShapeLibrary, load_hpge_pulse_shape_library
 from reboost.shape import cluster
 
 
@@ -50,7 +50,7 @@ def test_model():
 
 
 def test_get_template(test_pulse_shape_library, compare_numba_vs_python):
-    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+    lib = load_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
     ri, zi = compare_numba_vs_python(psd._get_template_idx, 10.0, 10.0, lib.r, lib.z)
 
@@ -283,7 +283,7 @@ def test_maximum_current_surface(test_model, compare_numba_vs_python):
 
 
 def test_maximum_current_library(test_pulse_shape_library, compare_numba_vs_python):
-    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+    lib = load_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
     model = lib.waveforms[0][0]
     x = lib.t
@@ -330,7 +330,7 @@ def test_maximum_current_library(test_pulse_shape_library, compare_numba_vs_pyth
 
 
 def test_maximum_current_library_units_conversion(test_pulse_shape_library):
-    lib = get_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
+    lib = load_hpge_pulse_shape_library(test_pulse_shape_library, "V01", "waveforms")
 
     scale = 1.0 + 0.01 * np.add.outer(np.arange(len(lib.r)), np.arange(len(lib.z)))
     waveforms = lib.waveforms * scale[:, :, np.newaxis]
