@@ -85,7 +85,7 @@ $ reboost-optical createmap --settings map-settings.yaml --geom l200-geometry.gd
 
 `createmap` can also work on multiple input files at once. Make sure that enough
 memory is available; the map object is _fully_ stored in memory. In this
-example: For the 58 hardware channels, the example above would require
+example: For the 58 optical detectors, the example above would require
 
 ```{math}
 \text{memory} = 8 \cdot n_x \cdot n_y \cdot n_z \cdot (n_\text{ch} + 4) = 8 \cdot 280 \cdot 280 \cdot 480 \cdot (58 + 4) = 19 \times 10^{9} \, \text{bytes}
@@ -143,8 +143,7 @@ the patch never sampled keep the "no statistics" sentinel.
 _reboost-optical_ is integrated with the remaining _reboost_ stack. The
 map-based production of the optical response is divided into multiple steps:
 
-1. generation of primary emitted photon counts (the same for all detecting
-   channels)
+1. generation of primary emitted photon counts (the same for all detectors)
 
    ```{math}
    n_\mathrm{emitted}(E_j) \sim \mathcal{P}(Y\, E_j)
@@ -153,7 +152,7 @@ map-based production of the optical response is divided into multiple steps:
    This is implemented in the processor
    {func}`reboost.spms.pe.emitted_scintillation_photons`.
 
-2. sampling of the actually detected photons (individually per channel)
+2. sampling of the actually detected photons (individually per detector)
 
    ```{math}
     n_c(E_j) \sim \mathcal{P}\left(
@@ -163,7 +162,7 @@ map-based production of the optical response is divided into multiple steps:
    ```
 
    where {math}`\xi_c` is the loaded optical map, and {math}`\epsilon_c` is an
-   arbitrary user-supplied scaling factor for the channel {math}`c`.
+   arbitrary user-supplied scaling factor for the detector {math}`c`.
 
    This is implemented in the processor
    {func}`reboost.spms.pe.number_of_detected_photoelectrons`.
