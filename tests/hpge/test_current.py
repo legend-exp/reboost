@@ -10,6 +10,7 @@ from reboost import units
 from reboost.hpge import psd, surface
 from reboost.hpge.utils import HPGePulseShapeLibrary, load_hpge_pulse_shape_library
 from reboost.shape import cluster
+from reboost.units import ureg as u
 
 
 @pytest.fixture(scope="module")
@@ -62,12 +63,10 @@ def test_maximum_current(test_model, compare_numba_vs_python):
 
     # directly compare JIT vs Python for @njit leaf functions in the call chain
     compare_numba_vs_python(psd._njit_erf, np.linspace(-2.0, 2.0, 5))
-    compare_numba_vs_python(
-        psd._interpolate_pulse_model, model, 100.0, float(x[0]), float(x[-1]), 1.0, 0.0
-    )
+    compare_numba_vs_python(psd._interpolate_pulse_model, model, 100.0, float(x[0]), 1.0, 0.0)
     edep_1 = np.array([100.0, 500.0])
     dt_1 = np.array([400.0, 700.0])
-    compare_numba_vs_python(psd._get_waveform_value, 100, edep_1, dt_1, model, float(x[0]), 1.0)
+    compare_numba_vs_python(psd._get_waveform_value, 100.0, edep_1, dt_1, model, float(x[0]), 1.0)
 
     edep = units.attach_units(ak.Array([[100.0, 300.0, 50.0], [10.0, 0.0, 100.0], [500.0]]), "keV")
     times = units.attach_units(ak.Array([[400, 500, 700], [800, 0, 1500], [700]]), "ns")
@@ -241,7 +240,7 @@ def test_maximum_current_surface(test_model, compare_numba_vs_python):
         dist_1 = np.array([50.0, 0.1])  # second step is inside FCCD (1002 um)
         compare_numba_vs_python(
             psd._get_waveform_value_surface,
-            100,
+            100.0,
             edep_1,
             dt_1,
             dist_1,
@@ -298,7 +297,7 @@ def test_maximum_current_library(test_pulse_shape_library, compare_numba_vs_pyth
     pulse_shape_library = (lib.waveforms, lib.r, lib.z)
     compare_numba_vs_python(
         psd._get_waveform_value_pulse_shape_library,
-        100,
+        100.0,
         edep_1,
         dt_1,
         r_1,
@@ -366,3 +365,112 @@ def test_maximum_current_library_units_conversion(test_pulse_shape_library):
 
     assert curr_scaled[0] > 0
     assert np.isclose(curr_mm[0], curr_scaled[0])
+
+
+def test_coarser_template_sampling_is_rejected(test_model):
+    """Templates are read one sample per ns: a coarser one must not pass silently."""
+    model, x = test_model
+    edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0, 500.0], [700.0]]), "ns")
+
+    for dt in (2, 8):
+        with pytest.raises(ValueError, match="every 1 ns"):
+            psd.maximum_current(edep, times, template=model[::dt], times=x[::dt])
+
+
+def test_coarser_library_sampling_is_rejected(test_model):
+    """Same, for a pulse-shape library."""
+    model, x = test_model
+    r = z = np.linspace(0, 100, 20)
+    waveforms = np.zeros((len(r), len(z), len(model[::8])))
+    waveforms[:, :] = model[::8]
+    lib = HPGePulseShapeLibrary(waveforms, u.mm, u.mm, u.ns, r, z, x[::8])
+
+    edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0, 500.0], [700.0]]), "ns")
+    r_step = units.attach_units(ak.Array([[10.0, 20.0], [30.0]]), "mm")
+    z_step = units.attach_units(ak.Array([[10.0, 20.0], [30.0]]), "mm")
+
+    with pytest.raises(ValueError, match="every 1 ns"):
+        psd.maximum_current(
+            edep, times, r=r_step, z=z_step, template=lib, times=None, return_mode="current"
+        )
+
+
+def test_template_after_the_peak_is_used(test_model):
+    """The samples past the maximum must not be dropped, whatever the alignment.
+
+    A template whose peak sits at its centre used to lose everything after the
+    peak, so the maximum was found only when the scan happened to land on it.
+    """
+    model, _ = test_model
+    peak = int(np.argmax(model))
+    # centre the peak: t0 = -peak, i.e. the degenerate alignment
+    half = min(peak, len(model) - peak - 1)
+    centred = model[peak - half : peak + half + 1]
+    x_centred = np.arange(-half, half + 1, dtype=float)
+
+    energies = np.array([100.0, 300.0, 50.0])
+    edep = units.attach_units(ak.Array([[e] for e in energies]), "keV")
+    # drift times deliberately off the 20 ns coarse-scan lattice
+    times = units.attach_units(ak.Array([[413.0], [927.0], [1531.0]]), "ns")
+
+    curr = ak.to_numpy(psd.maximum_current(edep, times, template=centred, times=x_centred))
+
+    # one step per hit: the maximum is the peak of the template, times the energy
+    assert np.allclose(curr, energies * centred.max(), rtol=1e-3)
+
+
+def test_non_uniform_time_axis_is_rejected(test_model):
+    model, x = test_model
+    edep = units.attach_units(ak.Array([[100.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0]]), "ns")
+
+    bumpy = np.concatenate([x[:100], x[100::2]])
+    with pytest.raises(ValueError, match="every 1 ns"):
+        psd.maximum_current(edep, times, template=model[: len(bumpy)], times=bumpy)
+
+
+def test_missing_maximum_is_reported(caplog):
+    """A hit whose pulse never enters the scanned window is flagged, not silently zero."""
+    # a template that is zero everywhere but 500 ns after the charge is collected,
+    # so the scan around the drift time finds nothing
+    spike = np.zeros(1001)
+    spike[500] = 1.0
+    x = np.arange(1001, dtype=float)
+
+    edep = units.attach_units(ak.Array([[100.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0]]), "ns")
+
+    with caplog.at_level("WARNING", logger="reboost.hpge.psd"):
+        curr = psd.maximum_current(edep, times, template=spike, times=x)
+
+    assert ak.to_numpy(curr)[0] == 0
+    assert "no pulse maximum found" in caplog.text
+
+
+def test_drift_time_outside_the_template_span(test_model):
+    """The scan follows the drift times, which may sit outside the template axis.
+
+    The template covers -1000 to 3000 ns, the hits are collected much later.
+    """
+    model, x = test_model
+    energies = np.array([100.0, 300.0])
+    edep = units.attach_units(ak.Array([[e] for e in energies]), "keV")
+    times = units.attach_units(ak.Array([[50_000.0], [123_456.0]]), "ns")
+
+    curr = ak.to_numpy(psd.maximum_current(edep, times, template=model, times=x))
+    assert np.allclose(curr, energies * model.max(), rtol=1e-3)
+
+
+def test_empty_hits_are_not_reported(test_model, caplog):
+    """A hit with no energy gives zero current, which is not worth a warning."""
+    model, x = test_model
+    edep = units.attach_units(ak.Array([[0.0], [100.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0], [500.0]]), "ns")
+
+    with caplog.at_level("WARNING", logger="reboost.hpge.psd"):
+        curr = psd.maximum_current(edep, times, template=model, times=x)
+
+    assert ak.to_numpy(curr)[0] == 0
+    assert "no pulse maximum found" not in caplog.text
