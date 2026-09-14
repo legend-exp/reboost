@@ -692,6 +692,7 @@ def _get_waveform_maximum_impl(
     tmax: float,
     start: float,
     fccd: float,
+    dt_template: float,
     scan_step: float,
     surface_step_in_um: float,
     include_surface_effects: bool,
@@ -700,7 +701,8 @@ def _get_waveform_maximum_impl(
     """Basic implementation to get the maximum of the waveform.
 
     The waveform is evaluated every `scan_step` ns between `tmin` and `tmax`.
-    Templates are sampled every ns, see :func:`maximum_current`.
+    Both are times in ns, independent of `dt_template`, the sampling of the
+    templates themselves.
     """
     max_a: float = 0
     max_t: float = 0
@@ -724,10 +726,10 @@ def _get_waveform_maximum_impl(
             continue
 
         if not has_surface_hit and (not use_library):
-            val_tmp = _get_waveform_value(time, e, t, template, start=start, dt=1.0)
+            val_tmp = _get_waveform_value(time, e, t, template, start=start, dt=dt_template)
         elif use_library:
             val_tmp = _get_waveform_value_pulse_shape_library(
-                time, e, t, r, z, pulse_shape_library, start=start, dt=1.0
+                time, e, t, r, z, pulse_shape_library, start=start, dt=dt_template
             )
         else:
             val_tmp, energy = _get_waveform_value_surface(
@@ -741,7 +743,7 @@ def _get_waveform_maximum_impl(
                 distance_step_in_um=surface_step_in_um,
                 fccd=fccd,
                 start=start,
-                dt=1.0,
+                dt=dt_template,
             )
 
         if val_tmp > max_a:
@@ -778,10 +780,12 @@ def _estimate_current_impl(
     energy = np.zeros(len(dt))
 
     start = times[0]
+    dt_template = times[1] - times[0]
 
-    # the waveform is scanned coarsely, then finely around the maximum found
+    # the waveform is scanned coarsely, then finely around the maximum found. The
+    # scan is in ns: a template sampled more coarsely is interpolated in between
     coarse_step = 20.0
-    fine_step = 1.0
+    fine_step = min(1.0, dt_template)
 
     if include_surface_effects:
         offsets = times[np.argmax(templates_surface, axis=0)]
@@ -831,6 +835,7 @@ def _estimate_current_impl(
                 tmax=tmax,
                 start=start,
                 fccd=fccd,
+                dt_template=dt_template,
                 scan_step=scan_step,
                 surface_step_in_um=surface_step_in_um,
                 include_surface_effects=include_surface_effects,
@@ -929,7 +934,8 @@ def maximum_current(
     template
         Array of the bulk pulse template
     times
-        time-stamps for the bulk pulse template, which must be sampled every 1 ns
+        time-stamps for the bulk pulse template, which must be uniformly sampled.
+        Surface corrections additionally require a sampling of 1 ns
     fccd_in_um
         Value of the full-charge-collection depth, if `None` no surface corrections are performed.
     templates_surface
@@ -965,15 +971,22 @@ def maximum_current(
         template, times, edep, r, z
     )
 
-    # the templates are read by sample index, one sample per ns
+    # templates are read by sample index, so their time axis must be regular. Any
+    # sampling will do, the values in between are interpolated
     if times is None:
         msg = "times must be given, unless the template is a pulse-shape library"
         raise ValueError(msg)
 
     times = np.asarray(times, dtype=np.float64)
     steps = np.diff(times)
-    if len(times) < 2 or not np.allclose(steps, 1.0):
-        msg = "templates must be sampled every 1 ns, resample them before calling this function"
+    if len(times) < 2 or not np.allclose(steps, steps[0]):
+        msg = "the template time axis must have at least two uniformly spaced samples"
+        raise ValueError(msg)
+
+    # the surface response is tabulated every ns, so the bulk template it is
+    # convolved with has to match
+    if include_surface_effects and not np.isclose(steps[0], 1.0):
+        msg = "the surface corrections require a template sampled every 1 ns"
         raise ValueError(msg)
 
     # and now compute the current
