@@ -367,33 +367,66 @@ def test_maximum_current_library_units_conversion(test_pulse_shape_library):
     assert np.isclose(curr_mm[0], curr_scaled[0])
 
 
-def test_coarser_template_sampling_is_rejected(test_model):
-    """Templates are read one sample per ns: a coarser one must not pass silently."""
+def test_coarser_template_sampling(test_model):
+    """A template sampled every dt ns gives the same current as one sampled every ns."""
     model, x = test_model
-    edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0]]), "keV")
-    times = units.attach_units(ak.Array([[400.0, 500.0], [700.0]]), "ns")
+    edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0], [50.0, 50.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0, 500.0], [700.0], [900.0, 1500.0]]), "ns")
 
-    for dt in (2, 8):
-        with pytest.raises(ValueError, match="every 1 ns"):
-            psd.maximum_current(edep, times, template=model[::dt], times=x[::dt])
+    fine = ak.to_numpy(psd.maximum_current(edep, times, template=model, times=x))
+
+    for dt in (2, 4, 8):
+        coarse = ak.to_numpy(psd.maximum_current(edep, times, template=model[::dt], times=x[::dt]))
+        # the template is smooth on these scales, so the maximum barely moves
+        assert np.allclose(fine, coarse, rtol=1e-2)
 
 
-def test_coarser_library_sampling_is_rejected(test_model):
+def test_coarser_library_sampling(test_model):
     """Same, for a pulse-shape library."""
     model, x = test_model
     r = z = np.linspace(0, 100, 20)
-    waveforms = np.zeros((len(r), len(z), len(model[::8])))
-    waveforms[:, :] = model[::8]
-    lib = HPGePulseShapeLibrary(waveforms, u.mm, u.mm, u.ns, r, z, x[::8])
-
     edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0]]), "keV")
     times = units.attach_units(ak.Array([[400.0, 500.0], [700.0]]), "ns")
     r_step = units.attach_units(ak.Array([[10.0, 20.0], [30.0]]), "mm")
     z_step = units.attach_units(ak.Array([[10.0, 20.0], [30.0]]), "mm")
 
+    out = {}
+    for dt in (1, 2, 8):
+        waveforms = np.zeros((len(r), len(z), len(model[::dt])))
+        waveforms[:, :] = model[::dt]
+        lib = HPGePulseShapeLibrary(waveforms, u.mm, u.mm, u.ns, r, z, x[::dt])
+        out[dt] = ak.to_numpy(
+            psd.maximum_current(
+                edep, times, r=r_step, z=z_step, template=lib, times=None, return_mode="current"
+            )
+        )
+        assert np.all(out[dt] > 0)
+
+    assert np.allclose(out[1], out[2], rtol=1e-2)
+    assert np.allclose(out[1], out[8], rtol=1e-2)
+
+
+def test_surface_corrections_need_1ns_sampling(test_model):
+    """The surface response is tabulated every ns, the bulk template must match."""
+    model, x = test_model
+    edep = units.attach_units(ak.Array([[100.0, 300.0], [500.0]]), "keV")
+    times = units.attach_units(ak.Array([[400.0, 500.0], [700.0]]), "ns")
+    dist = units.attach_units(ak.Array([[50.0, 0.2], [0.4]]), "mm")
+
+    surface_models = np.zeros((2, 10))
+    surface_models[:, -1] = 1.0
+    templates = psd.make_convolved_surface_library(model[::2], surface_models)
+
     with pytest.raises(ValueError, match="every 1 ns"):
         psd.maximum_current(
-            edep, times, r=r_step, z=z_step, template=lib, times=None, return_mode="current"
+            edep,
+            times,
+            dist,
+            template=model[::2],
+            times=x[::2],
+            fccd_in_um=1002,
+            templates_surface=templates,
+            activeness_surface=surface_models[:, -1],
         )
 
 
@@ -427,7 +460,7 @@ def test_non_uniform_time_axis_is_rejected(test_model):
     times = units.attach_units(ak.Array([[400.0]]), "ns")
 
     bumpy = np.concatenate([x[:100], x[100::2]])
-    with pytest.raises(ValueError, match="every 1 ns"):
+    with pytest.raises(ValueError, match="uniformly spaced"):
         psd.maximum_current(edep, times, template=model[: len(bumpy)], times=bumpy)
 
 
