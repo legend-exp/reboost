@@ -388,20 +388,21 @@ def _current_pulse_model(
 
 @numba.njit(cache=True)
 def _interpolate_pulse_model(
-    template: NDArray, time: float, start: float, end: float, dt: float, mu: float
+    template: NDArray, time: float, start: float, dt: float, mu: float
 ) -> float:
-    """Interpolate to extract the pulse model given a particular mu."""
-    local_time = time - mu - start
+    """Value of a template at `time`, for a charge collected at `mu`.
 
-    if (local_time < start) or (int(local_time) > end):
+    The template is sampled every `dt`, with its first sample at `start` relative
+    to `mu`. Times falling outside the template give zero.
+    """
+    # position in the template, in samples
+    index = (time - mu - start) / dt
+
+    if index < 0 or index >= len(template) - 1:
         return 0.0
 
-    sample = int(local_time / dt)
-    A_before = template[sample]
-    A_after = template[sample + 1]
-
-    frac = (local_time - int(local_time)) / dt
-    return A_before + frac * (A_after - A_before)
+    i = int(index)
+    return template[i] + (index - i) * (template[i + 1] - template[i])
 
 
 def make_convolved_surface_library(
@@ -512,14 +513,14 @@ def get_current_waveform(
         time = start + dt * j
         if (time < range_t[0]) or (time > (range_t[1] - dt)):
             continue
-        y[j] = _get_waveform_value(j, edep, drift_time, template, start, dt, range_t)
+        y[j] = _get_waveform_value(time, edep, drift_time, template, start, dt)
 
     return times, y
 
 
 @numba.njit(cache=True)
 def _get_waveform_value_surface(
-    idx: int,
+    time: float,
     edep: NDArray,
     drift_time: NDArray,
     dist_to_nplus: NDArray,
@@ -531,11 +532,9 @@ def _get_waveform_value_surface(
     start: float,
     dt: float,
 ) -> tuple[float, float]:
-    """Get the value of the waveform at a certain index."""
-    n = len(bulk_template)
+    """Get the value of the waveform at a certain time."""
     out = 0
     etmp = 0
-    time = start + dt * idx
 
     for i in range(len(edep)):
         E = edep[i]
@@ -546,11 +545,9 @@ def _get_waveform_value_surface(
             dist_bin = int(dist / distance_step_in_um)
 
             # get two values (to allow linear interpolation)
-            value_low = _interpolate_pulse_model(
-                templates_surface[dist_bin], time, start, start + dt * n, dt, mu
-            )
+            value_low = _interpolate_pulse_model(templates_surface[dist_bin], time, start, dt, mu)
             value_high = _interpolate_pulse_model(
-                templates_surface[dist_bin + 1], time, start, start + dt * n, dt, mu
+                templates_surface[dist_bin + 1], time, start, dt, mu
             )
 
             # interpolate between distance bins
@@ -562,7 +559,7 @@ def _get_waveform_value_surface(
             etmp += (act_low + diff * (act_high - act_low)) * E
 
         else:
-            out += E * _interpolate_pulse_model(bulk_template, time, start, start + dt * n, dt, mu)
+            out += E * _interpolate_pulse_model(bulk_template, time, start, dt, mu)
             etmp += E
 
     return out, etmp
@@ -570,31 +567,28 @@ def _get_waveform_value_surface(
 
 @numba.njit(cache=True)
 def _get_waveform_value(
-    idx: int,
+    time: float,
     edep: ak.Array,
     drift_time: ak.Array,
     template: NDArray,
     start: float,
     dt: float,
 ) -> float:
-    """Get the value of the waveform at a certain index."""
+    """Get the value of the waveform at a certain time."""
     out = 0
-    time = start + dt * idx
 
     for i in range(len(edep)):
-        n = len(template)
-
         E = edep[i]
         mu = drift_time[i]
 
-        out += E * _interpolate_pulse_model(template, time, start, start + dt * n, dt, mu)
+        out += E * _interpolate_pulse_model(template, time, start, dt, mu)
 
     return out
 
 
 @numba.njit(cache=True)
 def _get_waveform_value_pulse_shape_library(
-    idx: int,
+    time: float,
     edep: ak.Array,
     drift_time: ak.Array,
     r: ak.Array,
@@ -603,21 +597,16 @@ def _get_waveform_value_pulse_shape_library(
     start: float,
     dt: float,
 ) -> float:
-    """Get the value of the waveform at a certain index, using the pulse shape library."""
+    """Get the value of the waveform at a certain time, using the pulse shape library."""
     out = 0
-    time = start + dt * idx
 
     for i in range(len(edep)):
         ri, zi = _get_template_idx(r[i], z[i], pulse_shape_library[1], pulse_shape_library[2])
 
-        n = len(pulse_shape_library[0][ri][zi])
-
         E = edep[i]
         mu = drift_time[i]
 
-        out += E * _interpolate_pulse_model(
-            pulse_shape_library[0][ri][zi], time, start, start + dt * n, dt, mu
-        )
+        out += E * _interpolate_pulse_model(pulse_shape_library[0][ri][zi], time, start, dt, mu)
 
     return out
 
@@ -703,35 +692,46 @@ def _get_waveform_maximum_impl(
     tmax: float,
     start: float,
     fccd: float,
-    n: int,
-    time_step: int,
+    scan_step: float,
     surface_step_in_um: float,
     include_surface_effects: bool,
     use_library: bool,
 ):
-    """Basic implementation to get the maximum of the waveform."""
+    """Basic implementation to get the maximum of the waveform.
+
+    The waveform is evaluated every `scan_step` ns between `tmin` and `tmax`.
+    Templates are sampled every ns, see :func:`maximum_current`.
+    """
     max_a: float = 0
     max_t: float = 0
     energy = np.sum(e)
 
-    for j in range(0, n, time_step):
-        time = start + j
+    # the scan sits on a fixed lattice, so that the result does not depend on the
+    # units the drift times were given in
+    first = np.floor(tmin / scan_step) * scan_step
+    n_steps = int((tmax - first) / scan_step) + 2
 
-        # skip anything not in the range tmin to tmax (for surface affects this can be later)
+    for j in range(n_steps):
+        time = first + j * scan_step
+
+        # the maximum can fall just past the last drift time
         has_surface_hit = include_surface_effects
 
-        if time < tmin or (time > (tmax + time_step)):
+        if time > tmax + scan_step:
+            break
+
+        if time < tmin:
             continue
 
         if not has_surface_hit and (not use_library):
-            val_tmp = _get_waveform_value(j, e, t, template, start=start, dt=1.0)
+            val_tmp = _get_waveform_value(time, e, t, template, start=start, dt=1.0)
         elif use_library:
             val_tmp = _get_waveform_value_pulse_shape_library(
-                j, e, t, r, z, pulse_shape_library, start=start, dt=1.0
+                time, e, t, r, z, pulse_shape_library, start=start, dt=1.0
             )
         else:
             val_tmp, energy = _get_waveform_value_surface(
-                j,
+                time,
                 e,
                 t,
                 dist,
@@ -777,17 +777,14 @@ def _estimate_current_impl(
     maximum_t = np.zeros(len(dt))
     energy = np.zeros(len(dt))
 
-    time_step = 1
-    n = len(times)
     start = times[0]
+
+    # the waveform is scanned coarsely, then finely around the maximum found
+    coarse_step = 20.0
+    fine_step = 1.0
 
     if include_surface_effects:
         offsets = times[np.argmax(templates_surface, axis=0)]
-
-    # make the convolved surface library
-    if include_surface_effects and np.diff(times)[0] != 1.0:
-        msg = "The surface convolution requires a template with 1 ns binning"
-        raise ValueError(msg)
 
     for i in range(len(dt)):
         t = np.asarray(dt[i])
@@ -814,10 +811,10 @@ def _estimate_current_impl(
 
                 tmax = max(tmax, time_tmp)
 
-        for time_step in [20, 1]:
-            if time_step == 1:
-                tmin = int(maximum_t[i] - 50)
-                tmax = int(maximum_t[i] + 50)
+        for scan_step in [coarse_step, fine_step]:
+            if scan_step == fine_step:
+                tmin = maximum_t[i] - 50
+                tmax = maximum_t[i] + 50
 
             # get the value
             maximum_t[i], A[i], energy[i] = _get_waveform_maximum_impl(
@@ -834,8 +831,7 @@ def _estimate_current_impl(
                 tmax=tmax,
                 start=start,
                 fccd=fccd,
-                n=n,
-                time_step=time_step,
+                scan_step=scan_step,
                 surface_step_in_um=surface_step_in_um,
                 include_surface_effects=include_surface_effects,
                 use_library=use_library,
@@ -933,7 +929,7 @@ def maximum_current(
     template
         Array of the bulk pulse template
     times
-        time-stamps for the bulk pulse template
+        time-stamps for the bulk pulse template, which must be sampled every 1 ns
     fccd_in_um
         Value of the full-charge-collection depth, if `None` no surface corrections are performed.
     templates_surface
@@ -969,6 +965,17 @@ def maximum_current(
         template, times, edep, r, z
     )
 
+    # the templates are read by sample index, one sample per ns
+    if times is None:
+        msg = "times must be given, unless the template is a pulse-shape library"
+        raise ValueError(msg)
+
+    times = np.asarray(times, dtype=np.float64)
+    steps = np.diff(times)
+    if len(times) < 2 or not np.allclose(steps, 1.0):
+        msg = "templates must be sampled every 1 ns, resample them before calling this function"
+        raise ValueError(msg)
+
     # and now compute the current
     curr, time, energy = _estimate_current_impl(
         ak.values_astype(ak.Array(edep), np.float64),
@@ -986,6 +993,17 @@ def maximum_current(
         activeness_surface=activeness_surface,
         surface_step_in_um=surface_step_in_um,
     )
+
+    # a hit that deposited energy but whose pulse never entered the scanned window
+    # gets no maximum at all: a hit with no energy in the active volume legitimately
+    # gives zero and is not reported
+    n_empty = int(np.sum((np.asarray(curr) <= 0) & (np.asarray(energy) > 0)))
+    if n_empty > 0:
+        msg = (
+            f"no pulse maximum found for {n_empty} of {len(curr)} hits with energy in "
+            "the active volume: the templates are likely misaligned with the drift times"
+        )
+        log.warning(msg)
 
     # return
     if return_mode == "max_time":
