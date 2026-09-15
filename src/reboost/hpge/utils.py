@@ -161,6 +161,12 @@ class HPGeRZField(NamedTuple):
     "Physical units of the field."
     ndim: int
     "Number of dimensions for the field"
+    r: np.ndarray | None = None
+    "Radial coordinates of the grid the field was read from."
+    z: np.ndarray | None = None
+    "Axial coordinates of the grid the field was read from."
+    values: np.ndarray | None = None
+    "Field values on that grid, before interpolation."
 
 
 def load_hpge_rz_field(
@@ -219,7 +225,9 @@ def load_hpge_rz_field(
         (data.r.m, data.z.m), data[field].m, **(kwargs | {"fill_value": out_of_bounds_val})
     )
 
-    return HPGeRZField(interpolator, data.r.u, data.z.u, data[field].u, ndim)
+    return HPGeRZField(
+        interpolator, data.r.u, data.z.u, data[field].u, ndim, data.r.m, data.z.m, data[field].m
+    )
 
 
 def load_hpge_drift_time_maps(

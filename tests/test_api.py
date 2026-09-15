@@ -9,7 +9,7 @@ import reboost
 # subpackage -> modules whose public names it re-exports
 SUBPACKAGES = {
     "daq": ["core"],
-    "hpge": ["psd", "surface", "utils"],
+    "hpge": ["plot", "psd", "surface", "utils"],
     "math": ["functions", "stats"],
     "pmts": ["functions"],
     "shape": ["cluster", "group"],
