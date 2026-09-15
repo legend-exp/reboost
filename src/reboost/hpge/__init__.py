@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .plot import plot_drift_time_maps, plot_psl_aoe_maps, plot_rz_maps, symmetrize
 from .psd import (
     convolve_surface_response,
     drift_time,
@@ -41,7 +42,11 @@ __all__ = [
     "load_hpge_rz_field",
     "make_convolved_surface_library",
     "maximum_current",
+    "plot_drift_time_maps",
+    "plot_psl_aoe_maps",
+    "plot_rz_maps",
     "prepare_pulse_shape_library",
     "prepare_surface_inputs",
     "r90",
+    "symmetrize",
 ]

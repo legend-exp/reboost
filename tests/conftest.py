@@ -75,6 +75,30 @@ def mock_optmap_for_convolve():
 
 
 @pytest.fixture(scope="module")
+def test_drift_time_map_file(tmptestdir):
+    """Drift-time maps of the two crystal axes, on a small grid."""
+    r = np.linspace(0, 40, 21)
+    z = np.linspace(0, 60, 31)
+
+    # a drift time growing with the distance from the p+ contact
+    grid = np.sqrt(r[:, None] ** 2 + z[None, :] ** 2)
+    drift_time = 10 * grid
+
+    res = Struct(
+        {
+            "r": Array(r, attrs={"units": "mm"}),
+            "z": Array(z, attrs={"units": "mm"}),
+            "drift_time_000_deg": Array(drift_time, attrs={"units": "ns"}),
+            "drift_time_045_deg": Array(1.05 * drift_time, attrs={"units": "ns"}),
+        }
+    )
+
+    path = f"{tmptestdir}/test-drift-time-map.lh5"
+    lh5.write(res, "V01", path, wo_mode="of")
+    return path
+
+
+@pytest.fixture(scope="module")
 def test_pulse_shape_library(tmptestdir):
     model, _ = psd.get_current_template(
         -1000,
