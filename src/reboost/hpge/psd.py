@@ -612,33 +612,27 @@ def _get_waveform_value_pulse_shape_library(
 
 
 @numba.njit(cache=True)
+def _nearest_idx(value: float, grid: NDArray) -> int:
+    """Index of the grid point closest to `value`, for an ascending grid."""
+    i = np.searchsorted(grid, value)
+
+    if i <= 0:
+        return 0
+    if i >= len(grid):
+        return len(grid) - 1
+
+    return i if (grid[i] - value) < (value - grid[i - 1]) else i - 1
+
+
+@numba.njit(cache=True)
 def _get_template_idx(
     r: float,
     z: float,
     r_grid: NDArray,
     z_grid: NDArray,
 ) -> tuple[int, int]:
-    """Extract the closest template to a given (r,z) point on a uniform grid.
-
-    The first and last grid points are excluded.
-    """
-    if r < r_grid[1]:
-        ri = 0
-    elif r > r_grid[-2]:
-        ri = len(r_grid) - 1
-    else:
-        dr = r_grid[2] - r_grid[1]
-        ri = int((r - r_grid[1]) / dr) + 1
-
-    if z < z_grid[1]:
-        zi = 0
-    elif z > z_grid[-2]:
-        zi = len(z_grid) - 1
-    else:
-        dz = z_grid[2] - z_grid[1]
-        zi = int((z - z_grid[1]) / dz) + 1
-
-    return ri, zi
+    """Indices of the template closest to a given `(r, z)` point."""
+    return _nearest_idx(r, r_grid), _nearest_idx(z, z_grid)
 
 
 def get_current_template(

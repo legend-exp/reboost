@@ -507,3 +507,30 @@ def test_empty_hits_are_not_reported(test_model, caplog):
 
     assert ak.to_numpy(curr)[0] == 0
     assert "no pulse maximum found" not in caplog.text
+
+
+def test_template_lookup_on_a_grid_with_a_repeated_point(compare_numba_vs_python):
+    """The grid of a padded map repeats the point at the origin.
+
+    Deriving the step from the first two points then gives nearly zero, and the
+    index of a point far from the origin runs past the end of the grid.
+    """
+    # z axis of a 0.5 mm map padded by one ring, in mm
+    z_grid = np.concatenate([[-0.50002, -0.00002, 0.00002], np.arange(0.5, 45.0, 0.5)])
+    r_grid = np.concatenate([[-0.00002, 0.00002], np.arange(0.5, 45.0, 0.5)])
+
+    for r, z in ((0.0, 0.0), (20.0, 45.0), (44.9, 44.9), (-5.0, -5.0), (100.0, 100.0)):
+        ri, zi = compare_numba_vs_python(psd._get_template_idx, r, z, r_grid, z_grid)
+        assert 0 <= ri < len(r_grid)
+        assert 0 <= zi < len(z_grid)
+        assert abs(r_grid[ri] - r) <= 0.5 or r < r_grid[0] or r > r_grid[-1]
+        assert abs(z_grid[zi] - z) <= 0.5 or z < z_grid[0] or z > z_grid[-1]
+
+
+def test_template_lookup_picks_the_closest_point(compare_numba_vs_python):
+    grid = np.arange(0.0, 10.0, 1.0)
+
+    # a value exactly in between goes to the lower index
+    for value, expected in ((0.4, 0), (0.6, 1), (5.5, 5), (5.6, 6), (-3.0, 0), (99.0, 9)):
+        ri, _ = compare_numba_vs_python(psd._get_template_idx, value, value, grid, grid)
+        assert ri == expected
