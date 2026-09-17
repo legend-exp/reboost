@@ -78,7 +78,9 @@ def test_unit_to_lh5_attr():
     assert units.unit_to_lh5_attr(u.m) == "m"
     assert units.unit_to_lh5_attr(u.m / u.s) == "m/s"
     assert units.unit_to_lh5_attr(u.m**2) == "m**2"
-    assert units.unit_to_lh5_attr(u.micrometer) == "µm"
+    # the micro prefix must not depend on the Pint version
+    assert units.unit_to_lh5_attr(u.micrometer) == "\u00b5m"
+    assert u(units.unit_to_lh5_attr(u.microsecond)).units == u.microsecond
 
 
 def test_attach_units():
