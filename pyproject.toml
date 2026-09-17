@@ -80,10 +80,10 @@ all = [
 docs = [
     "furo",
     "jupyter",
-    # the tutorial draws histograms with hist, which plots through mplhep
     "mplhep",
     "myst-parser",
     "nbsphinx",
+    "pylegendtestdata>=0.6",
     "sphinx",
     "sphinx-copybutton",
 ]
