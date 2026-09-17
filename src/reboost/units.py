@@ -189,5 +189,8 @@ def unit_to_lh5_attr(unit: pint.Unit) -> str:
     """Convert Pint unit to a string that can be used as attrs["units"] in an LGDO."""
     # TODO: we should check if this can be always parsed by Unitful.jl
     if isinstance(unit, pint.Unit):
-        return f"{unit:~C}"
+        # Pint 0.26 writes the micro prefix as the Greek letter mu (U+03BC). Keep the
+        # micro sign (U+00B5), so that files do not depend on the Pint version. Pint
+        # parses both back.
+        return f"{unit:~C}".replace("\u03bc", "\u00b5")
     return unit
