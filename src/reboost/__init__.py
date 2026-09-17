@@ -21,6 +21,8 @@ from .utils import get_remage_detector_uids
 if TYPE_CHECKING:
     from types import ModuleType
 
+    # subpackages pulling heavy dependencies (pyg4ometry, legendhpges, numba) are only imported
+    # on first access, to keep `import reboost` and the command line tools fast
     from . import daq, hpge, io, math, optmap, pmts, shape, spms, units
 
 __all__ = [
@@ -44,13 +46,8 @@ __all__ = [
     "write_hit_table_chunk",
 ]
 
-# subpackages pulling heavy dependencies (pyg4ometry, legendhpges, numba) are only imported
-# on first access, to keep `import reboost` and the command line tools fast
-_LAZY_SUBMODULES = ("daq", "hpge", "io", "math", "optmap", "pmts", "shape", "spms", "units")
-
-
 def __getattr__(name: str) -> ModuleType:
-    if name in _LAZY_SUBMODULES:
+    if name in __all__:
         return importlib.import_module(f".{name}", __name__)
 
     msg = f"module {__name__!r} has no attribute {name!r}"
