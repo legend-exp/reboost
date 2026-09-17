@@ -16,6 +16,18 @@ Python package. See `pyproject.toml` for dependencies and build config.
   commit must pass
 - Build docs: `cd docs && make` — verify after any documentation change
 
+## Code writing style
+
+Do not add structure the change does not need:
+
+- No module constant for a value used once or twice; use a literal or an
+  argument default, meaning in the docstring. Exception: user-facing knobs and
+  parameters that must stay in sync across callers.
+- No helper function for a few lines used once; inline them.
+- Docstring length follows complexity: one line or none for tiny functions.
+  Rationale goes in the commit/PR, not in docstrings or comments.
+- Prefer editing an existing function over adding one.
+
 ## Processors
 
 A processor computes a new quantity from hit fields. Contract:
