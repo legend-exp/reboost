@@ -84,6 +84,13 @@ def test_plot_drift_time_maps(test_drift_time_map_file):
     assert fig.axes[-1].get_ylabel() == "ratio"
 
 
+def test_plot_drift_time_maps_ratio_scale(test_drift_time_map_file):
+    maps = load_hpge_drift_time_maps(test_drift_time_map_file, "V01")
+
+    _, axes = plot_drift_time_maps(maps, ratio_vmin=0.9, ratio_vmax=1.2)
+    assert axes[-1].images[0].get_clim() == (0.9, 1.2)
+
+
 def test_plot_drift_time_maps_without_grid(test_drift_time_map_file):
     """A field built by hand, without its grid, cannot be drawn."""
     maps = load_hpge_drift_time_maps(test_drift_time_map_file, "V01")
