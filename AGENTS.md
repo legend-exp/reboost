@@ -99,7 +99,10 @@ otherwise stale duplicate-object warnings fail the build (`-W`, `nitpicky`).
 - Isotopes and symbols in math, `$^{228}$Th`. Link to other projects with
   intersphinx (`inv:remage#basic-tutorial`)
 - Jupyter notebooks support plain Markdown, you can't use Sphinx formatting
-  there.
+  there. Do not link the API pages from a notebook, name the function in a code
+  span instead. Link text is plain text too: inline code inside a link
+  (``[`func`](url)``) has no RST equivalent and leaks the raw
+  `` `func <url>`__ `` into the page
 
 ## Python docstring conventions
 
