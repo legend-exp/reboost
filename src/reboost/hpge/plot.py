@@ -54,6 +54,8 @@ def plot_rz_maps(
     title: str = "",
     vmin: float | None = None,
     vmax: float | None = None,
+    ratio_vmin: float | None = None,
+    ratio_vmax: float | None = None,
     axes: Sequence[Axes] | None = None,
 ) -> tuple[Figure, NDArray]:
     r"""Draw one or more `(r, z)` maps of a detector, side by side.
@@ -82,6 +84,9 @@ def plot_rz_maps(
         prefixed to the title of every panel, e.g. the detector name.
     vmin, vmax
         limits of the colour scale. Taken from the maps if not given.
+    ratio_vmin, ratio_vmax
+        limits of the colour scale of the ratio panel. Taken from the largest
+        deviation from one if not given, symmetrically around one.
     axes
         draw into these axes, one per panel, instead of making a figure. Use it
         to choose the size of the figure or to place the panels among others::
@@ -164,8 +169,8 @@ def plot_rz_maps(
             values,
             f"{labels[0]} / {labels[45]}",
             cmap="coolwarm",
-            vmin=1 - spread,
-            vmax=1 + spread,
+            vmin=1 - spread if ratio_vmin is None else ratio_vmin,
+            vmax=1 + spread if ratio_vmax is None else ratio_vmax,
         )
         fig.colorbar(im, ax=axes[-1], label="ratio")
 

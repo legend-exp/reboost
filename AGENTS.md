@@ -98,6 +98,8 @@ otherwise stale duplicate-object warnings fail the build (`-W`, `nitpicky`).
   cores, the number of input files
 - Isotopes and symbols in math, `$^{228}$Th`. Link to other projects with
   intersphinx (`inv:remage#basic-tutorial`)
+- Jupyter notebooks support plain Markdown, you can't use Sphinx formatting
+  there.
 
 ## Python docstring conventions
 
