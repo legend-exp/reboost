@@ -20,6 +20,7 @@ can be used to compute the "drift time", or the time for charges to drift until
 reaching the contact, for each point in the HPGe detector.
 
 _reboost_ defines a common input format for these mappings as described in
+{func}`reboost.hpge.utils.make_hpge_rz_field`. Read it from a file with
 {func}`reboost.hpge.utils.load_hpge_rz_field`.
 
 The drift velocity depends on the direction of the electric field with respect
@@ -66,7 +67,7 @@ aoe = a_max / ak.sum(edep, axis=-1)
 
 Or instead a template per point of the HPGe detector can be employed, _reboost_
 employs a similar input file format as described in
-{func}`reboost.hpge.utils.load_hpge_pulse_shape_library`. In this case this
+{func}`reboost.hpge.utils.make_hpge_pulse_shape_library`. In this case this
 library can be passed to {func}`reboost.hpge.psd.maximum_current`.
 
 ## n+ surface effects

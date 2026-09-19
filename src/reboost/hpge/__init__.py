@@ -22,6 +22,8 @@ from .utils import (
     load_hpge_pulse_shape_libraries,
     load_hpge_pulse_shape_library,
     load_hpge_rz_field,
+    make_hpge_pulse_shape_library,
+    make_hpge_rz_field,
 )
 
 __all__ = [
@@ -41,6 +43,8 @@ __all__ = [
     "load_hpge_pulse_shape_library",
     "load_hpge_rz_field",
     "make_convolved_surface_library",
+    "make_hpge_pulse_shape_library",
+    "make_hpge_rz_field",
     "maximum_current",
     "plot_drift_time_maps",
     "plot_psl_aoe_maps",
