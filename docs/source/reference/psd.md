@@ -55,11 +55,18 @@ files precomputed on a grid in the cylindrical `(r, z)` plane. One file holds
 one grid per crystal-axis angle, and the plural loaders read several of them at
 once.
 
+The `make_` functions build the same objects from a grid you already hold in
+memory, for instance one you just computed rather than read back from a file.
+The loaders are a call to `lh5.read` followed by one of them, so the two paths
+give the same result.
+
 ```{eval-rst}
+.. autofunction:: reboost.hpge.make_hpge_rz_field
 .. autofunction:: reboost.hpge.load_hpge_rz_field
 .. autoclass:: reboost.hpge.HPGeRZField
    :members:
 .. autofunction:: reboost.hpge.load_hpge_drift_time_maps
+.. autofunction:: reboost.hpge.make_hpge_pulse_shape_library
 .. autofunction:: reboost.hpge.load_hpge_pulse_shape_library
 .. autoclass:: reboost.hpge.HPGePulseShapeLibrary
    :members:

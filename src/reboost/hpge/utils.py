@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import NamedTuple
 
 import lgdo
@@ -31,38 +31,35 @@ class HPGePulseShapeLibrary(NamedTuple):
     "Times used to define the waveforms"
 
 
-def load_hpge_pulse_shape_library(
-    filename: str,
-    obj: str,
+def make_hpge_pulse_shape_library(
+    data: Mapping[str, lgdo.LGDO],
     field: str,
     out_of_bounds_val: float = np.nan,
     dtype: DTypeLike | None = None,
 ) -> HPGePulseShapeLibrary:
     """Create the pulse shape library, holding simulated waveforms.
 
-    Reads from disk the following data structure: ::
+    Expects the following data structure: ::
 
-        FILENAME/
-        └── OBJ · struct{r,z,dt,t0,FIELD}
-            ├── r · array<1>{real} ── {'units': 'UNITS'}
-            ├── z · array<1>{real} ── {'units': 'UNITS'}
-            ├── dt · real ── {'units': 'UNITS'}
-            ├── t0 · real ── {'units': 'UNITS'}
-            └── FIELD · array<3>{real} ── {'units': 'UNITS'}
+        DATA · struct{r,z,dt,t0,FIELD}
+        ├── r · array<1>{real} ── {'units': 'UNITS'}
+        ├── z · array<1>{real} ── {'units': 'UNITS'}
+        ├── dt · real ── {'units': 'UNITS'}
+        ├── t0 · real ── {'units': 'UNITS'}
+        └── FIELD · array<3>{real} ── {'units': 'UNITS'}
 
-    The conventions follow those used for :func:`load_hpge_rz_field`.
-    For the FIELD the first and second dimensions are `r` and `z`, respectively, with the last
-    dimension representing the waveform. dt and t0 define the timestamps for the waveforms.
+    The conventions follow those used for :func:`make_hpge_rz_field`. For the FIELD the first and
+    second dimensions are `r` and `z`, respectively, with the last dimension representing the
+    waveform. dt and t0 define the timestamps for the waveforms.
 
+    Use :func:`load_hpge_pulse_shape_library` to read the same structure from a file.
 
     Parameters
     ----------
-    filename
-        name of the LH5 file containing the gridded scalar field.
-    obj
-        name of the HDF5 dataset where the data is saved.
+    data
+        the library, already in memory.
     field
-        name of the HDF5 dataset holding the waveforms.
+        name of the entry holding the waveforms.
     out_of_bounds_val
         value to use to replace NaNs in the field values.
     dtype
@@ -70,12 +67,6 @@ def load_hpge_pulse_shape_library(
         ``float32`` halves the memory taken by the library and is enough for a
         A/E estimate at the percent level.
     """
-    data = lh5.read(obj, filename)
-
-    if not isinstance(data, lgdo.Struct):
-        msg = f"{obj} in {filename} is not an LGDO Struct"
-        raise TypeError(msg)
-
     t0 = data["t0"].value
     dt = data["dt"].value
 
@@ -88,18 +79,57 @@ def load_hpge_pulse_shape_library(
 
     tu = t0_u
 
-    data = AttrsDict(
+    grid = AttrsDict(
         {
             k: np.nan_to_num(data[k].view_as("np", with_units=(k != field)), nan=out_of_bounds_val)
             for k in ("r", "z", field)
         }
     )
 
-    times = t0 + np.arange(np.shape(data[field])[2]) * dt
+    times = t0 + np.arange(np.shape(grid[field])[2]) * dt
 
-    waveforms = data[field] if dtype is None else np.asarray(data[field], dtype=dtype)
+    waveforms = grid[field] if dtype is None else np.asarray(grid[field], dtype=dtype)
 
-    return HPGePulseShapeLibrary(waveforms, data.r.u, data.z.u, tu, data.r.m, data.z.m, times)
+    return HPGePulseShapeLibrary(waveforms, grid.r.u, grid.z.u, tu, grid.r.m, grid.z.m, times)
+
+
+def load_hpge_pulse_shape_library(
+    filename: str,
+    obj: str,
+    field: str,
+    out_of_bounds_val: float = np.nan,
+    dtype: DTypeLike | None = None,
+) -> HPGePulseShapeLibrary:
+    """Read a pulse shape library from disk.
+
+    Reads ``OBJ`` from ``FILENAME`` and hands it to :func:`make_hpge_pulse_shape_library`, which
+    documents the expected structure: ::
+
+        FILENAME/
+        └── OBJ · struct{r,z,dt,t0,FIELD}
+
+    Parameters
+    ----------
+    filename
+        name of the LH5 file containing the library.
+    obj
+        name of the HDF5 dataset where the data is saved.
+    field
+        name of the HDF5 dataset holding the waveforms.
+    out_of_bounds_val
+        value to use to replace NaNs in the field values.
+    dtype
+        if not ``None``, the waveforms are cast to this data type after reading.
+    """
+    data = lh5.read(obj, filename)
+
+    if not isinstance(data, lgdo.Struct):
+        msg = f"{obj} in {filename} is not an LGDO Struct"
+        raise TypeError(msg)
+
+    return make_hpge_pulse_shape_library(
+        data, field, out_of_bounds_val=out_of_bounds_val, dtype=dtype
+    )
 
 
 def load_hpge_pulse_shape_libraries(
@@ -169,33 +199,69 @@ class HPGeRZField(NamedTuple):
     "Field values on that grid, before interpolation."
 
 
-def load_hpge_rz_field(
-    filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan, **kwargs
+def make_hpge_rz_field(
+    data: Mapping[str, lgdo.LGDO], field: str, out_of_bounds_val: float = np.nan, **kwargs
 ) -> HPGeRZField:
     """Create an interpolator for a gridded HPGe field defined on `(r, z)`.
 
-    Reads from disk the following data structure: ::
+    Expects the following data structure: ::
 
-        FILENAME/
-        └── OBJ · struct{r,z,FIELD}
-            ├── r · array<1>{real} ── {'units': 'UNITS'}
-            ├── z · array<1>{real} ── {'units': 'UNITS'}
-            └── FIELD · array<N+2>{real} ── {'units': 'UNITS'}
+        DATA · struct{r,z,FIELD}
+        ├── r · array<1>{real} ── {'units': 'UNITS'}
+        ├── z · array<1>{real} ── {'units': 'UNITS'}
+        └── FIELD · array<N+2>{real} ── {'units': 'UNITS'}
 
-    where ``FILENAME``, ``OBJ`` and ``FIELD`` are provided as
-    arguments to this function. `obj` is a :class:`~lgdo.types.struct.Struct`,
-    `r` and `z` are one dimensional arrays specifying the radial and z
-    coordinates of the rectangular grid — not the coordinates of each single
-    grid point. In this coordinate system, the center of the p+ contact surface
-    is at `(0, 0)`, with the p+ contact facing downwards. `field` is instead a
-    ndim plus two-dimensional array specifying the field value at each grid point. The
-    first and second dimensions are `r` and `z`, respectively, with the latter dimensions
-    representing the dimensions of the output field.
+    where ``FIELD`` is provided as an argument to this function. `r` and `z` are one dimensional
+    arrays specifying the radial and z coordinates of the rectangular grid, not the coordinates of
+    each single grid point. In this coordinate system, the center of the p+ contact surface is at
+    `(0, 0)`, with the p+ contact facing downwards. `field` is instead a ndim plus two-dimensional
+    array specifying the field value at each grid point. The first and second dimensions are `r` and
+    `z`, respectively, with the latter dimensions representing the dimensions of the output field.
 
     NaN values are interpreted as points outside the detector profile in the `(r, z)` plane.
 
     Before returning a :class:`~reboost.hpge.utils.HPGeRZField`, the gridded field is fed to
     :class:`scipy.interpolate.RegularGridInterpolator`.
+
+    Use :func:`load_hpge_rz_field` to read the same structure from a file.
+
+    Parameters
+    ----------
+    data
+        the gridded field, already in memory.
+    field
+        name of the entry holding the field values.
+    out_of_bounds_val
+        value to use to replace NaNs in the field values.
+    **kwargs
+        further keyword arguments forwarded to :class:`scipy.interpolate.RegularGridInterpolator`.
+    """
+    grid = AttrsDict(
+        {
+            k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
+            for k in ("r", "z", field)
+        }
+    )
+    ndim = grid[field].m.ndim - 2
+    interpolator = RegularGridInterpolator(
+        (grid.r.m, grid.z.m), grid[field].m, **(kwargs | {"fill_value": out_of_bounds_val})
+    )
+
+    return HPGeRZField(
+        interpolator, grid.r.u, grid.z.u, grid[field].u, ndim, grid.r.m, grid.z.m, grid[field].m
+    )
+
+
+def load_hpge_rz_field(
+    filename: str, obj: str, field: str, out_of_bounds_val: float = np.nan, **kwargs
+) -> HPGeRZField:
+    """Read a gridded HPGe field defined on `(r, z)` from disk.
+
+    Reads ``OBJ`` from ``FILENAME`` and hands it to :func:`make_hpge_rz_field`, which documents the
+    expected structure and the coordinate conventions: ::
+
+        FILENAME/
+        └── OBJ · struct{r,z,FIELD}
 
     Parameters
     ----------
@@ -207,6 +273,8 @@ def load_hpge_rz_field(
         name of the HDF5 dataset holding the field values.
     out_of_bounds_val
         value to use to replace NaNs in the field values.
+    **kwargs
+        further keyword arguments forwarded to :func:`make_hpge_rz_field`.
     """
     data = lh5.read(obj, filename)
 
@@ -214,20 +282,7 @@ def load_hpge_rz_field(
         msg = f"{obj} in {filename} is not an LGDO Struct"
         raise TypeError(msg)
 
-    data = AttrsDict(
-        {
-            k: np.nan_to_num(data[k].view_as("np", with_units=True), nan=out_of_bounds_val)
-            for k in ("r", "z", field)
-        }
-    )
-    ndim = data[field].m.ndim - 2
-    interpolator = RegularGridInterpolator(
-        (data.r.m, data.z.m), data[field].m, **(kwargs | {"fill_value": out_of_bounds_val})
-    )
-
-    return HPGeRZField(
-        interpolator, data.r.u, data.z.u, data[field].u, ndim, data.r.m, data.z.m, data[field].m
-    )
+    return make_hpge_rz_field(data, field, out_of_bounds_val=out_of_bounds_val, **kwargs)
 
 
 def load_hpge_drift_time_maps(
