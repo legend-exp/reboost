@@ -11,6 +11,8 @@ from dbetto import AttrsDict
 from numpy.typing import DTypeLike
 from scipy.interpolate import RegularGridInterpolator
 
+from .. import units
+
 
 class HPGePulseShapeLibrary(NamedTuple):
     """A set of templates defined in the cylindrical-like (r, z) HPGe plane."""
@@ -70,14 +72,12 @@ def make_hpge_pulse_shape_library(
     t0 = data["t0"].value
     dt = data["dt"].value
 
-    t0_u = data["t0"].attrs["units"]
-    dt_u = data["dt"].attrs["units"]
+    t0_u = units.ureg.Unit(data["t0"].attrs["units"])
+    dt_u = units.ureg.Unit(data["dt"].attrs["units"])
 
     if t0_u != dt_u:
         msg = "t0 and dt must have the same units"
         raise ValueError(msg)
-
-    tu = t0_u
 
     grid = AttrsDict(
         {
@@ -90,7 +90,7 @@ def make_hpge_pulse_shape_library(
 
     waveforms = grid[field] if dtype is None else np.asarray(grid[field], dtype=dtype)
 
-    return HPGePulseShapeLibrary(waveforms, grid.r.u, grid.z.u, tu, grid.r.m, grid.z.m, times)
+    return HPGePulseShapeLibrary(waveforms, grid.r.u, grid.z.u, t0_u, grid.r.m, grid.z.m, times)
 
 
 def load_hpge_pulse_shape_library(
