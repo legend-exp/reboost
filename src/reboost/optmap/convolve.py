@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal, NamedTuple, TypeAlias
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 import awkward as ak
 import lh5
@@ -89,37 +89,62 @@ def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
     return OptmapForConvolve(np.array([spm_det]), np.array([0]), optmap_edges, ow)
 
 
-def _warn_deposition_stats(res: dict) -> None:
-    looped_steps = res["ib"] + res["oob"]
-    if res["det_no_stats"] > 0:
-        log.warning(
-            "steps in optmap voxels without stats: %d (%.2f%%)",
-            res["det_no_stats"],
-            (res["det_no_stats"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
-    if res["oob"] > 0:
-        log.warning(
-            "steps outside optmap domain: %d (%.2f%%)",
-            res["oob"],
-            (res["oob"] / looped_steps) * 100 if looped_steps > 0 else 0.0,
-        )
+class NumdetStats(NamedTuple):
+    """Statistics about the result of applying an optical map."""
 
-    if res["vuv_primary_oob"] > 0:
-        log.warning(
-            "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
-            res["vuv_primary_oob"],
-            (res["vuv_primary_oob"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
-    if res["vuv_primary_no_stats"] > 0:
-        log.warning(
-            "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
-            res["vuv_primary_no_stats"],
-            (res["vuv_primary_no_stats"] / res["vuv_primary_looped"]) * 100
-            if res["vuv_primary_looped"] > 0
-            else 0.0,
-        )
+    ib: int
+    """energy deposition steps inside map bounds."""
+    oob: int
+    """energy deposition steps outside maps bounds."""
+    det_no_stats: int
+    """energy deposition steps in optmap voxels without stats."""
+
+    vuv_primary_looped: int
+    """total number of handled VUV primaries."""
+    vuv_primary_oob: int
+    """VUV primaries in voxels outside optmap domain."""
+    vuv_primary_no_stats: int
+    """VUV primaries in voxels without optmap stats."""
+
+    def warn(self: NumdetStats) -> None:
+        """Emit warnings when the current instance contains concerning results."""
+        looped_steps = self.ib + self.oob
+        if self.det_no_stats > 0:
+            log.warning(
+                "steps in optmap voxels without stats: %d (%.2f%%)",
+                self.det_no_stats,
+                (self.det_no_stats / looped_steps) * 100 if looped_steps > 0 else 0.0,
+            )
+        if self.oob > 0:
+            log.warning(
+                "steps outside optmap domain: %d (%.2f%%)",
+                self.oob,
+                (self.oob / looped_steps) * 100 if looped_steps > 0 else 0.0,
+            )
+
+        if self.vuv_primary_oob > 0:
+            log.warning(
+                "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
+                self.vuv_primary_oob,
+                (self.vuv_primary_oob / self.vuv_primary_looped) * 100
+                if self.vuv_primary_looped > 0
+                else 0.0,
+            )
+        if self.vuv_primary_no_stats > 0:
+            log.warning(
+                "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
+                self.vuv_primary_no_stats,
+                (self.vuv_primary_no_stats / self.vuv_primary_looped) * 100
+                if self.vuv_primary_looped > 0
+                else 0.0,
+            )
+
+    def __add__(self, other):
+        assert isinstance(other, NumdetStats)
+        self_dict = self._asdict()
+        other_dict = other._asdict()
+        new_dict = {k: self_dict[k] + other_dict[k] for k in self_dict}
+        return NumdetStats(**new_dict)
 
 
 def iterate_stepwise_depositions_scintillate(
@@ -150,7 +175,13 @@ def iterate_stepwise_depositions_numdet(
     max_pes_per_hit: int = -1,
     rng: np.random.Generator | None = None,
     return_pes_expectation_value: bool = False,
-) -> ak.Array | tuple[ak.Array, NDArray]:
+    return_stats: bool = False,
+) -> (
+    ak.Array
+    | tuple[ak.Array, NDArray]
+    | tuple[ak.Array, NDArray, NumdetStats]
+    | tuple[ak.Array, NumdetStats]
+):
     if edep_hits.xloc.ndim == 1:
         msg = "the pe processors only support already reshaped output"
         raise ValueError(msg)
@@ -170,14 +201,25 @@ def iterate_stepwise_depositions_numdet(
         return_pes_expectation_value,
     )
 
-    _warn_deposition_stats(res)
+    stats = NumdetStats(**res)
+    if not return_stats:
+        stats.warn()
+
+    return_val: tuple[Any, ...] = ()
 
     out = ak.unflatten(output_array, counts)
     if return_pes_expectation_value:
-        return (out, max_ph_reached, exp_pes_array) if max_pes_per_hit > 0 else (out, exp_pes_array)
-    if max_pes_per_hit > 0:
-        return out, max_ph_reached
-    return out
+        return_val = (
+            (out, max_ph_reached, exp_pes_array) if max_pes_per_hit > 0 else (out, exp_pes_array)
+        )
+    elif max_pes_per_hit > 0:
+        return_val = (out, max_ph_reached)
+    else:
+        return_val = (out,)
+
+    if return_stats:
+        return *return_val, stats
+    return return_val if len(return_val) > 1 else return_val[0]
 
 
 def iterate_stepwise_depositions_times(

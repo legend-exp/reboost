@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from reboost.optmap import convolve
+from reboost.optmap.convolve import NumdetStats, OptmapForConvolve
 from reboost.spms.pe import (
     _listoffset_chain,
     cluster_photoelectrons,
@@ -162,6 +163,58 @@ def test_number_of_detected_photoelectrons_max(mock_optmap_for_convolve, monkeyp
         max_pes_per_hit=5,
     )
     assert is_max_py.tolist() == [False, True]
+
+
+def test_number_of_detected_photoelectrons_stats(caplog):
+    edges_1d = np.linspace(0.0, 1.0, 11)
+    weights = np.full((1, 10, 10, 10), 0.1, dtype=np.float64)
+    weights[0, 5, 5, 5] = -1  # voxel without stats
+    optmap = OptmapForConvolve(np.array(["all"]), np.array([0]), (edges_1d,) * 3, weights)
+
+    # one step in bounds, one out of bounds, one in the voxel without stats
+    xloc = ak.Array([[0.1, 1.5], [0.55]])
+    yloc = ak.Array([[0.1, 0.1], [0.55]])
+    zloc = ak.Array([[0.1, 0.1], [0.55]])
+    num_scint_ph = ak.Array([[10, 20], [30]])
+    args = (xloc, yloc, zloc, num_scint_ph, optmap, "all")
+
+    expected = NumdetStats(
+        ib=2,
+        oob=1,
+        det_no_stats=1,
+        vuv_primary_looped=60,
+        vuv_primary_oob=20,
+        vuv_primary_no_stats=30,
+    )
+
+    with caplog.at_level("WARNING"):
+        out, stats = number_of_detected_photoelectrons(*args, return_stats=True)
+    assert ak.num(out).tolist() == ak.num(num_scint_ph).tolist()
+    assert stats == expected
+    # the caller handles the stats, nothing is logged
+    assert caplog.text == ""
+
+    with caplog.at_level("WARNING"):
+        out = number_of_detected_photoelectrons(*args)
+    assert isinstance(out, ak.Array)
+    assert "steps outside optmap domain: 1" in caplog.text
+    assert "steps in optmap voxels without stats: 1" in caplog.text
+
+    # the stats are appended after the other return values
+    _out, is_max, stats = number_of_detected_photoelectrons(
+        *args, max_pes_per_hit=5, return_stats=True
+    )
+    assert len(is_max) == 2
+    assert stats == expected
+
+    _out, exp_pes, stats = number_of_detected_photoelectrons(
+        *args, return_pes_expectation_value=True, return_stats=True
+    )
+    assert len(exp_pes) == 2
+    assert stats == expected
+
+    # stats of several chunks can be summed
+    assert stats + stats == NumdetStats(*(2 * v for v in expected))
 
 
 def test_photoelectron_times(compare_numba_vs_python, monkeypatch):
