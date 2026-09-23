@@ -5,7 +5,6 @@ from typing import Literal, NamedTuple, TypeAlias
 
 import awkward as ak
 import lh5
-import numba
 import numpy as np
 import pint
 import pygeomoptics.scintillate as sc
@@ -123,53 +122,6 @@ def _warn_deposition_stats(res: dict) -> None:
         )
 
 
-def iterate_stepwise_depositions_pois(
-    edep_hits: ak.Array,
-    optmap: OptmapForConvolve,
-    scint_mat_params: sc.ComputedScintParams,
-    det: str,
-    map_scaling: float = 1,
-    map_scaling_sigma: float = 0,
-    rng: np.random.Generator | None = None,
-):
-    if edep_hits.particle.ndim == 1:
-        msg = "the pe processors only support already reshaped output"
-        raise ValueError(msg)
-
-    if det not in optmap.dets:
-        msg = f"channel {det} not available in optical map (contains {optmap.dets})"
-        raise ValueError(msg)
-
-    rng = np.random.default_rng() if rng is None else rng
-    res, output_list = _iterate_stepwise_depositions_pois(
-        edep_hits,
-        rng,
-        np.where(optmap.dets == det)[0][0],
-        map_scaling,
-        map_scaling_sigma,
-        optmap.edges,
-        optmap.weights,
-        scint_mat_params,
-    )
-
-    # convert the numba result back into an awkward array.
-    builder = ak.ArrayBuilder()
-    for r in output_list:
-        with builder.list():
-            for a in r:
-                builder.extend(a)
-
-    _warn_deposition_stats(res)
-
-    log.debug(
-        "VUV_primary %d ->hits %d (%.2f %% primaries detected in this channel)",
-        res["vuv_primary"],
-        res["hits"],
-        (res["hits"] / res["vuv_primary"]) * 100 if res["vuv_primary"] > 0 else 0.0,
-    )
-    return builder.snapshot()
-
-
 def iterate_stepwise_depositions_scintillate(
     edep_hits: ak.Array,
     scint_mat_params: sc.ComputedScintParams,
@@ -261,94 +213,6 @@ def _pdgid_to_particle(pdgid: int) -> sc.ParticleIndex:
     if _pdg_func.is_nucleus(pdgid):
         return sc.PARTICLE_INDEX_ION
     return sc.PARTICLE_INDEX_ELECTRON
-
-
-__counts_per_bin_key_type = numba.types.UniTuple(numba.types.int64, 3)
-
-
-# - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
-# - cache=True does not work with outer prange, i.e. loading the cached file fails (numba bug?)
-# - the output dictionary is not threadsafe, so parallel=True is not working with it.
-@njit(parallel=False, nogil=True, cache=True)
-def _iterate_stepwise_depositions_pois(
-    edep_hits,
-    rng,
-    detidx: int,
-    map_scaling: float,
-    map_scaling_sigma: float,
-    optmap_edges,
-    optmap_weights,
-    scint_mat_params: sc.ComputedScintParams,
-):
-    pdgid_map = {}
-    oob = ib = ph_cnt = ph_det2 = det_no_stats = 0  # for statistics
-    vuv_primary_oob = vuv_primary_no_stats = 0
-    output_list = []
-
-    for rowid in range(len(edep_hits)):  # iterate hits
-        hit = edep_hits[rowid]
-        hit_output = []
-
-        map_scaling_evt = map_scaling
-        if map_scaling_sigma > 0:
-            map_scaling_evt = rng.normal(loc=map_scaling, scale=map_scaling_sigma)
-
-        assert len(hit.particle) == len(hit.num_scint_ph)
-        # iterate steps inside the hit
-        for si in range(len(hit.particle)):
-            loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]])
-            # coordinates -> bins of the optical map.
-            bins = np.empty(3, dtype=np.int64)
-            for j in range(3):
-                bins[j] = np.digitize(loc[j], optmap_edges[j])
-                # normalize all out-of-bounds bins just to one end.
-                if bins[j] == optmap_edges[j].shape[0]:
-                    bins[j] = 0
-
-            # note: subtract 1 from bins, to account for np.digitize output.
-            cur_bins = (bins[0] - 1, bins[1] - 1, bins[2] - 1)
-            if cur_bins[0] == -1 or cur_bins[1] == -1 or cur_bins[2] == -1:
-                oob += 1
-                vuv_primary_oob += hit.num_scint_ph[si]
-                continue  # out-of-bounds of optmap
-            ib += 1
-
-            # get probabilities from map.
-            detp = optmap_weights[detidx, cur_bins[0], cur_bins[1], cur_bins[2]] * map_scaling_evt
-            if detp < 0.0:
-                det_no_stats += 1
-                vuv_primary_no_stats += hit.num_scint_ph[si]
-                continue
-
-            pois_cnt = rng.poisson(lam=hit.num_scint_ph[si] * detp)
-            ph_cnt += hit.num_scint_ph[si]
-            ph_det2 += pois_cnt
-
-            # get the particle information.
-            particle = hit.particle[si]
-            if particle not in pdgid_map:
-                pdgid_map[particle] = (_pdgid_to_particle(particle), _pdg_func.charge(particle))
-            part, _charge = pdgid_map[particle]
-
-            # get time spectrum.
-            # note: we assume "immediate" propagation after scintillation.
-            scint_times = sc.scintillate_times(scint_mat_params, part, pois_cnt, rng) + hit.time[si]
-
-            hit_output.append(scint_times)
-
-        output_list.append(hit_output)
-
-    stats = {
-        "oob": oob,
-        "ib": ib,
-        "vuv_primary": ph_cnt,
-        "vuv_primary_looped": ph_cnt + vuv_primary_oob + vuv_primary_no_stats,
-        "vuv_primary_oob": vuv_primary_oob,
-        "vuv_primary_no_stats": vuv_primary_no_stats,
-        "hits": ph_det2,
-        "det_no_stats": det_no_stats,
-    }
-    return stats, output_list
 
 
 # - run with NUMBA_FULL_TRACEBACKS=1 NUMBA_BOUNDSCHECK=1 for testing/checking
