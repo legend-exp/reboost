@@ -159,11 +159,14 @@ def number_of_detected_photoelectrons(
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
     return_pes_expectation_value: bool = False,
-) -> ak.Array | tuple[ak.Array, NDArray]:
+    return_stats: bool = False,
+) -> (
+    ak.Array
+    | tuple[ak.Array, NDArray]
+    | tuple[ak.Array, NDArray, convolve.NumdetStats]
+    | tuple[ak.Array, convolve.NumdetStats]
+):
     """Derive the number of detected photoelectrons.
-
-    With ``return_pes_expectation_value``, additionally return the p.e. expectation per row
-    at unit channel efficiency, before truncation.
 
     This processor uses the provided optical map to convert emitted
     scintillation photons into detected photoelectrons for a single
@@ -190,6 +193,12 @@ def number_of_detected_photoelectrons(
     (shape) as the input `num_scint_ph` array. If `max_pes_per_hit` is greater
     than zero, returns a tuple of the p.e. counts and a 1D boolean array that
     tells whether the maximum number of p.e.s was reached for the hit.
+
+    With ``return_pes_expectation_value``, additionally return the p.e. expectation per row
+    at unit channel efficiency, before truncation.
+
+    With ``return_stats``, additionally return an object containing statistics how many energy
+    depositions were outside of the map bounds.
     """
     hits = ak.Array(
         {
@@ -208,6 +217,7 @@ def number_of_detected_photoelectrons(
         map_scaling_sigma,
         max_pes_per_hit,
         return_pes_expectation_value=return_pes_expectation_value,
+        return_stats=return_stats,
     )
 
 
