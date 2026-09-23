@@ -92,18 +92,18 @@ def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
 class NumdetStats(NamedTuple):
     """Statistics about the result of applying an optical map."""
 
-    ib: int
+    ib: int = 0
     """energy deposition steps inside map bounds."""
-    oob: int
+    oob: int = 0
     """energy deposition steps outside maps bounds."""
-    det_no_stats: int
+    det_no_stats: int = 0
     """energy deposition steps in optmap voxels without stats."""
 
-    vuv_primary_looped: int
+    vuv_primary_looped: int = 0
     """total number of handled VUV primaries."""
-    vuv_primary_oob: int
+    vuv_primary_oob: int = 0
     """VUV primaries in voxels outside optmap domain."""
-    vuv_primary_no_stats: int
+    vuv_primary_no_stats: int = 0
     """VUV primaries in voxels without optmap stats."""
 
     def warn(self: NumdetStats) -> None:
