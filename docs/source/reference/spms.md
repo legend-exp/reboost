@@ -14,7 +14,6 @@ that you can stop at the level of detail your analysis needs.
 ```{eval-rst}
 .. autofunction:: reboost.spms.emitted_scintillation_photons
 .. autofunction:: reboost.spms.number_of_detected_photoelectrons
-.. autofunction:: reboost.spms.detected_photoelectrons
 .. autofunction:: reboost.spms.photoelectron_times
 ```
 
