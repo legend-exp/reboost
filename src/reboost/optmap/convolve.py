@@ -97,14 +97,18 @@ class NumdetStats(NamedTuple):
     steps_oob: int = 0
     """energy deposition steps outside maps bounds."""
     steps_no_stats: int = 0
-    """energy deposition steps in optmap voxels without stats."""
+    """energy deposition steps in voxels without stats."""
+    steps_zero: int = 0
+    """energy deposition steps in voxels with zero detection probability."""
 
     energy_looped: float = 0
     """cumulative energy deposition handled."""
     energy_oob: float = 0
     """cumulative energy deposition outside maps bounds."""
     energy_no_stats: float = 0
-    """cumulative energy deposition in optmap voxels without stats."""
+    """cumulative energy deposition in voxels without stats."""
+    energy_zero: float = 0
+    """cumulative energy deposition  in voxels with zero detection probability."""
 
     vuv_primary_looped: int = 0
     """total number of handled VUV primaries."""
@@ -112,38 +116,40 @@ class NumdetStats(NamedTuple):
     """VUV primaries in voxels outside optmap domain."""
     vuv_primary_no_stats: int = 0
     """VUV primaries in voxels without optmap stats."""
+    vuv_primary_zero: int = 0
+    """VUV primaries in voxels with zero detection probability."""
 
-    def warn(self: NumdetStats) -> None:
+    def warn(self: NumdetStats, *, warning_threshold_pct: float = 1.0) -> None:
         """Emit warnings when the current instance contains concerning results."""
-        if self.steps_no_stats > 0:
-            log.warning(
-                "steps in optmap voxels without stats: %d (%.2f%%)",
-                self.steps_no_stats,
-                (self.steps_no_stats / self.steps_looped) * 100 if self.steps_looped > 0 else 0.0,
-            )
-        if self.steps_oob > 0:
-            log.warning(
-                "steps outside optmap domain: %d (%.2f%%)",
-                self.steps_oob,
-                (self.steps_oob / self.steps_looped) * 100 if self.steps_looped > 0 else 0.0,
+
+        def _log(fmt: str, num: float, dem: float) -> None:
+            pct = (num / dem) * 100 if dem > 0 else 0.0
+            log.log(
+                logging.WARNING if pct > warning_threshold_pct else logging.DEBUG,
+                fmt + ": %d (%.2f%%)",  # noqa: G003
+                num,
+                pct,
             )
 
-        if self.vuv_primary_oob > 0:
-            log.warning(
-                "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
-                self.vuv_primary_oob,
-                (self.vuv_primary_oob / self.vuv_primary_looped) * 100
-                if self.vuv_primary_looped > 0
-                else 0.0,
-            )
-        if self.vuv_primary_no_stats > 0:
-            log.warning(
-                "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
-                self.vuv_primary_no_stats,
-                (self.vuv_primary_no_stats / self.vuv_primary_looped) * 100
-                if self.vuv_primary_looped > 0
-                else 0.0,
-            )
+        _log("steps in optmap voxels without stats", self.steps_no_stats, self.steps_looped)
+        _log("steps in optmap voxels with zero probability", self.steps_zero, self.steps_looped)
+        _log("steps outside optmap domain", self.steps_oob, self.steps_looped)
+
+        _log(
+            "VUV_primary in voxels outside optmap domain",
+            self.vuv_primary_oob,
+            self.vuv_primary_looped,
+        )
+        _log(
+            "VUV_primary in voxels with zero probability",
+            self.vuv_primary_zero,
+            self.vuv_primary_looped,
+        )
+        _log(
+            "VUV_primary in voxels without optmap stats",
+            self.vuv_primary_no_stats,
+            self.vuv_primary_looped,
+        )
 
     def __add__(self, other):
         assert isinstance(other, NumdetStats)
@@ -315,9 +321,9 @@ def _iterate_stepwise_depositions_numdet(
     max_pes_per_hit: int = -1,
     return_pes_expectation_value: bool = False,
 ):
-    steps_oob = steps_ib = steps_no_stats = 0
-    energy_oob = energy_ib = energy_no_stats = 0.0
-    vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
+    steps_oob = steps_ib = steps_zero = steps_no_stats = 0
+    energy_oob = energy_ib = energy_zero = energy_no_stats = 0.0
+    vuv_primary_oob = vuv_primary_no_stats = vuv_primary_zero = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
     # p.e. expectation per row, at unit efficiency and before truncation
     expected_pes = np.empty(
@@ -376,6 +382,10 @@ def _iterate_stepwise_depositions_numdet(
                     steps_no_stats += 1
                     vuv_primary_no_stats += vuv_step
                     energy_no_stats += edep
+                elif detp == 0.0:
+                    vuv_primary_zero += vuv_step
+                    steps_zero += 1
+                    energy_zero += edep
                 else:
                     vuv_primary_inb += vuv_step
                     steps_ib += 1
@@ -408,16 +418,22 @@ def _iterate_stepwise_depositions_numdet(
         has_max_ph_hit,
         {
             "steps_oob": steps_oob,
-            "steps_looped": steps_ib + steps_oob + steps_no_stats,
+            "steps_looped": steps_ib + steps_oob + steps_no_stats + steps_zero,
             "steps_no_stats": steps_no_stats,
-            "vuv_primary_looped": vuv_primary_inb + vuv_primary_oob + vuv_primary_no_stats,
+            "steps_zero": steps_zero,
+            "vuv_primary_looped": vuv_primary_inb
+            + vuv_primary_oob
+            + vuv_primary_no_stats
+            + vuv_primary_zero,
             "vuv_primary_oob": vuv_primary_oob,
             "vuv_primary_no_stats": vuv_primary_no_stats,
+            "vuv_primary_zero": vuv_primary_zero,
         },
         {
             "energy_oob": energy_oob,
-            "energy_looped": energy_ib + energy_oob + energy_no_stats,
+            "energy_looped": energy_ib + energy_oob + energy_no_stats + energy_zero,
             "energy_no_stats": energy_no_stats,
+            "energy_zero": energy_zero,
         },
     )
 
