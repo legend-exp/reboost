@@ -99,6 +99,13 @@ class NumdetStats(NamedTuple):
     steps_no_stats: int = 0
     """energy deposition steps in optmap voxels without stats."""
 
+    energy_looped: float = 0
+    """cumulative energy deposition handled."""
+    energy_oob: float = 0
+    """cumulative energy deposition outside maps bounds."""
+    energy_no_stats: float = 0
+    """cumulative energy deposition in optmap voxels without stats."""
+
     vuv_primary_looped: int = 0
     """total number of handled VUV primaries."""
     vuv_primary_oob: int = 0
@@ -169,6 +176,7 @@ def iterate_stepwise_depositions_numdet(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
     det: str,
+    edep_for_stats: ak.Array | None = None,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
@@ -187,8 +195,9 @@ def iterate_stepwise_depositions_numdet(
 
     rng = np.random.default_rng() if rng is None else rng
     counts = ak.num(edep_hits.num_scint_ph)
-    output_array, exp_pes_array, max_ph_reached, res = _iterate_stepwise_depositions_numdet(
+    output_array, exp_pes_array, max_ph_reached, res, res2 = _iterate_stepwise_depositions_numdet(
         edep_hits,
+        edep_for_stats,
         rng,
         np.where(optmap.dets == det)[0][0],
         map_scaling,
@@ -200,7 +209,7 @@ def iterate_stepwise_depositions_numdet(
         return_pes_expectation_value,
     )
 
-    stats = NumdetStats(**res)
+    stats = NumdetStats(**res, **res2)
     if not return_stats:
         stats.warn()
 
@@ -295,6 +304,7 @@ def _iterate_stepwise_depositions_scintillate(
 @njit(parallel=False, nogil=True, cache=True)
 def _iterate_stepwise_depositions_numdet(
     edep_hits,
+    extra_edep_hits,
     rng,
     detidx: int,
     map_scaling: float,
@@ -306,6 +316,7 @@ def _iterate_stepwise_depositions_numdet(
     return_pes_expectation_value: bool = False,
 ):
     steps_oob = steps_ib = steps_no_stats = 0
+    energy_oob = energy_ib = energy_no_stats = 0.0
     vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
     # p.e. expectation per row, at unit efficiency and before truncation
@@ -334,6 +345,9 @@ def _iterate_stepwise_depositions_numdet(
                 continue
 
             vuv_step = hit.num_scint_ph[si]
+            edep = 0.0
+            if extra_edep_hits is not None:
+                edep = extra_edep_hits[rowid][si]
 
             loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]], dtype=np.float64)
             # coordinates -> bins of the optical map.
@@ -352,6 +366,7 @@ def _iterate_stepwise_depositions_numdet(
                 mapw = 0.0
                 detp = 0.0  # out-of-bounds of optmap
                 steps_oob += 1
+                energy_oob += edep
                 vuv_primary_oob += vuv_step
             else:
                 # get probabilities from map.
@@ -360,9 +375,11 @@ def _iterate_stepwise_depositions_numdet(
                 if detp < 0:
                     steps_no_stats += 1
                     vuv_primary_no_stats += vuv_step
+                    energy_no_stats += edep
                 else:
                     vuv_primary_inb += vuv_step
                     steps_ib += 1
+                    energy_ib += edep
 
             if return_pes_expectation_value:
                 expected_pes_row += 0.0 if mapw <= 0.0 else vuv_step * mapw
@@ -396,6 +413,11 @@ def _iterate_stepwise_depositions_numdet(
             "vuv_primary_looped": vuv_primary_inb + vuv_primary_oob + vuv_primary_no_stats,
             "vuv_primary_oob": vuv_primary_oob,
             "vuv_primary_no_stats": vuv_primary_no_stats,
+        },
+        {
+            "energy_oob": energy_oob,
+            "energy_looped": energy_ib + energy_oob + energy_no_stats,
+            "energy_no_stats": energy_no_stats,
         },
     )
 
