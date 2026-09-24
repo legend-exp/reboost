@@ -179,9 +179,9 @@ def test_number_of_detected_photoelectrons_stats(caplog):
     args = (xloc, yloc, zloc, num_scint_ph, optmap, "all")
 
     expected = NumdetStats(
-        ib=2,
-        oob=1,
-        det_no_stats=1,
+        steps_looped=3,
+        steps_oob=1,
+        steps_no_stats=1,
         vuv_primary_looped=60,
         vuv_primary_oob=20,
         vuv_primary_no_stats=30,
