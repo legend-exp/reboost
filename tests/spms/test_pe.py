@@ -176,12 +176,16 @@ def test_number_of_detected_photoelectrons_stats(caplog):
     yloc = ak.Array([[0.1, 0.1], [0.55]])
     zloc = ak.Array([[0.1, 0.1], [0.55]])
     num_scint_ph = ak.Array([[10, 20], [30]])
-    args = (xloc, yloc, zloc, num_scint_ph, optmap, "all")
+    edep = ak.Array([[10.0, 20.0], [30.0]])
+    args = (xloc, yloc, zloc, num_scint_ph, optmap, "all", edep)
 
     expected = NumdetStats(
-        ib=2,
-        oob=1,
-        det_no_stats=1,
+        steps_looped=3,
+        steps_oob=1,
+        steps_no_stats=1,
+        energy_looped=60.0,
+        energy_oob=20.0,
+        energy_no_stats=30.0,
         vuv_primary_looped=60,
         vuv_primary_oob=20,
         vuv_primary_no_stats=30,

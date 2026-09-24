@@ -92,12 +92,23 @@ def open_optmap_single(optmap_fn: str, spm_det: str) -> OptmapForConvolve:
 class NumdetStats(NamedTuple):
     """Statistics about the result of applying an optical map."""
 
-    ib: int = 0
-    """energy deposition steps inside map bounds."""
-    oob: int = 0
+    steps_looped: int = 0
+    """total number of handled steps."""
+    steps_oob: int = 0
     """energy deposition steps outside maps bounds."""
-    det_no_stats: int = 0
-    """energy deposition steps in optmap voxels without stats."""
+    steps_no_stats: int = 0
+    """energy deposition steps in voxels without stats."""
+    steps_zero: int = 0
+    """energy deposition steps in voxels with zero detection probability."""
+
+    energy_looped: float = 0
+    """cumulative energy deposition handled."""
+    energy_oob: float = 0
+    """cumulative energy deposition outside maps bounds."""
+    energy_no_stats: float = 0
+    """cumulative energy deposition in voxels without stats."""
+    energy_zero: float = 0
+    """cumulative energy deposition  in voxels with zero detection probability."""
 
     vuv_primary_looped: int = 0
     """total number of handled VUV primaries."""
@@ -105,39 +116,40 @@ class NumdetStats(NamedTuple):
     """VUV primaries in voxels outside optmap domain."""
     vuv_primary_no_stats: int = 0
     """VUV primaries in voxels without optmap stats."""
+    vuv_primary_zero: int = 0
+    """VUV primaries in voxels with zero detection probability."""
 
-    def warn(self: NumdetStats) -> None:
+    def warn(self: NumdetStats, *, warning_threshold_pct: float = 1.0) -> None:
         """Emit warnings when the current instance contains concerning results."""
-        looped_steps = self.ib + self.oob
-        if self.det_no_stats > 0:
-            log.warning(
-                "steps in optmap voxels without stats: %d (%.2f%%)",
-                self.det_no_stats,
-                (self.det_no_stats / looped_steps) * 100 if looped_steps > 0 else 0.0,
-            )
-        if self.oob > 0:
-            log.warning(
-                "steps outside optmap domain: %d (%.2f%%)",
-                self.oob,
-                (self.oob / looped_steps) * 100 if looped_steps > 0 else 0.0,
+
+        def _log(fmt: str, num: float, dem: float) -> None:
+            pct = (num / dem) * 100 if dem > 0 else 0.0
+            log.log(
+                logging.WARNING if pct > warning_threshold_pct else logging.DEBUG,
+                fmt + ": %d (%.2f%%)",  # noqa: G003
+                num,
+                pct,
             )
 
-        if self.vuv_primary_oob > 0:
-            log.warning(
-                "VUV_primary in voxels outside optmap domain: %d (%.2f%%)",
-                self.vuv_primary_oob,
-                (self.vuv_primary_oob / self.vuv_primary_looped) * 100
-                if self.vuv_primary_looped > 0
-                else 0.0,
-            )
-        if self.vuv_primary_no_stats > 0:
-            log.warning(
-                "VUV_primary in voxels without optmap stats: %d (%.2f%%)",
-                self.vuv_primary_no_stats,
-                (self.vuv_primary_no_stats / self.vuv_primary_looped) * 100
-                if self.vuv_primary_looped > 0
-                else 0.0,
-            )
+        _log("steps in optmap voxels without stats", self.steps_no_stats, self.steps_looped)
+        _log("steps in optmap voxels with zero probability", self.steps_zero, self.steps_looped)
+        _log("steps outside optmap domain", self.steps_oob, self.steps_looped)
+
+        _log(
+            "VUV_primary in voxels outside optmap domain",
+            self.vuv_primary_oob,
+            self.vuv_primary_looped,
+        )
+        _log(
+            "VUV_primary in voxels with zero probability",
+            self.vuv_primary_zero,
+            self.vuv_primary_looped,
+        )
+        _log(
+            "VUV_primary in voxels without optmap stats",
+            self.vuv_primary_no_stats,
+            self.vuv_primary_looped,
+        )
 
     def __add__(self, other):
         assert isinstance(other, NumdetStats)
@@ -170,6 +182,7 @@ def iterate_stepwise_depositions_numdet(
     edep_hits: ak.Array,
     optmap: OptmapForConvolve,
     det: str,
+    edep_for_stats: ak.Array | None = None,
     map_scaling: float = 1,
     map_scaling_sigma: float = 0,
     max_pes_per_hit: int = -1,
@@ -188,8 +201,9 @@ def iterate_stepwise_depositions_numdet(
 
     rng = np.random.default_rng() if rng is None else rng
     counts = ak.num(edep_hits.num_scint_ph)
-    output_array, exp_pes_array, max_ph_reached, res = _iterate_stepwise_depositions_numdet(
+    output_array, exp_pes_array, max_ph_reached, res, res2 = _iterate_stepwise_depositions_numdet(
         edep_hits,
+        edep_for_stats,
         rng,
         np.where(optmap.dets == det)[0][0],
         map_scaling,
@@ -201,7 +215,7 @@ def iterate_stepwise_depositions_numdet(
         return_pes_expectation_value,
     )
 
-    stats = NumdetStats(**res)
+    stats = NumdetStats(**res, **res2)
     if not return_stats:
         stats.warn()
 
@@ -296,6 +310,7 @@ def _iterate_stepwise_depositions_scintillate(
 @njit(parallel=False, nogil=True, cache=True)
 def _iterate_stepwise_depositions_numdet(
     edep_hits,
+    extra_edep_hits,
     rng,
     detidx: int,
     map_scaling: float,
@@ -306,8 +321,9 @@ def _iterate_stepwise_depositions_numdet(
     max_pes_per_hit: int = -1,
     return_pes_expectation_value: bool = False,
 ):
-    oob = ib = det_no_stats = 0
-    vuv_primary_oob = vuv_primary_no_stats = vuv_primary_inb = 0
+    steps_oob = steps_ib = steps_zero = steps_no_stats = 0
+    energy_oob = energy_ib = energy_zero = energy_no_stats = 0.0
+    vuv_primary_oob = vuv_primary_no_stats = vuv_primary_zero = vuv_primary_inb = 0
     output = np.empty(shape=output_length, dtype=np.int64)
     # p.e. expectation per row, at unit efficiency and before truncation
     expected_pes = np.empty(
@@ -335,6 +351,9 @@ def _iterate_stepwise_depositions_numdet(
                 continue
 
             vuv_step = hit.num_scint_ph[si]
+            edep = 0.0
+            if extra_edep_hits is not None:
+                edep = extra_edep_hits[rowid][si]
 
             loc = np.array([hit.xloc[si], hit.yloc[si], hit.zloc[si]], dtype=np.float64)
             # coordinates -> bins of the optical map.
@@ -352,18 +371,25 @@ def _iterate_stepwise_depositions_numdet(
             if bins[0] == -1 or bins[1] == -1 or bins[2] == -1:
                 mapw = 0.0
                 detp = 0.0  # out-of-bounds of optmap
-                oob += 1
+                steps_oob += 1
+                energy_oob += edep
                 vuv_primary_oob += vuv_step
             else:
                 # get probabilities from map.
                 mapw = optmap_weights[detidx, bins[0], bins[1], bins[2]]
                 detp = mapw * map_scaling_evt
                 if detp < 0:
-                    det_no_stats += 1
+                    steps_no_stats += 1
                     vuv_primary_no_stats += vuv_step
+                    energy_no_stats += edep
+                elif detp == 0.0:
+                    vuv_primary_zero += vuv_step
+                    steps_zero += 1
+                    energy_zero += edep
                 else:
                     vuv_primary_inb += vuv_step
-                ib += 1
+                    steps_ib += 1
+                    energy_ib += edep
 
             if return_pes_expectation_value:
                 expected_pes_row += 0.0 if mapw <= 0.0 else vuv_step * mapw
@@ -391,12 +417,23 @@ def _iterate_stepwise_depositions_numdet(
         expected_pes,
         has_max_ph_hit,
         {
-            "oob": oob,
-            "ib": ib,
-            "det_no_stats": det_no_stats,
-            "vuv_primary_looped": vuv_primary_inb + vuv_primary_oob + vuv_primary_no_stats,
+            "steps_oob": steps_oob,
+            "steps_looped": steps_ib + steps_oob + steps_no_stats + steps_zero,
+            "steps_no_stats": steps_no_stats,
+            "steps_zero": steps_zero,
+            "vuv_primary_looped": vuv_primary_inb
+            + vuv_primary_oob
+            + vuv_primary_no_stats
+            + vuv_primary_zero,
             "vuv_primary_oob": vuv_primary_oob,
             "vuv_primary_no_stats": vuv_primary_no_stats,
+            "vuv_primary_zero": vuv_primary_zero,
+        },
+        {
+            "energy_oob": energy_oob,
+            "energy_looped": energy_ib + energy_oob + energy_no_stats + energy_zero,
+            "energy_no_stats": energy_no_stats,
+            "energy_zero": energy_zero,
         },
     )
 
