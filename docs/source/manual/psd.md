@@ -26,8 +26,8 @@ _reboost_ defines a common input format for these mappings as described in
 The drift velocity depends on the direction of the electric field with respect
 to the crystal axes, so the drift time is not a function of $(r, z)$ alone. One
 map is therefore computed per crystal axis, conventionally at an azimuth of
-0$^\circ$ (the $\langle 100 \rangle$ axis) and 45$^\circ$ (the
-$\langle 110 \rangle$ axis). Both are read from the same file by
+0$^\circ$ (the $\langle 100 \rangle$ axis) and 45$^\circ$ (the $\langle 110
+\rangle$ axis). Both are read from the same file by
 {func}`reboost.hpge.utils.load_hpge_drift_time_maps` and combined by
 {func}`reboost.hpge.psd.drift_time_crystal_axes`, which interpolates between
 them with the four-fold symmetry of the crystal.
