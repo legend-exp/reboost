@@ -12,10 +12,10 @@ from ..utils import _check_input_file, _check_output_file
 log = logging.getLogger(__name__)
 
 
-def optical_cli() -> None:
+def optmap_cli() -> None:
     parser = argparse.ArgumentParser(
-        prog="reboost-optical",
-        description="%(prog)s command line interface",
+        prog="reboost-optmap",
+        description="%(prog)s: create and manipulate optical maps for usage with reboost",
     )
 
     parser.add_argument(
@@ -36,46 +36,46 @@ def optical_cli() -> None:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # STEP 1a: build map file from evt tier
-    map_parser = subparsers.add_parser("createmap", help="build optical map from evt file(s)")
-    map_parser.add_argument(
+    # COMMAND: build map file from stp tier
+    create_parser = subparsers.add_parser("create", help="build optical map from stp file(s)")
+    create_parser.add_argument(
         "--settings",
         action="store",
         help="""Select a config file for binning.""",
         required=True,
     )
-    map_parser.add_argument(
+    create_parser.add_argument(
         "--detectors",
         help=(
             "file that contains a list of detector ids that will be produced as additional output maps."
             + "By default, all channels will be included."
         ),
     )
-    map_parser_det_group = map_parser.add_mutually_exclusive_group(required=True)
-    map_parser_det_group.add_argument(
+    create_parser_det_group = create_parser.add_mutually_exclusive_group(required=True)
+    create_parser_det_group.add_argument(
         "--geom",
         help="GDML geometry file",
     )
-    map_parser.add_argument(
+    create_parser.add_argument(
         "--n-procs",
         "-N",
         type=int,
         default=1,
         help="number of worker processes to use. default: %(default)e",
     )
-    map_parser.add_argument(
+    create_parser.add_argument(
         "--check",
         action="store_true",
         help="""Check map statistics after creation. default: %(default)s""",
     )
-    map_parser.add_argument(
+    create_parser.add_argument(
         "input", help="input stp or optmap-evt LH5 file", metavar="INPUT_EVT", nargs="+"
     )
-    map_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
+    create_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
 
-    # STEP 1b: view maps
-    mapview_parser = subparsers.add_parser(
-        "viewmap",
+    # COMMAND: view maps
+    view_parser = subparsers.add_parser(
+        "view",
         help="view optical map (arrows: navigate slices/axes, 'c': channel selector)",
         formatter_class=argparse.RawTextHelpFormatter,
         description=(
@@ -94,77 +94,75 @@ def optical_cli() -> None:
         ),
         epilog=(
             "Examples:\n"
-            "  reboost-optical viewmap mymap.lh5\n"
-            "  reboost-optical viewmap mymap.lh5 --channel _1067205\n"
-            "  reboost-optical viewmap mymap.lh5 --hist prob_unc_rel --min 0 --max 1\n"
-            "  reboost-optical viewmap mymap.lh5 --divide other.lh5 --title 'Comparison'"
+            "  reboost-optmap view mymap.lh5\n"
+            "  reboost-optmap view mymap.lh5 --channel _1067205\n"
+            "  reboost-optmap view mymap.lh5 --hist prob_unc_rel --min 0 --max 1\n"
+            "  reboost-optmap view mymap.lh5 --divide other.lh5 --title 'Comparison'"
         ),
     )
-    mapview_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
-    mapview_parser.add_argument(
+    view_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
+    view_parser.add_argument(
         "--channel",
         action="store",
         default="all",
         help="channel to display ('all' or '_<detid>'). Press 'c' in the viewer to switch. default: %(default)s",
     )
-    mapview_parser.add_argument(
+    view_parser.add_argument(
         "--hist",
         choices=("_nr_gen", "_nr_det", "prob", "prob_unc", "prob_unc_rel"),
         action="store",
         default="prob",
         help="select optical map histogram to show. default: %(default)s",
     )
-    mapview_parser.add_argument(
+    view_parser.add_argument(
         "--divide",
         action="store",
         help="divide by another map file before display (ratio). default: none",
     )
-    mapview_parser.add_argument(
+    view_parser.add_argument(
         "--min",
         default=1e-4,
         type=(lambda s: s if s == "auto" else float(s)),
         help="colormap min value; use 'auto' for automatic scaling. default: %(default)e",
     )
-    mapview_parser.add_argument(
+    view_parser.add_argument(
         "--max",
         default=1e-2,
         type=(lambda s: s if s == "auto" else float(s)),
         help="colormap max value; use 'auto' for automatic scaling. default: %(default)e",
     )
-    mapview_parser.add_argument("--title", help="title of figure. default: stem of filename")
+    view_parser.add_argument("--title", help="title of figure. default: stem of filename")
 
-    # STEP 1c: merge maps
-    mapmerge_parser = subparsers.add_parser("mergemap", help="merge optical maps")
-    mapmerge_parser.add_argument(
-        "input", help="input map LH5 files", metavar="INPUT_MAP", nargs="+"
-    )
-    mapmerge_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
-    mapmerge_parser.add_argument(
+    # COMMAND: merge maps
+    merge_parser = subparsers.add_parser("merge", help="merge optical maps")
+    merge_parser.add_argument("input", help="input map LH5 files", metavar="INPUT_MAP", nargs="+")
+    merge_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
+    merge_parser.add_argument(
         "--settings",
         action="store",
         help="""Select a config file for binning.""",
         required=True,
     )
-    mapmerge_parser.add_argument(
+    merge_parser.add_argument(
         "--n-procs",
         "-N",
         type=int,
         default=1,
         help="number of worker processes to use. default: %(default)e",
     )
-    mapmerge_parser.add_argument(
+    merge_parser.add_argument(
         "--check",
         action="store_true",
         help="""Check map statistics after creation. default: %(default)s""",
     )
 
-    # STEP 1d: check map
-    checkmap_parser = subparsers.add_parser("checkmap", help="check optical maps")
-    checkmap_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
+    # COMMAND: check map
+    check_parser = subparsers.add_parser("check", help="check optical maps")
+    check_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
 
-    # STEP 1e: patch a region of a map with a separately simulated one
+    # COMMAND: patch a region of a map with a separately simulated one
     patch_parser = subparsers.add_parser(
-        "patchmap", help="replace a region of an optical map with a patch map"
+        "patch", help="replace a region of an optical map with a patch map"
     )
     patch_parser.add_argument("input", help="input map LH5 file", metavar="INPUT_MAP")
     patch_parser.add_argument(
@@ -172,7 +170,7 @@ def optical_cli() -> None:
     )
     patch_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
 
-    # STEP X: rebin maps
+    # COMMAND: rebin maps
     rebin_parser = subparsers.add_parser("rebin", help="rebin optical maps")
     rebin_parser.add_argument("input", help="input map LH5 files", metavar="INPUT_MAP")
     rebin_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
@@ -186,8 +184,8 @@ def optical_cli() -> None:
     # the subcommand modules are imported here, so that a subcommand does not pay
     # the import cost of the others
 
-    # STEP 1a: build map file from evt tier
-    if args.command == "createmap":
+    # COMMAND: build map file from evt tier
+    if args.command == "create":
         from .create import create_optical_maps  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
@@ -213,8 +211,8 @@ def optical_cli() -> None:
             geom_fn=args.geom,
         )
 
-    # STEP 1b: view maps
-    if args.command == "viewmap":
+    # COMMAND: view maps
+    if args.command == "view":
         from .mapview import view_optmap  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
@@ -230,8 +228,8 @@ def optical_cli() -> None:
             histogram_choice=args.hist,
         )
 
-    # STEP 1c: merge maps
-    if args.command == "mergemap":
+    # COMMAND: merge maps
+    if args.command == "merge":
         from .create import merge_optical_maps  # noqa: PLC0415
 
         # load settings for binning from config file.
@@ -244,22 +242,22 @@ def optical_cli() -> None:
             args.input, args.output, settings, check_after_create=args.check, n_procs=args.n_procs
         )
 
-    # STEP 1d: check maps
-    if args.command == "checkmap":
+    # COMMAND: check maps
+    if args.command == "check":
         from .create import check_optical_map  # noqa: PLC0415
 
         _check_input_file(parser, args.input)
         check_optical_map(args.input)
 
     # STEP 1e: patch map
-    if args.command == "patchmap":
+    if args.command == "patch":
         from .create import patch_optical_map_lh5  # noqa: PLC0415
 
         _check_input_file(parser, [args.input, args.patch])
         _check_output_file(parser, args.output)
         patch_optical_map_lh5(args.input, args.patch, args.output)
 
-    # STEP X: rebin maps
+    # COMMAND: rebin maps
     if args.command == "rebin":
         from .create import rebin_optical_maps  # noqa: PLC0415
 

@@ -6,7 +6,7 @@ probability that a photon emitted at a given point reaches each light detector,
 and applies it to the energy depositions afterwards.
 
 {doc}`../manual/optical` describes how to produce a map from a _remage_
-simulation and how to apply it. The command line tool `reboost-optical` covers
+simulation and how to apply it. The command line tool `reboost-optmap` covers
 the usual workflow.
 
 ```{eval-rst}
