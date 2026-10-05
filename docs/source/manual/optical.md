@@ -140,8 +140,8 @@ the patch never sampled keep the "no statistics" sentinel.
 
 ### Integration into the hit-tier processing
 
-_reboost-optmap_ is integrated with the remaining _reboost_ stack. The
-map-based production of the optical response is divided into multiple steps:
+_reboost-optmap_ is integrated with the remaining _reboost_ stack. The map-based
+production of the optical response is divided into multiple steps:
 
 1. generation of primary emitted photon counts (the same for all detectors)
 
