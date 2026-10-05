@@ -80,7 +80,7 @@ bins: [280, 280, 480]
 ```
 
 ```console
-$ reboost-optical createmap --settings map-settings.yaml --geom l200-geometry.gdml map.stp.lh5 map.map.lh5
+$ reboost-optmap create --settings map-settings.yaml --geom l200-geometry.gdml map.stp.lh5 map.map.lh5
 ```
 
 `createmap` can also work on multiple input files at once. Make sure that enough
@@ -113,7 +113,7 @@ of 4096 remage output files can be read in parallel.
 The 12-16 output files can then be combined into one with
 
 ```console
-$ reboost-optical mergemap --settings map-settings.yaml map.map*.lh5 final-output-map.lh5
+$ reboost-optmap merge --settings map-settings.yaml map.map*.lh5 final-output-map.lh5
 ```
 
 :::
@@ -125,7 +125,7 @@ example a volume containing a calibration source and its absorber, which the
 geometry of the base map does not contain:
 
 ```console
-$ reboost-optical patchmap full-map.lh5 source-map.lh5 patched-map.lh5
+$ reboost-optmap patch full-map.lh5 source-map.lh5 patched-map.lh5
 ```
 
 The patch is substituted, not merged. It has to sit on the grid of the base map
@@ -140,7 +140,7 @@ the patch never sampled keep the "no statistics" sentinel.
 
 ### Integration into the hit-tier processing
 
-_reboost-optical_ is integrated with the remaining _reboost_ stack. The
+_reboost-optmap_ is integrated with the remaining _reboost_ stack. The
 map-based production of the optical response is divided into multiple steps:
 
 1. generation of primary emitted photon counts (the same for all detectors)
