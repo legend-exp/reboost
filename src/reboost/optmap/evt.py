@@ -5,6 +5,7 @@ from collections import OrderedDict
 from collections.abc import Generator, Sequence
 
 import numpy as np
+import pandas as pd
 from lgdo import Table
 from lh5 import LH5Iterator
 
@@ -33,10 +34,9 @@ def generate_optmap_evt(
     vert_df = None
     vert_df_bounds = None
     hits_expected = 0
-    had_last_chunk = False
 
-    def _store_vert_df(last_chunk: bool) -> Generator[Table, None, None]:
-        nonlocal vert_df, had_last_chunk
+    def _store_vert_df() -> Generator[Table, None, None]:
+        nonlocal vert_df
         if vert_df is None:
             return
 
@@ -47,8 +47,14 @@ def generate_optmap_evt(
         assert hits_sum == hits_expected
 
         yield Table(vert_df)
-        had_last_chunk = last_chunk
         vert_df = None
+
+    def _prepare_df(chunk: Table) -> pd.DataFrame:
+        df = chunk.view_as("pd").set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
+        # add columns for all detectors.
+        for d in detectors:
+            df[d] = hit_count_type(0)
+        return df
 
     # helper function for "windowed join". while iterating the optical hits, we have to
     # make sure that we always have the correct combined vertex/hit output table available.
@@ -72,18 +78,12 @@ def generate_optmap_evt(
             # the next event table chunk.
 
             # we might have filled a dataframe, save it to disk.
-            yield from _store_vert_df(last_chunk=False)
+            yield from _store_vert_df()
 
             # read the next vertex chunk into memory.
-            vert_df = next(vert_it).view_as("pd")
-
-            # prepare vertex coordinates.
-            vert_df = vert_df.set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
+            vert_df = _prepare_df(next(vert_it))
             vert_df_bounds = [vert_df.index.min(), vert_df.index.max()]
             hits_expected = 0
-            # add columns for all detectors.
-            for d in detectors:
-                vert_df[d] = hit_count_type(0)
 
     log.info("prepare evt table")
     # use smaller integer type uint8 to spare RAM when storing types.
@@ -98,9 +98,13 @@ def generate_optmap_evt(
             vert_df.loc[t[0], str(t[1])] += 1  # type: ignore[union-attr]
             hits_expected += 1
 
-    yield from _store_vert_df(last_chunk=True)  # store the last chunk.
+    yield from _store_vert_df()  # store the last chunk.
 
-    assert had_last_chunk, "did not reach last chunk in optmap-evt building"
+    # the vertex chunks after the last hit have no hits, but their primaries still count.
+    hits_expected = 0
+    while (vert_lgdo := next(vert_it, None)) is not None:
+        vert_df = _prepare_df(vert_lgdo)
+        yield from _store_vert_df()
 
 
 def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:

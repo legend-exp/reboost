@@ -16,6 +16,7 @@ from reboost.optmap.create import (
     patch_optical_map_lh5,
     rebin_optical_maps,
 )
+from reboost.optmap.evt import generate_optmap_evt
 from reboost.optmap.optmap import OpticalMap
 
 
@@ -77,6 +78,42 @@ def tbl_evt_fns(tmptestdir) -> tuple[str]:
     evt_file = tmptestdir / "evt.lh5"
     lh5.write(tbl_evt, name="optmap_evt", lh5_file=evt_file, wo_mode="overwrite_file")
     return (str(evt_file),)
+
+
+@pytest.mark.parametrize(
+    "hit_evtids",
+    [[3, 3, 7, 10, 55, 98], [3], []],
+    ids=["hits", "hits-only-early", "no-hits"],
+)
+def test_generate_optmap_evt(tmptestdir, hit_evtids):
+    evt_count = 100
+    evtids = np.arange(evt_count)
+    tbl_vertices = Table(
+        {
+            "evtid": Array(evtids),
+            "xloc": Array(np.zeros(evt_count)),
+            "yloc": Array(np.zeros(evt_count)),
+            "zloc": Array(np.zeros(evt_count)),
+            "n_part": Array(np.ones(evt_count)),
+            "time": Array(np.ones(evt_count)),
+        }
+    )
+    hit_evtids = np.array(hit_evtids, dtype=np.int_)
+    tbl_optical = Table(
+        {
+            "evtid": Array(hit_evtids),
+            "det_uid": Array(np.ones(len(hit_evtids), dtype=np.int_)),
+        }
+    )
+    hit_file = tmptestdir / "hit-evt.lh5"
+    lh5.write(tbl_vertices, name="vtx", lh5_file=hit_file, wo_mode="overwrite_file")
+    lh5.write(tbl_optical, name="stp/optical", lh5_file=hit_file, wo_mode="overwrite")
+
+    # the buffer is smaller than the file, all vertex chunks have to be in the output, also
+    # the ones after the last hit.
+    evt = [t.view_as("pd") for t in generate_optmap_evt(str(hit_file), ["1"], buffer_len=10)]
+    assert sum(len(t) for t in evt) == evt_count
+    assert sum(t["1"].sum() for t in evt) == len(hit_evtids)
 
 
 @pytest.mark.filterwarnings("ignore::scipy.optimize._optimize.OptimizeWarning")
