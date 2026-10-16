@@ -167,6 +167,7 @@ def view_optmap(
     cmap_max: float | Literal["auto"] = 1e-2,
     histogram_choice: str = "prob",
     title: str | None = None,
+    color_norm: Literal["lin", "log"] = "log",
 ) -> None:
     available_dets = list_optical_maps(optmap_fn)
 
@@ -189,9 +190,18 @@ def view_optmap(
 
     cmap = plt.cm.plasma.with_extremes(bad="w", under="gray", over="red")  # type: ignore[attr-defined]
     weights, extent, labels = _get_weights(viewdata)
+
+    if color_norm == "log":
+        norm: colors.Normalize = colors.LogNorm(vmin=cmap_min, vmax=cmap_max)
+    elif color_norm == "lin":
+        norm = colors.Normalize(vmin=cmap_min, vmax=cmap_max)
+    else:
+        msg = f"unexpected norm {color_norm}"
+        raise ValueError(msg)
+
     plt.imshow(
         weights[viewdata["idx"]],
-        norm=colors.LogNorm(vmin=cmap_min, vmax=cmap_max),  # type: ignore[arg-type]
+        norm=norm,
         aspect=1,
         interpolation="none",
         cmap=cmap,
