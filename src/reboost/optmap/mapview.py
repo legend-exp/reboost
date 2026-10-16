@@ -121,7 +121,7 @@ def _prepare_data(
     cmap_max: float | Literal["auto"] = 1e-2,
     histogram_choice: str = "prob",
     detid: str = "all",
-) -> tuple[tuple[NDArray], NDArray, float | Literal["auto"], float | Literal["auto"]]:
+) -> tuple[tuple[NDArray], NDArray, float, float]:
     optmap_edges, optmap_weights = _read_data(optmap_fn, detid, histogram_choice)
 
     if divide_fn is not None:
@@ -155,7 +155,7 @@ def _prepare_data(
     # after this re-assignment) in a different way.
     optmap_weights[(optmap_weights >= 0) & (optmap_weights < 1e-50)] = min(1e-10, cmap_min)
 
-    return optmap_edges, optmap_weights, cmap_min, cmap_max
+    return optmap_edges, optmap_weights, cmap_min, cmap_max  # type: ignore[return-value]
 
 
 def view_optmap(
