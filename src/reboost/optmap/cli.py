@@ -131,6 +131,13 @@ def optmap_cli() -> None:
         type=(lambda s: s if s == "auto" else float(s)),
         help="colormap max value; use 'auto' for automatic scaling. default: %(default)e",
     )
+    view_parser.add_argument(
+        "--norm",
+        default="log",
+        choices=("log", "lin"),
+        action="store",
+        help="colormap norm. default: %(default)s",
+    )
     view_parser.add_argument("--title", help="title of figure. default: stem of filename")
 
     # COMMAND: merge maps
@@ -226,6 +233,7 @@ def optmap_cli() -> None:
             cmap_max=args.max,
             title=args.title,
             histogram_choice=args.hist,
+            color_norm=args.norm,
         )
 
     # COMMAND: merge maps
