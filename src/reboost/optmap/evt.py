@@ -33,10 +33,9 @@ def generate_optmap_evt(
     vert_df = None
     vert_df_bounds = None
     hits_expected = 0
-    had_last_chunk = False
 
-    def _store_vert_df(last_chunk: bool) -> Generator[Table, None, None]:
-        nonlocal vert_df, had_last_chunk
+    def _store_vert_df() -> Generator[Table, None, None]:
+        nonlocal vert_df
         if vert_df is None:
             return
 
@@ -47,8 +46,20 @@ def generate_optmap_evt(
         assert hits_sum == hits_expected
 
         yield Table(vert_df)
-        had_last_chunk = last_chunk
         vert_df = None
+
+    def _read_vert_df() -> None:
+        """Read the next vertex chunk into memory, raises StopIteration at the end."""
+        nonlocal vert_df, vert_df_bounds, hits_expected
+        vert_df = next(vert_it).view_as("pd")
+
+        # prepare vertex coordinates.
+        vert_df = vert_df.set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
+        vert_df_bounds = [vert_df.index.min(), vert_df.index.max()]
+        hits_expected = 0
+        # add columns for all detectors.
+        for d in detectors:
+            vert_df[d] = hit_count_type(0)
 
     # helper function for "windowed join". while iterating the optical hits, we have to
     # make sure that we always have the correct combined vertex/hit output table available.
@@ -56,9 +67,7 @@ def generate_optmap_evt(
     # This function follows the assumption, that the output event ids are at least "somewhat"
     # monotonic, i.e. later chunks do not contain lower evtids than the previous chunk(s).
     # Going back is not implemented.
-    def _ensure_vert_df(vert_it: LH5Iterator, evtid: int) -> Generator[Table, None, None]:
-        nonlocal vert_df, vert_df_bounds, hits_expected
-
+    def _ensure_vert_df(evtid: int) -> Generator[Table, None, None]:
         # skipping multiple chunks is possible in sparsely populated simulations.
         while vert_df_bounds is None or evtid > vert_df_bounds[1] or evtid < vert_df_bounds[0]:
             if vert_df_bounds is not None and vert_df is not None:
@@ -72,18 +81,9 @@ def generate_optmap_evt(
             # the next event table chunk.
 
             # we might have filled a dataframe, save it to disk.
-            yield from _store_vert_df(last_chunk=False)
+            yield from _store_vert_df()
 
-            # read the next vertex chunk into memory.
-            vert_df = next(vert_it).view_as("pd")
-
-            # prepare vertex coordinates.
-            vert_df = vert_df.set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
-            vert_df_bounds = [vert_df.index.min(), vert_df.index.max()]
-            hits_expected = 0
-            # add columns for all detectors.
-            for d in detectors:
-                vert_df[d] = hit_count_type(0)
+            _read_vert_df()
 
     log.info("prepare evt table")
     # use smaller integer type uint8 to spare RAM when storing types.
@@ -94,13 +94,19 @@ def generate_optmap_evt(
         log.info("build evt table (%d)", opti_it_count)
 
         for t in opti_df[["evtid", "det_uid"]].itertuples(name=None, index=False):
-            yield from _ensure_vert_df(vert_it, t[0])
+            yield from _ensure_vert_df(t[0])
             vert_df.loc[t[0], str(t[1])] += 1  # type: ignore[union-attr]
             hits_expected += 1
 
-    yield from _store_vert_df(last_chunk=True)  # store the last chunk.
-
-    assert had_last_chunk, "did not reach last chunk in optmap-evt building"
+    # store the last chunk with hits and all remaining vertex chunks: the primaries after the
+    # last hit (all of them, in a file without any hit) did not create any hit, but they still
+    # count as generated primaries.
+    while True:
+        yield from _store_vert_df()
+        try:
+            _read_vert_df()
+        except StopIteration:
+            break
 
 
 def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:
