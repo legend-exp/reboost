@@ -5,9 +5,8 @@ import ctypes
 import logging
 import math
 import multiprocessing as mp
-import multiprocessing.sharedctypes
 from collections.abc import Mapping
-from typing import Any, TypeAlias
+from typing import Any, NamedTuple, TypeAlias
 
 import lh5
 import numpy as np
@@ -16,7 +15,16 @@ from numpy.typing import NDArray
 
 log = logging.getLogger(__name__)
 
-HistArray: TypeAlias = NDArray | mp.sharedctypes.SynchronizedArray
+
+class _SharedHist(NamedTuple):
+    """Histogram stored in a slice of a shared-memory buffer."""
+
+    buf: ctypes.Array
+    offset: int  # in bytes
+    lock: mp.synchronize.Lock
+
+
+HistArray: TypeAlias = NDArray | _SharedHist
 
 
 class OpticalMap:
@@ -84,12 +92,21 @@ class OpticalMap:
         om.binning = bin_nr_gen
         return om
 
-    def _prepare_hist(self) -> HistArray:
-        """Prepare an empty histogram with the parameters global to this map instance."""
+    def _prepare_hist(self, buf: ctypes.Array | None = None, i: int = 0) -> HistArray:
+        """Prepare an empty histogram with the parameters global to this map instance.
+
+        In shared-memory mode, the histogram is the ``i``-th slice of ``buf``, or a new buffer if
+        ``buf`` is not given.
+        """
         if self.use_shmem:
             assert mp.current_process().name == "MainProcess"
-            a: HistArray = self._mp_man.Array(ctypes.c_double, math.prod(self._single_shape))
-            nda: NDArray = self._nda(a)  # type: ignore[assignment]
+            size = math.prod(self._single_shape)
+            if buf is None:
+                buf = self._mp_man.RawArray(ctypes.c_double, size)
+            a: HistArray = _SharedHist(
+                buf, i * size * ctypes.sizeof(ctypes.c_double), self._mp_man.Lock()
+            )
+            nda: NDArray = self._nda(a)
             nda.fill(0)
         else:
             a = np.zeros(shape=self._single_shape, dtype=np.float64)  # type: ignore[arg-type]
@@ -153,25 +170,32 @@ class OpticalMap:
         idx: NDArray,
     ) -> None:
         # increment bin contents
-        with self._lock_nda(h)():
+        with self._lock_nda(h):
             np.add.at(self._nda(h).reshape(-1), idx, 1)
 
     def _nda(self, h: HistArray) -> NDArray:
         if not self.use_shmem:
             return h  # type: ignore[return-value]
-        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.get_obj())  # type: ignore[union-attr,arg-type]
+        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.buf, offset=h.offset)  # type: ignore[union-attr]
 
     def _lock_nda(self, h: HistArray):
         if not self.use_shmem:
-            return contextlib.nullcontext
-        return h.get_lock  # type: ignore[union-attr]
+            return contextlib.nullcontext()
+        return h.lock  # type: ignore[union-attr]
 
-    def _mp_preinit(self, mp_man: mp.context.BaseContext, vertex: bool) -> None:
+    def _mp_preinit(
+        self,
+        mp_man: mp.context.BaseContext,
+        buf: ctypes.Array,
+        i_hits: int,
+        i_vertex: int | None = None,
+    ) -> None:
+        """Place the histograms of this map at the given slice indices of the shared ``buf``."""
         self._mp_man = mp_man
-        if self.h_vertex is None and vertex:
-            self.h_vertex = self._prepare_hist()
+        if self.h_vertex is None and i_vertex is not None:
+            self.h_vertex = self._prepare_hist(buf, i_vertex)
         if self.h_hits is None:
-            self.h_hits = self._prepare_hist()
+            self.h_hits = self._prepare_hist(buf, i_hits)
 
     def fill_vertex(self, loc: NDArray) -> None:
         """Fill map with a chunk of hit coordinates."""

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import copy
+import ctypes
 import gc
 import logging
+import math
 import multiprocessing as mp
 from collections.abc import Callable
 from pathlib import Path
@@ -187,8 +189,13 @@ def create_optical_maps(
             )
     else:
         ctx = mp.get_context("forkserver")
+        # one buffer for all histograms: the forkserver passes at most 256 fds to a new worker,
+        # and each separately allocated shared array needs its own.
+        size = math.prod(optmaps[0]._single_shape)
+        buf = ctx.RawArray(ctypes.c_double, (len(optmaps) + 1) * size)
         for i in range(len(optmaps)):
-            optmaps[i]._mp_preinit(ctx, vertex=(i == 0))
+            assert math.prod(optmaps[i]._single_shape) == size
+            optmaps[i]._mp_preinit(ctx, buf, i_hits=i + 1, i_vertex=0 if i == 0 else None)
 
         # note: errors thrown in initializer will make the main process hang in an endless loop.
         # unfortunately, we cannot pass the objects later, as they contain shmem/array handles.
