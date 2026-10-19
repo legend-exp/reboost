@@ -6,6 +6,7 @@ from typing import Literal
 
 import dbetto
 
+from .. import _version
 from ..log_utils import setup_log
 from ..utils import _check_input_file, _check_output_file
 
@@ -18,6 +19,12 @@ def optmap_cli() -> None:
         description="%(prog)s: create and manipulate optical maps for usage with reboost",
     )
 
+    parser.add_argument(
+        "--version",
+        action="version",
+        help="""Print %(prog)s version and exit""",
+        version=_version.__version__,
+    )
     parser.add_argument(
         "--verbose",
         "-v",
