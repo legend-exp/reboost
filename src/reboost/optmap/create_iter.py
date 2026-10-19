@@ -11,10 +11,8 @@ from lh5 import LH5Iterator
 
 log = logging.getLogger(__name__)
 
-EVT_TABLE_NAME = "optmap_evt"
 
-
-def generate_optmap_evt(
+def iterate_optmap_hits(
     lh5_in_file: str, detectors: Sequence[str | int], buffer_len: int = int(5e6)
 ) -> Generator[Table, None, None]:
     """Create a faster map for lookup of the hits in each detector, for each primary event."""
@@ -24,7 +22,7 @@ def generate_optmap_evt(
     opti_it = LH5Iterator(lh5_in_file, "stp/optical", buffer_len=buffer_len)
 
     if len(detectors) == 0:
-        msg = "detector array cannot be empty for optmap-evt building"
+        msg = "detector array cannot be empty for stp iterator for optmap creation"
         raise ValueError(msg)
     detectors = [str(d) for d in detectors]
     for d in detectors:
@@ -85,13 +83,13 @@ def generate_optmap_evt(
             vert_df_bounds = [vert_df.index.min(), vert_df.index.max()]
             hits_expected = 0
 
-    log.info("prepare evt table")
+    log.info("prepare iterator table")
     # use smaller integer type uint8 to spare RAM when storing types.
     hit_count_type = np.uint8
     for opti_it_count, opti_lgdo in enumerate(opti_it):
         opti_df = opti_lgdo.view_as("pd")
 
-        log.info("build evt table (%d)", opti_it_count)
+        log.info("build iterator table (%d)", opti_it_count)
 
         for t in opti_df[["evtid", "det_uid"]].itertuples(name=None, index=False):
             yield from _ensure_vert_df(vert_it, t[0])
@@ -117,7 +115,3 @@ def get_optical_detectors_from_geom(geom_fn) -> dict[int, str]:
     return OrderedDict(
         [(d.uid, d.ntuple_name if d.ntuple_name else name) for name, d in detectors.items()]
     )
-
-
-def read_optmap_evt(lh5_file: str, buffer_len: int = int(5e6)) -> LH5Iterator:
-    return LH5Iterator(lh5_file, EVT_TABLE_NAME, buffer_len=buffer_len)

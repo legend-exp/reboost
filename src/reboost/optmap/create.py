@@ -17,9 +17,9 @@ from numba import njit
 from numpy.typing import NDArray
 
 from ..log_utils import setup_log
-from .evt import (
-    generate_optmap_evt,
+from .create_iter import (
     get_optical_detectors_from_geom,
+    iterate_optmap_hits,
 )
 from .optmap import OpticalMap
 
@@ -49,7 +49,7 @@ def _optmaps_for_channels(
         for i in range(optmap_count)
     ]
 
-    return all_det_ids, optmaps, optmap_det_ids
+    return optmaps, optmap_det_ids
 
 
 @njit(cache=True)
@@ -89,30 +89,30 @@ def _create_optical_maps_process_init(optmaps, log_level) -> None:
 
 
 def _create_optical_maps_process(
-    optmap_events_fn, buffer_len, all_det_ids, ch_idx_to_map_idx
+    optmap_photon_stp_fn, buffer_len, all_det_ids, ch_idx_to_map_idx
 ) -> bool:
-    log.info("started worker task for %s", optmap_events_fn)
+    log.info("started worker task for %s", optmap_photon_stp_fn)
     x = _create_optical_maps_chunk(
-        optmap_events_fn,
+        optmap_photon_stp_fn,
         buffer_len,
         all_det_ids,
         _shared_optmaps,
         ch_idx_to_map_idx,
     )
-    log.info("finished worker task for %s", optmap_events_fn)
+    log.info("finished worker task for %s", optmap_photon_stp_fn)
     return x
 
 
 def _create_optical_maps_chunk(
-    optmap_events_fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx
+    optmap_photon_stp_fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx
 ) -> bool:
     cols = [str(c) for c in all_det_ids]
-    optmap_events_it = generate_optmap_evt(optmap_events_fn, cols, buffer_len)
+    optmap_hits_it = iterate_optmap_hits(optmap_photon_stp_fn, cols, buffer_len)
 
-    for it_count, events_lgdo in enumerate(optmap_events_it):
-        optmap_events = events_lgdo.view_as("pd")
-        hitcounts = optmap_events[cols].to_numpy()
-        loc = optmap_events[["xloc", "yloc", "zloc"]].to_numpy()
+    for it_count, hits_lgdo in enumerate(optmap_hits_it):
+        optmap_hits = hits_lgdo.view_as("pd")
+        hitcounts = optmap_hits[cols].to_numpy()
+        loc = optmap_hits[["xloc", "yloc", "zloc"]].to_numpy()
 
         log.debug("filling vertex histogram (%d)", it_count)
         optmaps[0].fill_vertex(loc)
@@ -129,7 +129,7 @@ def _create_optical_maps_chunk(
 
 
 def create_optical_maps(
-    optmap_events_fn: list[str],
+    optmap_photon_stp_fn: list[str],
     settings,
     buffer_len: int = int(5e6),
     chfilter: tuple[str | int, ...] | Literal["*"] = (),
@@ -143,26 +143,24 @@ def create_optical_maps(
 
     Parameters
     ----------
-    optmap_events_fn
-        list of filenames to lh5 files, that can either be stp files from remage or "optmap-evt"
-        files with a table ``/optmap_evt`` with columns ``{x,y,z}loc`` and one column (with numeric
-        header) for each SiPM channel.
+    optmap_photon_stp_fn
+        list of filenames to lh5 files, that are stp files from remage.
     chfilter
         tuple of detector ids that will be included in the resulting optmap. Those have to match
-        the column names in ``optmap_events_fn``.
+        the detector names in ``optmap_photon_stp_fn``.
     n_procs
         number of processors, ``1`` for sequential mode, or ``None`` to use all processors.
     """
-    if len(optmap_events_fn) == 0:
+    if len(optmap_photon_stp_fn) == 0:
         msg = "no input files specified"
         raise ValueError(msg)
 
     use_shmem = n_procs is None or n_procs > 1
 
-    optmap_evt_columns = get_optical_detectors_from_geom(geom_fn)
+    all_det_ids = get_optical_detectors_from_geom(geom_fn)
 
-    all_det_ids, optmaps, optmap_det_ids = _optmaps_for_channels(
-        optmap_evt_columns, settings, chfilter=chfilter, use_shmem=use_shmem
+    optmaps, optmap_det_ids = _optmaps_for_channels(
+        all_det_ids, settings, chfilter=chfilter, use_shmem=use_shmem
     )
 
     # indices for later use in _compute_hit_maps.
@@ -183,7 +181,7 @@ def create_optical_maps(
 
     # sequential mode.
     if not use_shmem:
-        for fn in optmap_events_fn:
+        for fn in optmap_photon_stp_fn:
             q.append(
                 _create_optical_maps_chunk(fn, buffer_len, all_det_ids, optmaps, ch_idx_to_map_idx)
             )
@@ -207,7 +205,7 @@ def create_optical_maps(
         )
 
         pool_results = []
-        for fn in optmap_events_fn:
+        for fn in optmap_photon_stp_fn:
             r = pool.apply_async(
                 _create_optical_maps_process,
                 args=(fn, buffer_len, all_det_ids, ch_idx_to_map_idx),
@@ -225,8 +223,8 @@ def create_optical_maps(
         pool.join()
         log.info("joined worker process pool")
 
-    if len(q) != len(optmap_events_fn):
-        log.error("got %d results for %d files", len(q), len(optmap_events_fn))
+    if len(q) != len(optmap_photon_stp_fn):
+        log.error("got %d results for %d files", len(q), len(optmap_photon_stp_fn))
 
     # all maps share the same vertex histogram.
     for i in range(1, len(optmaps)):
