@@ -51,10 +51,10 @@ def generate_optmap_evt(
 
     def _prepare_df(chunk: Table) -> pd.DataFrame:
         df = chunk.view_as("pd").set_index("evtid", drop=True).drop(["n_part", "time"], axis=1)
-        # add columns for all detectors.
-        for d in detectors:
-            df[d] = hit_count_type(0)
-        return df
+        # add columns for all detectors at once, to avoid a fragmented DataFrame.
+        zeros = np.zeros((len(df), len(detectors)), dtype=hit_count_type)
+        zeros_df = pd.DataFrame(zeros, index=df.index, columns=detectors, copy=False)
+        return pd.concat([df, zeros_df], axis=1)
 
     # helper function for "windowed join". while iterating the optical hits, we have to
     # make sure that we always have the correct combined vertex/hit output table available.
