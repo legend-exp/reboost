@@ -75,9 +75,7 @@ def optmap_cli() -> None:
         action="store_true",
         help="""Check map statistics after creation. default: %(default)s""",
     )
-    create_parser.add_argument(
-        "input", help="input stp or optmap-evt LH5 file", metavar="INPUT_EVT", nargs="+"
-    )
+    create_parser.add_argument("input", help="input stp LH5 file", metavar="INPUT_STP", nargs="+")
     create_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
 
     # COMMAND: view maps
@@ -198,7 +196,7 @@ def optmap_cli() -> None:
     # the subcommand modules are imported here, so that a subcommand does not pay
     # the import cost of the others
 
-    # COMMAND: build map file from evt tier
+    # COMMAND: build map file from stp tier
     if args.command == "create":
         from .create import create_optical_maps  # noqa: PLC0415
 

@@ -16,7 +16,7 @@ from reboost.optmap.create import (
     patch_optical_map_lh5,
     rebin_optical_maps,
 )
-from reboost.optmap.evt import generate_optmap_evt
+from reboost.optmap.create_iter import iterate_optmap_hits
 from reboost.optmap.optmap import OpticalMap
 
 
@@ -85,7 +85,7 @@ def tbl_evt_fns(tmptestdir) -> tuple[str]:
     [[3, 3, 7, 10, 55, 98], [3], []],
     ids=["hits", "hits-only-early", "no-hits"],
 )
-def test_generate_optmap_evt(tmptestdir, hit_evtids):
+def test_iterate_optmap_hits(tmptestdir, hit_evtids):
     evt_count = 100
     evtids = np.arange(evt_count)
     tbl_vertices = Table(
@@ -111,7 +111,7 @@ def test_generate_optmap_evt(tmptestdir, hit_evtids):
 
     # the buffer is smaller than the file, all vertex chunks have to be in the output, also
     # the ones after the last hit.
-    evt = [t.view_as("pd") for t in generate_optmap_evt(str(hit_file), ["1"], buffer_len=10)]
+    evt = [t.view_as("pd") for t in iterate_optmap_hits(str(hit_file), ["1"], buffer_len=10)]
     assert sum(len(t) for t in evt) == evt_count
     assert sum(t["1"].sum() for t in evt) == len(hit_evtids)
 
