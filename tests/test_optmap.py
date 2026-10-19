@@ -82,8 +82,8 @@ def tbl_evt_fns(tmptestdir) -> tuple[str]:
 
 @pytest.mark.parametrize(
     "hit_evtids",
-    [[3, 3, 7, 10, 55, 98], [3], []],
-    ids=["hits", "hits-only-early", "no-hits"],
+    [[3, 7, 10, 55, 98], [3], [], [3, 3, 7], [*range(10), 9, 11]],
+    ids=["hits", "hits-only-early", "no-hits", "duplicate-evtid", "duplicate-evtid-across-chunks"],
 )
 def test_iterate_optmap_hits(tmptestdir, hit_evtids):
     evt_count = 100
@@ -108,6 +108,11 @@ def test_iterate_optmap_hits(tmptestdir, hit_evtids):
     hit_file = tmptestdir / "hit-evt.lh5"
     lh5.write(tbl_vertices, name="vtx", lh5_file=hit_file, wo_mode="overwrite_file")
     lh5.write(tbl_optical, name="stp/optical", lh5_file=hit_file, wo_mode="overwrite")
+
+    if len(np.unique(hit_evtids)) != len(hit_evtids):
+        with pytest.raises(ValueError, match="more than one optical hit"):
+            list(iterate_optmap_hits(str(hit_file), ["1"], buffer_len=10))
+        return
 
     # the buffer is smaller than the file, all vertex chunks have to be in the output, also
     # the ones after the last hit.
