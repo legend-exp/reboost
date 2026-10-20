@@ -21,7 +21,7 @@ from .create_iter import (
     get_optical_detectors_from_geom,
     iterate_optmap_hits,
 )
-from .optmap import OpticalMap
+from .optmap import OpticalMap, _SharedBuffer
 
 log = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ def create_optical_maps(
         # one buffer for all histograms: the forkserver passes at most 256 fds to a new worker,
         # and each separately allocated shared array needs its own.
         size = math.prod(optmaps[0]._single_shape)
-        buf = ctx.RawArray(ctypes.c_double, (len(optmaps) + 1) * size)
+        buf = _SharedBuffer((len(optmaps) + 1) * size * ctypes.sizeof(ctypes.c_double))
         for i in range(len(optmaps)):
             assert math.prod(optmaps[i]._single_shape) == size
             optmaps[i]._mp_preinit(ctx, buf, i_hits=i + 1, i_vertex=0 if i == 0 else None)
