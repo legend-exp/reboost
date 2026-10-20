@@ -6,6 +6,8 @@ import gc
 import logging
 import math
 import multiprocessing as mp
+import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -21,7 +23,7 @@ from .create_iter import (
     get_optical_detectors_from_geom,
     iterate_optmap_hits,
 )
-from .optmap import OpticalMap, _SharedBuffer
+from .optmap import OpticalMap, SharedMemType, _SharedBuffer
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ def _optmaps_for_channels(
     all_det_ids: dict[int, str],
     settings,
     chfilter: tuple[str | int, ...] | Literal["*"] = (),
-    use_shmem: bool = False,
+    use_shmem: SharedMemType = SharedMemType.NONE,
 ):
     if chfilter != "*":
         chfilter_list = [str(ch) for ch in chfilter]  # normalize types
@@ -155,7 +157,12 @@ def create_optical_maps(
         msg = "no input files specified"
         raise ValueError(msg)
 
-    use_shmem = n_procs is None or n_procs > 1
+    use_shmem_flag = n_procs is None or n_procs > 1
+    use_shmem = SharedMemType.NONE
+    if use_shmem_flag:
+        shmem_type = "MEMFD" if sys.platform == "linux" else "POSIX"
+        shmem_type = os.getenv("REBOOST_OPTMAP_SHMEM_TYPE", shmem_type)
+        use_shmem = SharedMemType[shmem_type]
 
     all_det_ids = get_optical_detectors_from_geom(geom_fn)
 
@@ -190,7 +197,12 @@ def create_optical_maps(
         # one buffer for all histograms: the forkserver passes at most 256 fds to a new worker,
         # and each separately allocated shared array needs its own.
         size = math.prod(optmaps[0]._single_shape)
-        buf = _SharedBuffer((len(optmaps) + 1) * size * ctypes.sizeof(ctypes.c_double))
+        buf: _SharedBuffer | ctypes.Array
+        if use_shmem == SharedMemType.POSIX:
+            buf = ctx.RawArray(ctypes.c_double, (len(optmaps) + 1) * size)
+        else:
+            buf = _SharedBuffer((len(optmaps) + 1) * size * ctypes.sizeof(ctypes.c_double))
+
         for i in range(len(optmaps)):
             assert math.prod(optmaps[i]._single_shape) == size
             optmaps[i]._mp_preinit(ctx, buf, i_hits=i + 1, i_vertex=0 if i == 0 else None)
