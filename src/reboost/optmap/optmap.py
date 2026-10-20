@@ -4,7 +4,10 @@ import contextlib
 import ctypes
 import logging
 import math
+import mmap
 import multiprocessing as mp
+import multiprocessing.reduction
+import os
 from collections.abc import Mapping
 from typing import Any, NamedTuple, TypeAlias
 
@@ -16,10 +19,34 @@ from numpy.typing import NDArray
 log = logging.getLogger(__name__)
 
 
+class _SharedBuffer:
+    """Shared memory backed by an anonymous file in RAM (``memfd``)."""
+
+    def __init__(self, nbytes: int, fd: int | None = None):
+        if fd is None:
+            fd = os.memfd_create("reboost-optmap")
+            os.ftruncate(fd, nbytes)
+        self.fd = fd
+        self.nbytes = nbytes
+        self.mmap = mmap.mmap(fd, nbytes)
+
+    def __reduce__(self):
+        # only picklable while starting a worker process, which receives a duplicate of the fd.
+        return _SharedBuffer._rebuild, (mp.reduction.DupFd(self.fd), self.nbytes)
+
+    @staticmethod
+    def _rebuild(dupfd, nbytes: int) -> _SharedBuffer:
+        return _SharedBuffer(nbytes, dupfd.detach())
+
+    def __del__(self):
+        # the memory is freed once the last fd and mapping are closed.
+        os.close(self.fd)
+
+
 class _SharedHist(NamedTuple):
     """Histogram stored in a slice of a shared-memory buffer."""
 
-    buf: ctypes.Array
+    buf: _SharedBuffer
     offset: int  # in bytes
     lock: mp.synchronize.Lock
 
@@ -92,7 +119,7 @@ class OpticalMap:
         om.binning = bin_nr_gen
         return om
 
-    def _prepare_hist(self, buf: ctypes.Array | None = None, i: int = 0) -> HistArray:
+    def _prepare_hist(self, buf: _SharedBuffer | None = None, i: int = 0) -> HistArray:
         """Prepare an empty histogram with the parameters global to this map instance.
 
         In shared-memory mode, the histogram is the ``i``-th slice of ``buf``, or a new buffer if
@@ -102,7 +129,7 @@ class OpticalMap:
             assert mp.current_process().name == "MainProcess"
             size = math.prod(self._single_shape)
             if buf is None:
-                buf = self._mp_man.RawArray(ctypes.c_double, size)
+                buf = _SharedBuffer(size * ctypes.sizeof(ctypes.c_double))
             a: HistArray = _SharedHist(
                 buf, i * size * ctypes.sizeof(ctypes.c_double), self._mp_man.Lock()
             )
@@ -176,7 +203,7 @@ class OpticalMap:
     def _nda(self, h: HistArray) -> NDArray:
         if not self.use_shmem:
             return h  # type: ignore[return-value]
-        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.buf, offset=h.offset)  # type: ignore[union-attr]
+        return np.ndarray(self._single_shape, dtype=np.float64, buffer=h.buf.mmap, offset=h.offset)  # type: ignore[union-attr]
 
     def _lock_nda(self, h: HistArray):
         if not self.use_shmem:
@@ -186,7 +213,7 @@ class OpticalMap:
     def _mp_preinit(
         self,
         mp_man: mp.context.BaseContext,
-        buf: ctypes.Array,
+        buf: _SharedBuffer,
         i_hits: int,
         i_vertex: int | None = None,
     ) -> None:
