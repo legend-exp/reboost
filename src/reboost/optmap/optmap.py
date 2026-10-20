@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
+import functools
 import logging
 import math
 import mmap
 import multiprocessing as mp
 import multiprocessing.reduction
 import os
+import platform
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from enum import IntEnum
 from typing import Any, NamedTuple, TypeAlias
 
@@ -27,7 +29,8 @@ class _SharedBuffer:
     def __init__(self, nbytes: int, fd: int | None = None):
         assert sys.platform == "linux"
         if fd is None:
-            fd = os.memfd_create("reboost-optmap")
+            memfd_create = _patch_memfd()
+            fd = memfd_create("reboost-optmap")
             os.ftruncate(fd, nbytes)
         self.fd = fd
         self.nbytes = nbytes
@@ -44,6 +47,36 @@ class _SharedBuffer:
     def __del__(self):
         # the memory is freed once the last fd and mapping are closed.
         os.close(self.fd)
+
+
+@functools.cache
+def _patch_memfd() -> Callable[[str], int]:
+    """On some conda-forge installations, memfd_create might not be compiled in."""
+    assert sys.platform == "linux"
+    if hasattr(os, "memfd_create"):
+        return os.memfd_create
+
+    _syscall_nr = {
+        "x86_64": 319,
+        "aarch64": 279,
+        "i686": 356,
+        "armv7l": 385,
+    }
+    SYS_memfd_create = _syscall_nr[platform.machine()]
+
+    MFD_CLOEXEC = 0x0001
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.syscall.restype = ctypes.c_long
+
+    def memfd_create(name: str, flags: int = MFD_CLOEXEC) -> int:
+        fd = libc.syscall(SYS_memfd_create, name.encode(), ctypes.c_uint(flags))
+        if fd == -1:
+            errno = ctypes.get_errno()
+            raise OSError(errno, os.strerror(errno))
+        return fd
+
+    return memfd_create
 
 
 class _SharedHist(NamedTuple):
