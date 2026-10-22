@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import h5py
 import lh5
 import numpy as np
 import pytest
-from lgdo import Array, Table
+from lgdo import Array, Struct, Table
 
 from reboost.optmap.create import (
     check_optical_map,
@@ -144,6 +145,15 @@ def test_optmap_create(tbl_hits, tmptestdir):
         geom_fn=f"{Path(__file__).parent}/test_optmap_dets.gdml",
     )
     assert list_optical_maps(map_fn) == ["channels/S01", "channels/S02", "channels/S03", "all"]
+
+    # the shared vertex histogram is stored once and hard-linked into the channel groups.
+    with h5py.File(map_fn) as f:
+        assert f["channels/S01/_nr_gen"] == f["all/_nr_gen"]
+    assert np.array_equal(
+        lh5.read("/channels/S01/_nr_gen", map_fn).weights.nda,
+        lh5.read("/all/_nr_gen", map_fn).weights.nda,
+    )
+    assert isinstance(lh5.read("/channels/S01", map_fn), Struct)
 
     # test creation with some detectors.
     map_fn = str(tmptestdir / "create-map-3.lh5")

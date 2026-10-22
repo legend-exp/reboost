@@ -251,7 +251,9 @@ def create_optical_maps(
             optmaps[i].check_histograms()
         group = "all" if i == 0 else "channels/" + list(optmap_det_ids.values())[i - 1]
         if output_lh5_fn is not None:
-            optmaps[i].write_lh5(lh5_file=output_lh5_fn, group=group)
+            optmaps[i].write_lh5(
+                lh5_file=output_lh5_fn, group=group, vertex_link="all" if i > 0 else None
+            )
 
         if after_save is not None:
             after_save(i, group, optmaps[i])
