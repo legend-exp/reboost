@@ -15,6 +15,7 @@ from collections.abc import Callable, Mapping
 from enum import IntEnum
 from typing import Any, NamedTuple, TypeAlias
 
+import h5py
 import lh5
 import numba
 import numpy as np
@@ -344,17 +345,12 @@ class OpticalMap:
         ratio_err_0 = self._prepare_hist()
         ratio, ratio_err = self._nda(ratio_0), self._nda(ratio_err_0)
 
-        np.divide(h1, h2, where=(h2 != 0), out=ratio)
-        ratio[h2 == 0] = -1  # -1 denotes no statistics.
-
-        if np.any(ratio > 1):
+        n_over_one = _divide_hist_numba(
+            h1.reshape(-1), h2.reshape(-1), ratio.reshape(-1), ratio_err.reshape(-1)
+        )
+        if n_over_one > 0:
             msg = "encountered cell(s) with more hits than primaries"
             raise RuntimeError(msg)
-
-        # compute uncertainty according to Bernoulli statistics.
-        # TODO: this does not make sense for ratio==1
-        ratio_err[h2 != 0] = np.sqrt((ratio[h2 != 0]) * (1 - ratio[h2 != 0]) / h2[h2 != 0])
-        ratio_err[h2 == 0] = -1  # -1 denotes no statistics.
 
         return ratio_0, ratio_err_0
 
@@ -362,8 +358,21 @@ class OpticalMap:
         """Compute probability map (and map uncertainty) from vertex and hit map."""
         self.h_prob, self.h_prob_uncert = self._divide_hist(self.h_hits, self.h_vertex)  # type: ignore[arg-type]
 
-    def write_lh5(self, lh5_file: str, group: str = "all", wo_mode: str = "write_safe") -> None:
-        """Write this map to a LH5 file."""
+    def write_lh5(
+        self,
+        lh5_file: str,
+        group: str = "all",
+        wo_mode: str = "write_safe",
+        vertex_link: str | None = None,
+    ) -> None:
+        """Write this map to a LH5 file.
+
+        Parameters
+        ----------
+        vertex_link
+            group in ``lh5_file`` that already holds the same ``_nr_gen`` histogram. If given,
+            ``_nr_gen`` is stored as an HDF5 hard link to it instead of a second copy.
+        """
         if wo_mode not in ("write_safe", "overwrite_file"):
             msg = f"invalid wo_mode {wo_mode} for optical map"
             raise ValueError(msg)
@@ -377,10 +386,17 @@ class OpticalMap:
             )
 
         # only use the passed wo_mode for the first file.
-        write_hist(self.h_vertex, "_nr_gen", lh5_file, group, wo_mode)  # type: ignore[arg-type]
-        write_hist(self.h_hits, "_nr_det", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        write_hist(self.h_hits, "_nr_det", lh5_file, group, wo_mode)  # type: ignore[arg-type]
         write_hist(self.h_prob, "prob", lh5_file, group, "append_column")  # type: ignore[arg-type]
         write_hist(self.h_prob_uncert, "prob_unc", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        if vertex_link is None:
+            write_hist(self.h_vertex, "_nr_gen", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        else:
+            with h5py.File(lh5_file, "a") as f:
+                f[f"{group}/_nr_gen"] = f[f"{vertex_link}/_nr_gen"]
+                # register the linked field in the struct, as lh5 append_column does.
+                fields = sorted(f[group].keys())
+                f[group].attrs["datatype"] = "struct{" + ",".join(fields) + "}"
 
     def get_settings(self) -> Mapping[str, Any] | dict:
         """Get the binning settings that were used to create this optical map instance."""
