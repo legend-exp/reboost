@@ -15,7 +15,7 @@ from typing import Literal
 import lh5
 import numpy as np
 from lgdo import Histogram
-from numba import njit
+from numba import njit, set_num_threads
 from numpy.typing import NDArray
 
 from ..log_utils import setup_log
@@ -88,6 +88,8 @@ def _create_optical_maps_process_init(optmaps, log_level) -> None:
 
     # setup logging in the worker process.
     setup_log(log_level, multiproc=True)
+    # the pool already uses all cores, avoid oversubscription by numba's parallel kernels.
+    set_num_threads(1)
 
 
 def _create_optical_maps_process(
