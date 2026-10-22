@@ -15,7 +15,7 @@ from typing import Literal
 import lh5
 import numpy as np
 from lgdo import Histogram
-from numba import njit
+from numba import njit, set_num_threads
 from numpy.typing import NDArray
 
 from ..log_utils import setup_log
@@ -88,6 +88,8 @@ def _create_optical_maps_process_init(optmaps, log_level) -> None:
 
     # setup logging in the worker process.
     setup_log(log_level, multiproc=True)
+    # the pool already uses all cores, avoid oversubscription by numba's parallel kernels.
+    set_num_threads(1)
 
 
 def _create_optical_maps_process(
@@ -249,7 +251,9 @@ def create_optical_maps(
             optmaps[i].check_histograms()
         group = "all" if i == 0 else "channels/" + list(optmap_det_ids.values())[i - 1]
         if output_lh5_fn is not None:
-            optmaps[i].write_lh5(lh5_file=output_lh5_fn, group=group)
+            optmaps[i].write_lh5(
+                lh5_file=output_lh5_fn, group=group, vertex_link="all" if i > 0 else None
+            )
 
         if after_save is not None:
             after_save(i, group, optmaps[i])
