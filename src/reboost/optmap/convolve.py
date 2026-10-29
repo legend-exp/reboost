@@ -13,8 +13,6 @@ from numba import njit
 from numpy.typing import NDArray
 from pygeomoptics import fibers, lar, pen
 
-from .numba_pdg import numba_pdgid_funcs
-
 log = logging.getLogger(__name__)
 
 
@@ -254,11 +252,9 @@ def iterate_stepwise_depositions_times(
     return ak.unflatten(output_array, counts)
 
 
-_pdg_func = numba_pdgid_funcs()
-
-
 @njit
 def _pdgid_to_particle(pdgid: int) -> sc.ParticleIndex:
+    """Map a PDG ID to the particle type used for the scintillation yield."""
     abs_pdgid = abs(pdgid)
     if abs_pdgid == 1000020040:
         return sc.PARTICLE_INDEX_ALPHA
@@ -266,7 +262,12 @@ def _pdgid_to_particle(pdgid: int) -> sc.ParticleIndex:
         return sc.PARTICLE_INDEX_DEUTERON
     if abs_pdgid == 1000010030:
         return sc.PARTICLE_INDEX_TRITON
-    if _pdg_func.is_nucleus(pdgid):
+    # protons, neutrons and nuclei, coded as 10LZZZAAAI (Z protons, A nucleons)
+    if abs_pdgid in (2112, 2212) or (
+        abs_pdgid // 10**9 % 10 == 1
+        and abs_pdgid // 10**8 % 10 == 0
+        and abs_pdgid // 10 % 1000 >= abs_pdgid // 10**4 % 1000
+    ):
         return sc.PARTICLE_INDEX_ION
     return sc.PARTICLE_INDEX_ELECTRON
 
@@ -287,8 +288,8 @@ def _iterate_stepwise_depositions_scintillate(
             # get the particle information.
             particle = hit.particle[si]
             if particle not in pdgid_map:
-                pdgid_map[particle] = (_pdgid_to_particle(particle), _pdg_func.charge(particle))
-            part, _charge = pdgid_map[particle]
+                pdgid_map[particle] = _pdgid_to_particle(particle)
+            part = pdgid_map[particle]
 
             # do the scintillation.
             num_phot = sc.scintillate_numphot(
@@ -462,8 +463,8 @@ def _iterate_stepwise_depositions_times(
             # get the particle information.
             particle = hit.particle[si]
             if particle not in pdgid_map:
-                pdgid_map[particle] = (_pdgid_to_particle(particle), _pdg_func.charge(particle))
-            part, _charge = pdgid_map[particle]
+                pdgid_map[particle] = _pdgid_to_particle(particle)
+            part = pdgid_map[particle]
 
             # get time spectrum.
             # note: we assume "immediate" propagation after scintillation.
