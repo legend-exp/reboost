@@ -168,13 +168,17 @@ def view_optmap(
     histogram_choice: str = "prob",
     title: str | None = None,
     color_norm: Literal["lin", "log"] = "log",
-) -> None:
+    *,
+    return_figure: bool = False,
+    colormap: str = "plasma",
+) -> tuple | None:
     available_dets = list_optical_maps(optmap_fn)
 
     prepare_args = (optmap_fn, divide_fn, cmap_min, cmap_max, histogram_choice)
     edges, weights, cmap_min, cmap_max = _prepare_data(*prepare_args, detid)
 
     fig = plt.figure(figsize=(10, 10))
+    axs = plt.gca()
     fig.canvas.mpl_connect("key_press_event", _process_key)
     start_axis_len = edges[start_axis].shape[0] - 1
     viewdata: dict[str, Any] = {
@@ -188,7 +192,7 @@ def view_optmap(
     }
     fig.__reboost = viewdata  # type: ignore[attr-defined]
 
-    cmap = plt.cm.plasma.with_extremes(bad="w", under="gray", over="red")  # type: ignore[attr-defined]
+    cmap = getattr(plt.cm, colormap).with_extremes(bad="w", under="gray", over="red")  # type: ignore[attr-defined]
     weights, extent, labels = _get_weights(viewdata)
 
     if color_norm == "log":
@@ -221,4 +225,8 @@ def view_optmap(
 
     plt.text(0, 1.02, _slice_text(viewdata), transform=fig.axes[0].transAxes)
     plt.colorbar()
-    plt.show()
+
+    if not return_figure:
+        plt.show()
+        return None
+    return fig, axs
