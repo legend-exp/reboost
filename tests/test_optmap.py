@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import lh5
@@ -215,13 +216,17 @@ def test_optmap_merge(tbl_hits, tmptestdir):
 
 
 @pytest.mark.filterwarnings("ignore::scipy.optimize._optimize.OptimizeWarning")
-def test_optmap_rebin(tbl_hits, tmptestdir):
+@pytest.mark.parametrize("factors", [2, (1, 1, 2)])
+def test_optmap_rebin(tbl_hits, tmptestdir, factors):
     settings = {
         "range_in_m": [[0, 1], [0, 1], [0, 1]],
         "bins": [10, 10, 10],
     }
 
-    map1_fn = str(tmptestdir / "map-to-rebin.lh5")
+    reduction = factors**3 if isinstance(factors, int) else math.prod(factors)
+    fn_suffix = factors if isinstance(factors, int) else "".join(map(str, factors))
+
+    map1_fn = str(tmptestdir / f"map-to-rebin-{fn_suffix}.lh5")
     create_optical_maps(
         tbl_hits,
         settings,
@@ -230,8 +235,16 @@ def test_optmap_rebin(tbl_hits, tmptestdir):
         geom_fn=f"{Path(__file__).parent}/test_optmap_dets.gdml",
     )
 
-    map_rebinned_fn = str(tmptestdir / "map-rebinned.lh5")
-    rebin_optical_maps(map1_fn, map_rebinned_fn, factor=2)
+    map_rebinned_fn = str(tmptestdir / f"map-rebinned-{fn_suffix}.lh5")
+    rebin_optical_maps(map1_fn, map_rebinned_fn, factor=factors)
+
+    old_om = OpticalMap.load_from_file(map1_fn, "all")
+    old_bins = math.prod(old_om.get_settings()["bins"])
+
+    new_om = OpticalMap.load_from_file(map_rebinned_fn, "all")
+    new_bins = math.prod(new_om.get_settings()["bins"])
+
+    assert old_bins / new_bins == reduction
 
 
 @pytest.fixture
