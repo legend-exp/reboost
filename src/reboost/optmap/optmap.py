@@ -15,7 +15,9 @@ from collections.abc import Callable, Mapping
 from enum import IntEnum
 from typing import Any, NamedTuple, TypeAlias
 
+import h5py
 import lh5
+import numba
 import numpy as np
 from lgdo import Histogram, Struct
 from numpy.typing import NDArray
@@ -94,6 +96,37 @@ class SharedMemType(IntEnum):
 
 
 HistArray: TypeAlias = NDArray | _SharedHist
+
+
+@numba.njit(parallel=True, nogil=True, cache=True, error_model="numpy")
+def _divide_hist_numba(h1, h2, ratio, ratio_err) -> int:
+    """Fill ``ratio`` and its Bernoulli standard error, return the number of ratios > 1."""
+    n_over_one = 0
+    for i in numba.prange(h1.size):
+        if h2[i] == 0:
+            ratio[i] = -1  # -1 denotes no statistics.
+            ratio_err[i] = -1
+        else:
+            r = h1[i] / h2[i]
+            n_over_one += r > 1
+            ratio[i] = r
+            # TODO: this does not make sense for ratio==1
+            ratio_err[i] = np.sqrt(r * (1 - r) / h2[i])
+    return n_over_one
+
+
+@numba.njit(parallel=True, nogil=True, cache=True)
+def _check_histograms_numba(h_vertex, h_prob, h_prob_uncert, primaries_low_stats_th):
+    missing_v = missing_p = non_phys = large_error = low_stat_zero = low_stat_one = 0
+    for i in numba.prange(h_vertex.size):
+        v, p = h_vertex[i], h_prob[i]
+        missing_v += v <= 0  # bins without vertices.
+        missing_p += p <= 0  # bins without hits.
+        non_phys += p > 1  # non-physical events with probability > 1.
+        large_error += h_prob_uncert[i] > 0.01 * p
+        low_stat_zero += (v < primaries_low_stats_th) and (p == 0)
+        low_stat_one += (v < primaries_low_stats_th) and (p == 1)
+    return missing_v, missing_p, non_phys, large_error, low_stat_zero, low_stat_one
 
 
 class OpticalMap:
@@ -312,17 +345,12 @@ class OpticalMap:
         ratio_err_0 = self._prepare_hist()
         ratio, ratio_err = self._nda(ratio_0), self._nda(ratio_err_0)
 
-        np.divide(h1, h2, where=(h2 != 0), out=ratio)
-        ratio[h2 == 0] = -1  # -1 denotes no statistics.
-
-        if np.any(ratio > 1):
+        n_over_one = _divide_hist_numba(
+            h1.reshape(-1), h2.reshape(-1), ratio.reshape(-1), ratio_err.reshape(-1)
+        )
+        if n_over_one > 0:
             msg = "encountered cell(s) with more hits than primaries"
             raise RuntimeError(msg)
-
-        # compute uncertainty according to Bernoulli statistics.
-        # TODO: this does not make sense for ratio==1
-        ratio_err[h2 != 0] = np.sqrt((ratio[h2 != 0]) * (1 - ratio[h2 != 0]) / h2[h2 != 0])
-        ratio_err[h2 == 0] = -1  # -1 denotes no statistics.
 
         return ratio_0, ratio_err_0
 
@@ -330,8 +358,21 @@ class OpticalMap:
         """Compute probability map (and map uncertainty) from vertex and hit map."""
         self.h_prob, self.h_prob_uncert = self._divide_hist(self.h_hits, self.h_vertex)  # type: ignore[arg-type]
 
-    def write_lh5(self, lh5_file: str, group: str = "all", wo_mode: str = "write_safe") -> None:
-        """Write this map to a LH5 file."""
+    def write_lh5(
+        self,
+        lh5_file: str,
+        group: str = "all",
+        wo_mode: str = "write_safe",
+        vertex_link: str | None = None,
+    ) -> None:
+        """Write this map to a LH5 file.
+
+        Parameters
+        ----------
+        vertex_link
+            group in ``lh5_file`` that already holds the same ``_nr_gen`` histogram. If given,
+            ``_nr_gen`` is stored as an HDF5 hard link to it instead of a second copy.
+        """
         if wo_mode not in ("write_safe", "overwrite_file"):
             msg = f"invalid wo_mode {wo_mode} for optical map"
             raise ValueError(msg)
@@ -345,10 +386,17 @@ class OpticalMap:
             )
 
         # only use the passed wo_mode for the first file.
-        write_hist(self.h_vertex, "_nr_gen", lh5_file, group, wo_mode)  # type: ignore[arg-type]
-        write_hist(self.h_hits, "_nr_det", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        write_hist(self.h_hits, "_nr_det", lh5_file, group, wo_mode)  # type: ignore[arg-type]
         write_hist(self.h_prob, "prob", lh5_file, group, "append_column")  # type: ignore[arg-type]
         write_hist(self.h_prob_uncert, "prob_unc", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        if vertex_link is None:
+            write_hist(self.h_vertex, "_nr_gen", lh5_file, group, "append_column")  # type: ignore[arg-type]
+        else:
+            with h5py.File(lh5_file, "a") as f:
+                f[f"{group}/_nr_gen"] = f[f"{vertex_link}/_nr_gen"]
+                # register the linked field in the struct, as lh5 append_column does.
+                fields = sorted(f[group].keys())
+                f[group].attrs["datatype"] = "struct{" + ",".join(fields) + "}"
 
     def get_settings(self) -> Mapping[str, Any] | dict:
         """Get the binning settings that were used to create this optical map instance."""
@@ -381,15 +429,22 @@ class OpticalMap:
 
         ncells = h_vertex.shape[0] * h_vertex.shape[1] * h_vertex.shape[2]
 
-        missing_v = np.sum(h_vertex <= 0)  # bins without vertices.
+        primaries_low_stats_th = 100
+        missing_v, missing_p, non_phys, large_error, low_stat_zero, low_stat_one = (
+            _check_histograms_numba(
+                h_vertex.reshape(-1),
+                h_prob.reshape(-1),
+                h_prob_uncert.reshape(-1),
+                primaries_low_stats_th,
+            )
+        )
+
         if missing_v > 0:
             _warn("%d missing_v %.2f %%", missing_v, missing_v / ncells * 100)
 
-        missing_p = np.sum(h_prob <= 0)  # bins without hist.
         if missing_p > 0:
             _warn("%d missing_p %.2f %%", missing_p, missing_p / ncells * 100)
 
-        non_phys = np.sum(h_prob > 1)  # non-physical events with probability > 1.
         if non_phys > 0:
             _warn(
                 "%d voxels (%.2f %%) with non-physical probability (p>1)",
@@ -398,7 +453,6 @@ class OpticalMap:
             )
 
         # warnings on insufficient statistics.
-        large_error = np.sum(h_prob_uncert > 0.01 * h_prob)
         if large_error > 0:
             _warn(
                 "%d voxels (%.2f %%) with large relative statistical uncertainty (> 1 %%)",
@@ -406,8 +460,6 @@ class OpticalMap:
                 large_error / ncells * 100,
             )
 
-        primaries_low_stats_th = 100
-        low_stat_zero = np.sum((h_vertex < primaries_low_stats_th) & (h_prob == 0))
         if low_stat_zero > 0:
             _warn(
                 "%d voxels (%.2f %%) with non reliable probability estimate (p=0 and primaries < %d)",
@@ -415,7 +467,6 @@ class OpticalMap:
                 low_stat_zero / ncells * 100,
                 primaries_low_stats_th,
             )
-        low_stat_one = np.sum((h_vertex < primaries_low_stats_th) & (h_prob == 1))
         if low_stat_one > 0:
             _warn(
                 "%d voxels (%.2f %%) with non reliable probability estimate (p=1 and primaries < %d)",
