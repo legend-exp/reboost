@@ -38,11 +38,14 @@ def iterate_optmap_hits(
         if vert_df is None:
             return
 
+        hits_per_evt = vert_df[detectors].to_numpy().sum(axis=1)
+        if np.any(hits_per_evt > 1):
+            evtid = vert_df.index[np.argmax(hits_per_evt > 1)]
+            msg = f"event {evtid} has more than one optical hit, expected at most one per event"
+            raise ValueError(msg)
+
         # sanity check that we did process all hits.
-        hits_sum = 0
-        for d in detectors:
-            hits_sum += np.sum(vert_df[d])
-        assert hits_sum == hits_expected
+        assert np.sum(hits_per_evt) == hits_expected
 
         yield Table(vert_df)
         vert_df = None
