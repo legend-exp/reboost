@@ -8,7 +8,7 @@ import math
 import multiprocessing as mp
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -476,19 +476,31 @@ def patch_optical_map_lh5(
         patched.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")
 
 
-def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
+def rebin_optical_maps(
+    map_l5_file: str, output_lh5_file: str, factor: int | tuple[int, ...]
+) -> None:
     """Rebin the optical map by an integral factor.
 
     .. note ::
 
-        the factor has to divide the bincounts on all axes.
+        the factor has to divide the bincounts on all axes, or different factors need
+        to be given for each of the three axes.
     """
-    if not isinstance(factor, int) or factor <= 1:
-        msg = f"invalid rebin factor {factor}"
-        raise ValueError(msg)
-
-    def _rebin_map(large: NDArray, factor: int) -> NDArray:
+    if isinstance(factor, (int, np.integer)):
+        if factor <= 1:
+            msg = f"invalid integer rebin factor {factor}"
+            raise ValueError(msg)
         factor_arr = np.full(3, factor, dtype=int)
+    elif isinstance(factor, Sequence):
+        if len(factor) != 3 or any(f < 1 for f in factor):
+            msg = f"invalid tuple rebin factor {factor}"
+            raise ValueError(msg)
+        factor_arr = np.array(factor, dtype=int)
+    else:
+        msg = f"invalid rebin factor type {factor}"
+        raise TypeError(msg)
+
+    def _rebin_map(large: NDArray, factor_arr: NDArray) -> NDArray:
         sh = np.column_stack([np.array(large.shape) // factor_arr, factor_arr]).ravel()
         return large.reshape(sh).sum(axis=(1, 3, 5))
 
@@ -498,16 +510,18 @@ def rebin_optical_maps(map_l5_file: str, output_lh5_file: str, factor: int):
         om = OpticalMap.load_from_file(map_l5_file, submap)
 
         settings = om.get_settings()
-        if not all(b % factor == 0 for b in settings["bins"]):
+
+        if not all(b % f == 0 for b, f in zip(settings["bins"], factor_arr, strict=True)):
             msg = f"invalid factor {factor}, not a divisor"
             raise ValueError(msg)
+
         settings = copy.copy(settings)
-        settings["bins"] = [b // factor for b in settings["bins"]]  # type: ignore[index]
+        settings["bins"] = [b // f for b, f in zip(settings["bins"], factor_arr, strict=True)]  # type: ignore[index]
 
         om_new = OpticalMap.create_empty(om.name, settings)
         assert isinstance(om.h_vertex, np.ndarray)
         assert isinstance(om.h_hits, np.ndarray)
-        om_new.h_vertex = _rebin_map(om.h_vertex, factor)
-        om_new.h_hits = _rebin_map(om.h_hits, factor)
+        om_new.h_vertex = _rebin_map(om.h_vertex, factor_arr)
+        om_new.h_hits = _rebin_map(om.h_hits, factor_arr)
         om_new.create_probability()
         om_new.write_lh5(lh5_file=output_lh5_file, group=submap, wo_mode="write_safe")

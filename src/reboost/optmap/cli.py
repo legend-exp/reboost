@@ -186,7 +186,7 @@ def optmap_cli() -> None:
     rebin_parser = subparsers.add_parser("rebin", help="rebin optical maps")
     rebin_parser.add_argument("input", help="input map LH5 files", metavar="INPUT_MAP")
     rebin_parser.add_argument("output", help="output map LH5 file", metavar="OUTPUT_MAP")
-    rebin_parser.add_argument("--factor", type=int, help="integer scale-down factor")
+    rebin_parser.add_argument("--factor", type=int, nargs="+", help="integer scale-down factor")
 
     args = parser.parse_args()
 
@@ -262,7 +262,7 @@ def optmap_cli() -> None:
         _check_input_file(parser, args.input)
         check_optical_map(args.input)
 
-    # STEP 1e: patch map
+    # COMMAND: patch map
     if args.command == "patch":
         from .create import patch_optical_map_lh5  # noqa: PLC0415
 
@@ -274,6 +274,8 @@ def optmap_cli() -> None:
     if args.command == "rebin":
         from .create import rebin_optical_maps  # noqa: PLC0415
 
+        factor = args.factor[0] if len(args.factor) == 1 else args.factor
+
         _check_input_file(parser, args.input)
         _check_output_file(parser, args.output)
-        rebin_optical_maps(args.input, args.output, args.factor)
+        rebin_optical_maps(args.input, args.output, factor)
